@@ -52,8 +52,9 @@ enum BiomeType: String, CaseIterable {
     }
 
     /// Deep Moss — a darker variant of Moss for forest canopy feel.
+    /// Uses PushlingPalette.deepMoss (Moss blended toward Void) — on-palette.
     private var deepMoss: SKColor {
-        SKColor(displayP3Red: 0.0, green: 0.65, blue: 0.25, alpha: 1.0)
+        PushlingPalette.deepMoss
     }
 }
 

@@ -380,6 +380,39 @@ final class TerrainRecycler {
         return TerrainObjectType(rawValue: typeName)
     }
 
+    // MARK: - Object Queries (P3-T3-04)
+
+    /// Finds the nearest terrain object of a specific type within a max distance.
+    /// Used by puddle reflection system to find water puddles.
+    /// - Parameters:
+    ///   - type: The terrain object type to search for.
+    ///   - worldX: The reference world-X position.
+    ///   - maxDistance: Maximum search distance in points.
+    /// - Returns: The world-X of the nearest matching object, or nil.
+    func nearestObjectOfType(_ type: TerrainObjectType,
+                              to worldX: CGFloat,
+                              maxDistance: CGFloat) -> CGFloat? {
+        let targetName = "obj_\(type.rawValue)"
+        var closestX: CGFloat?
+        var closestDist: CGFloat = maxDistance
+
+        for chunk in activeChunks.values {
+            let chunkWorldX = CGFloat(chunk.chunkIndex)
+                * TerrainGenerator.chunkWorldWidth
+            for objNode in chunk.objectNodes {
+                guard objNode.name == targetName else { continue }
+                let objWorldX = chunkWorldX + objNode.position.x
+                let dist = abs(objWorldX - worldX)
+                if dist < closestDist {
+                    closestDist = dist
+                    closestX = objWorldX
+                }
+            }
+        }
+
+        return closestX
+    }
+
     // MARK: - Permutation Table
 
     private static func buildObjectPerm() -> [UInt8] {

@@ -3,6 +3,7 @@
 // Runs at 60fps with frame budget monitoring.
 // Integrates WorldManager for terrain, parallax, biomes, and landmarks.
 // Hosts the CreatureNode — the living Pushling creature.
+// P3-T3: Integrates HUD overlay, evolution progress bar, and visual polish systems.
 
 import SpriteKit
 
@@ -15,7 +16,9 @@ final class PushlingScene: SKScene {
 
     // MARK: - World System
 
-    /// The world rendering system — parallax, terrain, biomes, landmarks, tinting.
+    /// The world rendering system — parallax, terrain, biomes, landmarks, tinting,
+    /// visual complexity, puddle reflections, ghost echo, hunger desaturation,
+    /// visual events, and ruin inscriptions.
     let worldManager = WorldManager()
 
     // MARK: - Creature
@@ -31,6 +34,14 @@ final class PushlingScene: SKScene {
     private var creatureWalkSpeed: CGFloat = 20.0  // pts/sec
     private var creatureDirection: CGFloat = 1.0   // 1.0 = right, -1.0 = left
 
+    // MARK: - HUD & UI (P3-T3-06, P3-T3-07)
+
+    /// Cinematic HUD overlay — tap to show stats for 3 seconds.
+    let hudOverlay = HUDOverlay()
+
+    /// Near-evolution progress bar — 1pt bar at bottom edge.
+    let evolutionProgressBar = EvolutionProgressBar()
+
     // MARK: - Debug Overlay
 
     private var debugOverlayNode: SKLabelNode?
@@ -41,8 +52,11 @@ final class PushlingScene: SKScene {
     override func didMove(to view: SKView) {
         super.didMove(to: view)
 
-        // Set scene background to OLED true black
+        // P3-T3-02: OLED true black — literal #000000, pixels OFF.
+        // SKColor.black is confirmed (0,0,0). allowsTransparency = false
+        // ensures no accidental gray from compositing.
         backgroundColor = .black
+        view.allowsTransparency = false
 
         // Initialize the world system
         setupWorld()
@@ -50,9 +64,13 @@ final class PushlingScene: SKScene {
         // Setup the creature (replaces Phase 1 test node)
         setupCreature()
 
+        // Setup HUD and evolution progress bar (P3-T3-06, P3-T3-07)
+        setupHUD()
+
         setupDebugOverlay()
 
-        NSLog("[Pushling] Scene active — \(Int(size.width))x\(Int(size.height))pt")
+        NSLog("[Pushling] Scene active — \(Int(size.width))x\(Int(size.height))pt"
+              + " | OLED true-black enabled")
     }
 
     // MARK: - World Setup
@@ -61,6 +79,7 @@ final class PushlingScene: SKScene {
         var config = WorldConfig()
         config.specialty = "polyglot"
         config.initialCreatureX = creatureWorldX
+        config.creatureStage = .critter  // Will be read from SQLite in production
         // Landmarks will be loaded from SQLite in future phases.
         // For now, add a few demo landmarks to prove the system works.
         worldManager.setup(scene: self, config: config)
@@ -72,6 +91,26 @@ final class PushlingScene: SKScene {
                                      landmarkType: .neonTower)
         worldManager.addRepoLandmark(repoName: "api-server",
                                      landmarkType: .fortress)
+    }
+
+    // MARK: - HUD Setup (P3-T3-06, P3-T3-07)
+
+    private func setupHUD() {
+        // HUD overlay — cinematic default (hidden), shows on tap
+        hudOverlay.addToScene(self)
+
+        // Evolution progress bar — 1pt at bottom edge
+        evolutionProgressBar.addToScene(self)
+
+        // Set initial HUD state (demo values — will read from SQLite)
+        hudOverlay.updateState(HUDState(
+            satisfaction: 50.0,
+            stageName: "critter",
+            currentXP: 45,
+            xpToNext: 100,
+            streakDays: 3,
+            stageColor: PushlingPalette.stageColor(for: .critter)
+        ))
     }
 
     // MARK: - Update Loop
@@ -96,11 +135,14 @@ final class PushlingScene: SKScene {
         // 2. State — creature AI, emotional state, growth checks
         updateState(deltaTime: deltaTime)
 
-        // 3. World — parallax, terrain recycling, chunk management
+        // 3. World — parallax, terrain recycling, chunk management, visual effects
         updateWorld(deltaTime: deltaTime)
 
         // 4. Render — creature animations (breathing, blink, tail sway)
         updateRender(deltaTime: deltaTime)
+
+        // 5. UI — evolution progress bar pulse (P3-T3-07)
+        evolutionProgressBar.update(deltaTime: deltaTime)
 
         // End frame timing and check budget
         frameBudgetMonitor.endFrame()
@@ -130,7 +172,8 @@ final class PushlingScene: SKScene {
         // Emotional decay, circadian cycle, etc. — Phase 2 Track 3
     }
 
-    /// World — parallax scrolling, terrain generation/recycling, biomes.
+    /// World — parallax scrolling, terrain generation/recycling, biomes,
+    /// visual effects, creature-dependent visuals.
     private func updateWorld(deltaTime: TimeInterval) {
         // Simulate creature walking
         simulateCreatureWalk(deltaTime: deltaTime)
@@ -142,9 +185,19 @@ final class PushlingScene: SKScene {
         if let creature = creatureNode {
             let terrainY = worldManager.terrainHeightAt(worldX: creatureWorldX)
             let config = StageConfiguration.all[creature.currentStage]!
+            let creatureY = terrainY + config.size.height / 2
             creature.position = CGPoint(
                 x: creatureWorldX,
-                y: terrainY + config.size.height / 2
+                y: creatureY
+            )
+
+            // Update creature-dependent visual systems (P3-T3-04, P3-T3-05)
+            let facing: Direction = creatureDirection > 0 ? .right : .left
+            worldManager.updateCreatureVisuals(
+                creatureWorldX: creatureWorldX,
+                creatureY: creatureY,
+                creatureFacing: facing,
+                deltaTime: deltaTime
             )
         }
     }
@@ -152,6 +205,32 @@ final class PushlingScene: SKScene {
     /// Render — creature per-frame animations (breathing, blink, tail sway).
     private func updateRender(deltaTime: TimeInterval) {
         creatureNode?.update(deltaTime: deltaTime)
+    }
+
+    // MARK: - Touch Handling (P3-T3-06)
+
+    /// Handle a touch at a scene position. Called by the touch bar controller
+    /// or SKView's touch event pipeline. Touch Bar uses a custom touch
+    /// forwarding mechanism; this is the common entry point.
+    /// - Parameter scenePoint: The touch position in scene coordinates.
+    func handleTouch(at scenePoint: CGPoint) {
+        // Check if touch is on the creature (within creature bounds)
+        if let creature = creatureNode {
+            let creatureFrame = creature.calculateAccumulatedFrame()
+            if creatureFrame.contains(scenePoint) {
+                // Creature touch — handled by touch input system (future phase)
+                return
+            }
+        }
+
+        // Empty space tap — show HUD overlay
+        hudOverlay.handleTap(at: scenePoint)
+    }
+
+    /// macOS mouse event fallback (for testing in Xcode preview).
+    override func mouseDown(with event: NSEvent) {
+        let location = event.location(in: self)
+        handleTouch(at: location)
     }
 
     // MARK: - Creature Walking Simulation
@@ -211,6 +290,58 @@ final class PushlingScene: SKScene {
               creature.countNodes())
     }
 
+    // MARK: - Stage Change Integration
+
+    /// Called when the creature evolves to a new stage.
+    /// Updates all dependent systems.
+    func onCreatureStageChanged(_ newStage: GrowthStage) {
+        // Update world visual complexity (P3-T3-03)
+        worldManager.onStageChanged(newStage)
+
+        // Update HUD
+        hudOverlay.updateState(HUDState(
+            satisfaction: hudOverlay.currentState.satisfaction,
+            stageName: "\(newStage)",
+            currentXP: 0,
+            xpToNext: 100,  // Will be read from state
+            streakDays: hudOverlay.currentState.streakDays,
+            stageColor: PushlingPalette.stageColor(for: newStage)
+        ))
+
+        // Hide evolution progress bar during ceremony, show after
+        evolutionProgressBar.hideForCeremony()
+    }
+
+    /// Called after evolution ceremony completes.
+    func onEvolutionCeremonyComplete() {
+        evolutionProgressBar.showAfterCeremony()
+    }
+
+    // MARK: - XP Change Integration (P3-T3-07)
+
+    /// Called when XP changes (commit eaten, etc.).
+    func onXPChanged(currentXP: Int, xpToNext: Int, stage: GrowthStage) {
+        evolutionProgressBar.updateXP(
+            currentXP: currentXP,
+            xpToNext: xpToNext,
+            stage: stage
+        )
+
+        // Update HUD state
+        var state = hudOverlay.currentState
+        state.currentXP = currentXP
+        state.xpToNext = xpToNext
+        hudOverlay.updateState(state)
+    }
+
+    // MARK: - Satisfaction Change Integration (P3-T3-08)
+
+    /// Called when creature satisfaction changes.
+    func onSatisfactionChanged(_ satisfaction: Double) {
+        worldManager.updateSatisfaction(satisfaction)
+        hudOverlay.updateSatisfaction(satisfaction)
+    }
+
     // MARK: - Behavior Output Application
 
     /// Applies the behavior stack output to the creature node and world.
@@ -250,7 +381,7 @@ final class PushlingScene: SKScene {
     private func setupDebugOverlay() {
         let label = SKLabelNode(fontNamed: "Menlo")
         label.fontSize = 9
-        label.fontColor = SKColor.green
+        label.fontColor = PushlingPalette.moss  // P3-T3-01: use palette color
         label.horizontalAlignmentMode = .right
         label.verticalAlignmentMode = .top
         label.position = CGPoint(x: size.width - 4, y: size.height - 2)
@@ -281,9 +412,10 @@ final class PushlingScene: SKScene {
         let totalNodes = countAllNodes(in: self)
         let worldNodes = worldManager.worldNodeCount
         let biome = worldManager.currentBiome(at: creatureWorldX)
+        let complexity = worldManager.complexityController.level.rawValue
 
         debugOverlayNode?.text = "\(fpsStr)fps | \(frameTimeStr)ms | "
-            + "\(totalNodes)n | w:\(worldNodes) | \(biome.rawValue)"
+            + "\(totalNodes)n | w:\(worldNodes) | \(biome.rawValue) | c\(complexity)"
     }
 
     /// Recursively counts all nodes in the scene tree.

@@ -257,7 +257,7 @@ enum TerrainObjectNodeFactory {
 
         let canopy = SKShapeNode(path: path)
         canopy.fillColor = biome == .forest
-            ? SKColor(displayP3Red: 0.0, green: 0.65, blue: 0.25, alpha: 1.0)
+            ? PushlingPalette.deepMoss
             : PushlingPalette.moss
         canopy.strokeColor = .clear
         container.addChild(canopy)

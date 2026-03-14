@@ -22,7 +22,10 @@ enum MigrationManager {
     private static let migrations: [Migration] = [
         Migration(version: 1,
                   description: "Create all initial tables and seed data",
-                  migrate: migrateV1)
+                  migrate: migrateV1),
+        Migration(version: 2,
+                  description: "Add repos table for landmark tracking (P3-T3-10)",
+                  migrate: migrateV2)
     ]
 
     /// Runs all pending migrations on the given database.
@@ -207,6 +210,20 @@ enum MigrationManager {
                 arguments: [milestone.id, milestone.category]
             )
         }
+    }
+
+    // MARK: - Migration V2: Repos Table (P3-T3-10)
+
+    private static func migrateV2(db: DatabaseManager) throws {
+        // Create repos table for tracking repos and their landmark mappings
+        try db.executeRaw(Schema.createReposTable)
+
+        // Create indexes for efficient lookup
+        for indexSQL in Schema.createReposIndexes {
+            try db.executeRaw(indexSQL)
+        }
+
+        NSLog("[Pushling/Migration] v2: Created repos table with indexes")
     }
 
     // MARK: - Creature Name Generator

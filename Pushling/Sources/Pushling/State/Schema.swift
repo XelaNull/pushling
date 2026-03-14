@@ -10,7 +10,7 @@ import Foundation
 enum Schema {
 
     /// Current schema version. Bump this when adding migrations.
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     // MARK: - Valid Enum Values
 
@@ -359,6 +359,36 @@ enum Schema {
     static let createMilestonesIndexes = [
         "CREATE INDEX IF NOT EXISTS idx_milestones_category ON milestones(category);",
         "CREATE INDEX IF NOT EXISTS idx_milestones_earned_at ON milestones(earned_at);"
+    ]
+
+    // MARK: - Repos Table (P3-T3-10)
+
+    static let validLandmarkTypes = [
+        "neon_tower", "fortress", "obelisk", "crystal", "smoke_stack",
+        "observatory", "scroll_tower", "windmill", "monolith"
+    ]
+
+    static let createReposTable = """
+        CREATE TABLE IF NOT EXISTS repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            landmark_type TEXT NOT NULL
+                CHECK (landmark_type IN (
+                    'neon_tower','fortress','obelisk','crystal','smoke_stack',
+                    'observatory','scroll_tower','windmill','monolith'
+                )),
+            dominant_language TEXT,
+            world_x_position REAL NOT NULL,
+            commit_count INTEGER NOT NULL DEFAULT 0,
+            analyzed_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        """
+
+    static let createReposIndexes = [
+        "CREATE INDEX IF NOT EXISTS idx_repos_name ON repos(name);",
+        "CREATE INDEX IF NOT EXISTS idx_repos_path ON repos(path);"
     ]
 }
 

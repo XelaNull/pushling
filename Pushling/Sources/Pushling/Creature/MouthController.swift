@@ -206,8 +206,7 @@ final class MouthController: BodyPartController {
     private func setupTongue() {
         let tongue = SKShapeNode(rectOf: CGSize(width: 1.0, height: 1.5),
                                   cornerRadius: 0.5)
-        tongue.fillColor = SKColor(red: 1.0, green: 0.5, blue: 0.5,
-                                   alpha: 1.0)
+        tongue.fillColor = PushlingPalette.softEmber
         tongue.strokeColor = .clear
         tongue.position = CGPoint(x: 0, y: -1.0)
         tongue.zPosition = 1

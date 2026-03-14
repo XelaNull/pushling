@@ -1,6 +1,9 @@
 // PushlingPalette.swift — 8-color P3 palette for Pushling
 // These are the ONLY colors used in the entire visual system.
 // All colors are Display P3 for the OLED Touch Bar's wide gamut.
+//
+// P3-T3-01: Palette enforcement. Every visible pixel uses one of these 8 colors
+// (or an alpha blend of one against Void). No exceptions.
 
 import SpriteKit
 
@@ -32,6 +35,22 @@ enum PushlingPalette {
     /// Distant terrain, ghost echoes, whisper text.
     static let ash = SKColor(displayP3Red: 0.353, green: 0.353, blue: 0.353, alpha: 1.0)
 
+    // MARK: - Derived Palette Colors (On-Palette Only)
+
+    /// Deep Moss — darker moss for forest canopy. Moss blended toward Void.
+    static let deepMoss = lerp(from: moss, to: void_, t: 0.3)
+
+    /// Tongue/inner mouth — Ember softened toward Bone.
+    static let softEmber = lerp(from: ember, to: bone, t: 0.4)
+
+    // MARK: - All Palette Colors (for audit/debug)
+
+    /// All 8 palette colors with their names, for debug palette audit.
+    static let allColors: [(name: String, color: SKColor)] = [
+        ("void", void_), ("bone", bone), ("ember", ember), ("moss", moss),
+        ("tide", tide), ("gilt", gilt), ("dusk", dusk), ("ash", ash)
+    ]
+
     // MARK: - Color Interpolation
 
     /// Linearly interpolate between two SKColors.
@@ -55,4 +74,93 @@ enum PushlingPalette {
             alpha: a1 + (a2 - a1) * t
         )
     }
+
+    // MARK: - Alpha Variants
+
+    /// Returns a palette color at the given alpha.
+    /// The only permitted way to create transparent palette colors.
+    static func withAlpha(_ color: SKColor, alpha: CGFloat) -> SKColor {
+        return color.withAlphaComponent(max(0, min(1, alpha)))
+    }
+
+    // MARK: - Desaturation
+
+    /// Desaturates a color by blending it toward Ash (gray).
+    /// - Parameters:
+    ///   - color: The source palette color
+    ///   - amount: 0.0 = no change, 1.0 = fully desaturated to Ash
+    /// - Returns: Desaturated color (still in P3 space)
+    static func desaturate(_ color: SKColor, amount: CGFloat) -> SKColor {
+        return lerp(from: color, to: ash, t: amount)
+    }
+
+    // MARK: - Tinting
+
+    /// Tints a color toward another palette color.
+    /// Useful for biome-specific tinting of generic colors.
+    /// - Parameters:
+    ///   - base: The base palette color
+    ///   - tint: The tint color to blend toward
+    ///   - amount: 0.0 = pure base, 1.0 = pure tint
+    /// - Returns: Tinted color in P3 space
+    static func tint(_ base: SKColor, toward tint: SKColor, amount: CGFloat) -> SKColor {
+        return lerp(from: base, to: tint, t: amount)
+    }
+
+    // MARK: - Stage Path Color
+
+    /// Returns the primary palette color associated with a creature stage.
+    /// Used for evolution progress bars, stage-specific UI accents.
+    static func stageColor(for stage: GrowthStage) -> SKColor {
+        switch stage {
+        case .spore:   return bone
+        case .drop:    return tide
+        case .critter: return moss
+        case .beast:   return ember
+        case .sage:    return dusk
+        case .apex:    return gilt
+        }
+    }
+
+    // MARK: - Debug Palette Audit
+
+    /// In debug builds, checks if a color is on-palette (or an alpha/blend variant).
+    /// Logs a warning if the color doesn't match any palette entry.
+    #if DEBUG
+    static func auditColor(_ color: SKColor, context: String) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+
+        // Check against each palette color (ignoring alpha)
+        for (name, paletteColor) in allColors {
+            var pr: CGFloat = 0, pg: CGFloat = 0, pb: CGFloat = 0, pa: CGFloat = 0
+            paletteColor.getRed(&pr, green: &pg, blue: &pb, alpha: &pa)
+
+            // Allow blends between palette colors — just warn if way off
+            let dist = abs(r - pr) + abs(g - pg) + abs(b - pb)
+            if dist < 0.05 {
+                return  // Close enough to a palette color
+            }
+        }
+
+        // Check if it's a blend between any two palette colors
+        // (allow any lerp between palette colors)
+        for (_, c1) in allColors {
+            for (_, c2) in allColors {
+                for t in stride(from: 0.0, through: 1.0, by: 0.1) {
+                    let blended = lerp(from: c1, to: c2, t: CGFloat(t))
+                    var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+                    blended.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+                    let dist = abs(r - br) + abs(g - bg) + abs(b - bb)
+                    if dist < 0.1 {
+                        return  // Valid blend
+                    }
+                }
+            }
+        }
+
+        NSLog("[Pushling/Palette] OFF-PALETTE color in %@: "
+              + "R=%.3f G=%.3f B=%.3f A=%.3f", context, r, g, b, a)
+    }
+    #endif
 }
