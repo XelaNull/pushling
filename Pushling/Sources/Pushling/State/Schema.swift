@@ -10,7 +10,7 @@ import Foundation
 enum Schema {
 
     /// Current schema version. Bump this when adding migrations.
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     // MARK: - Valid Enum Values
 
@@ -390,6 +390,52 @@ enum Schema {
         "CREATE INDEX IF NOT EXISTS idx_repos_name ON repos(name);",
         "CREATE INDEX IF NOT EXISTS idx_repos_path ON repos(path);"
     ]
+
+    // MARK: - Phase 6: Touch Stats Table (P6-T1-12)
+
+    static let createTouchStatsTable = """
+        CREATE TABLE IF NOT EXISTS touch_stats (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            total_touches INTEGER NOT NULL DEFAULT 0,
+            taps INTEGER NOT NULL DEFAULT 0,
+            double_taps INTEGER NOT NULL DEFAULT 0,
+            triple_taps INTEGER NOT NULL DEFAULT 0,
+            long_presses INTEGER NOT NULL DEFAULT 0,
+            sustained_touches INTEGER NOT NULL DEFAULT 0,
+            drags INTEGER NOT NULL DEFAULT 0,
+            petting_strokes INTEGER NOT NULL DEFAULT 0,
+            flicks INTEGER NOT NULL DEFAULT 0,
+            rapid_taps INTEGER NOT NULL DEFAULT 0,
+            boops INTEGER NOT NULL DEFAULT 0,
+            belly_rubs INTEGER NOT NULL DEFAULT 0,
+            hand_feeds INTEGER NOT NULL DEFAULT 0,
+            laser_pointer_seconds REAL NOT NULL DEFAULT 0.0,
+            daily_interaction_streak INTEGER NOT NULL DEFAULT 0,
+            last_interaction_date TEXT
+        );
+        """
+
+    // MARK: - Phase 6: Game Scores Table (P6-T3-04)
+
+    static let createGameScoresTable = """
+        CREATE TABLE IF NOT EXISTS game_scores (
+            game_type TEXT PRIMARY KEY,
+            high_score INTEGER NOT NULL DEFAULT 0,
+            total_plays INTEGER NOT NULL DEFAULT 0,
+            last_played TEXT
+        );
+        """
+
+    // MARK: - Phase 6: Game Unlocks Table (P6-T3-11)
+
+    static let createGameUnlocksTable = """
+        CREATE TABLE IF NOT EXISTS game_unlocks (
+            game_type TEXT PRIMARY KEY,
+            unlocked INTEGER NOT NULL DEFAULT 0,
+            total_plays INTEGER NOT NULL DEFAULT 0,
+            first_played TEXT
+        );
+        """
 }
 
 // MARK: - Seed Data

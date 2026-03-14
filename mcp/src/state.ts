@@ -227,29 +227,13 @@ export class StateReader {
     }
   }
 
-  /**
-   * Close the database connection.
-   */
   close(): void {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    if (this.db) { this.db.close(); this.db = null; }
   }
 
-  /**
-   * Check if the database is available.
-   */
-  isAvailable(): boolean {
-    return this.db !== null;
-  }
+  isAvailable(): boolean { return this.db !== null; }
 
-  /**
-   * Get the database path for diagnostics.
-   */
-  getDatabasePath(): string {
-    return DB_PATH;
-  }
+  getDatabasePath(): string { return DB_PATH; }
 
   // ─── Query Methods ───────────────────────────────────────────────
 
@@ -381,9 +365,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get today's commit count.
-   */
   getCommitsToday(): number {
     if (!this.db) return 0;
     try {
@@ -400,9 +381,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get distinct repos active today.
-   */
   getReposActiveToday(): string[] {
     if (!this.db) return [];
     try {
@@ -419,9 +397,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get repo landmarks.
-   */
   getRepos(): RepoRecord[] {
     if (!this.db) return [];
     try {
@@ -433,9 +408,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get active world objects near a given X position within a radius.
-   */
   getObjectsNear(x: number, radius: number): WorldObject[] {
     if (!this.db) return [];
     try {
@@ -450,9 +422,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get the count of active AI-placed objects.
-   */
   getAIPlacedObjectCount(): number {
     if (!this.db) return 0;
     try {
@@ -468,9 +437,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get a taught behavior by name.
-   */
   getTaughtBehaviorByName(name: string): TaughtBehavior | null {
     if (!this.db) return null;
     try {
@@ -484,9 +450,6 @@ export class StateReader {
     }
   }
 
-  /**
-   * Get milestone data.
-   */
   getMilestones(category?: string): MilestoneRecord[] {
     if (!this.db) return [];
     try {

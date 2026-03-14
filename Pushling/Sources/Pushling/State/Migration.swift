@@ -25,7 +25,10 @@ enum MigrationManager {
                   migrate: migrateV1),
         Migration(version: 2,
                   description: "Add repos table for landmark tracking (P3-T3-10)",
-                  migrate: migrateV2)
+                  migrate: migrateV2),
+        Migration(version: 3,
+                  description: "Add touch_stats, game_scores, game_unlocks tables (P6)",
+                  migrate: migrateV3)
     ]
 
     /// Runs all pending migrations on the given database.
@@ -224,6 +227,35 @@ enum MigrationManager {
         }
 
         NSLog("[Pushling/Migration] v2: Created repos table with indexes")
+    }
+
+    // MARK: - Migration V3: Phase 6 Interactivity Tables
+
+    private static func migrateV3(db: DatabaseManager) throws {
+        // Touch stats table for tracking all interaction counts
+        try db.executeRaw(Schema.createTouchStatsTable)
+
+        // Seed the singleton row
+        try db.execute("""
+            INSERT OR IGNORE INTO touch_stats (id) VALUES (1);
+            """)
+
+        // Game scores table for high score tracking
+        try db.executeRaw(Schema.createGameScoresTable)
+
+        // Game unlocks table for progressive game access
+        try db.executeRaw(Schema.createGameUnlocksTable)
+
+        // Seed Catch as always-unlocked
+        let now = ISO8601DateFormatter().string(from: Date())
+        try db.execute("""
+            INSERT OR IGNORE INTO game_unlocks (game_type, unlocked, total_plays, first_played)
+            VALUES ('catch', 1, 0, ?);
+            """,
+            arguments: [now]
+        )
+
+        NSLog("[Pushling/Migration] v3: Created touch_stats, game_scores, game_unlocks tables")
     }
 
     // MARK: - Creature Name Generator
