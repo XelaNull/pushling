@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Pushling LaunchAgent Template
+  Install to: ~/Library/LaunchAgents/com.pushling.daemon.plist
+
+  This is a reference template. The app generates and installs the plist
+  programmatically via LaunchAgentManager.swift, using the actual binary path.
+
+  To install manually:
+    1. Copy this file to ~/Library/LaunchAgents/
+    2. Update ProgramArguments[0] to your actual Pushling binary path
+    3. Run: launchctl load ~/Library/LaunchAgents/com.pushling.daemon.plist
+
+  To remove:
+    launchctl unload ~/Library/LaunchAgents/com.pushling.daemon.plist
+    rm ~/Library/LaunchAgents/com.pushling.daemon.plist
+-->
+<dict>
+    <key>Label</key>
+    <string>com.pushling.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/Pushling.app/Contents/MacOS/Pushling</string>
+    </array>
+
+    <!-- Start automatically on login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart if the process exits (crash recovery) -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Higher scheduling priority for smooth 60fps rendering -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <!-- Log output for debugging -->
+    <key>StandardOutPath</key>
+    <string>~/Library/Logs/Pushling/pushling.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>~/Library/Logs/Pushling/pushling.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PUSHLING_LAUNCHED_BY_AGENT</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
