@@ -54,7 +54,7 @@ The Touch Bar is 1085 x 30 points (2170 x 60 pixels @2x). All touch coordinates 
 
 **Owner**: `swift-input`
 **Directory**: `Pushling/Input/`
-**Estimated Tasks**: 12
+**Estimated Tasks**: 14
 
 ### P6-T1-01: Touch Tracking System
 
@@ -131,6 +131,70 @@ struct GestureEvent {
 ```
 
 **Depends on**: P6-T1-01 (raw touch tracking)
+
+---
+
+### P6-T1-02b: Basic Gesture-to-Creature Response Map
+
+**What**: Route each basic gesture type to the correct creature response. This is the foundational touch interaction layer before advanced gestures (laser pointer, petting, mini-games) are added.
+
+**Gesture response mapping** (from vision doc Touch Interactions table):
+
+| Gesture | Target | Creature Response |
+|---------|--------|-------------------|
+| **Tap** | On creature | Heart particle floats up. Cycles through: purr, chin-tilt, headbutt, slow-blink (rotating per tap). Contentment +3. |
+| **Tap** | Left of creature | Creature walks to touch point. Occasionally overshoots and stumbles. Tail up, trotting. |
+| **Tap** | Right of creature | Same as left — creature follows your finger. |
+| **Tap** | On object | Object bounces/highlights. Creature notices, trots over to investigate. (Detailed in P6-T1-10) |
+| **Double-tap** | On creature | Jump animation with dust landing. 3x = bounce combo with flip. Satisfaction +5. |
+| **Triple-tap** | On creature | Stage-specific secret: belly expose (Drop), zoomies (Critter), map reveal (Beast), prophecy (Sage), reality glitch (Apex). |
+| **Long press** | On creature | Context-dependent: thought bubble, reads nearby ruin, wakes from sleep with stretch. |
+| **Long press** | On object | Pick up — object follows finger. (Detailed in P6-T1-06) |
+| **Sustained touch** | On creature (>2s) | Chin scratch: creature tilts head into touch. Purring particles emit. Eyes close. Peak contentment. Contentment +8. |
+
+**HUD overlay on tap**:
+- Tap anywhere (not on creature or object): Minimal overlay fades in for 3 seconds
+- Shows: hearts (satisfaction), stage name, XP/threshold, streak count
+- Layout: 120pt wide, bottom-left corner, Bone text on dimmed background
+- Auto-dismisses after 3 seconds or on any subsequent touch
+- Does not interrupt creature behavior — purely visual overlay
+
+**Near-evolution progress bar**:
+- When creature is within 10% of stage threshold: 1pt-tall progress bar appears at bottom edge of Touch Bar
+- Color matches current stage path color
+- Pulsing animation at 95%+ (sine-wave alpha 0.5-1.0, 1s period)
+- Fills left-to-right as XP approaches threshold
+- Disappears after evolution ceremony
+
+**Implementation**:
+- `CreatureTouchHandler` class dispatches `GestureEvent` to appropriate response based on `event.target` and `event.type`
+- Response rotation for tap-on-creature maintained as in-memory counter (resets on app restart — order doesn't need to persist)
+- HUD overlay rendered as a dedicated SKNode layer above the world, below speech bubbles
+- Progress bar rendered as a thin SKShapeNode at the bottom of the scene
+
+**Depends on**: P6-T1-02 (gesture recognizer), Phase 2 creature animations, Phase 1 state system
+
+---
+
+### P6-T1-02c: 2-Finger Swipe — World Pan
+
+**What**: 2-finger horizontal swipe pans the world view, revealing terrain beyond the creature's current position. At Sage+ stage, enables time rewind/forward vision.
+
+**Detection**: 2 simultaneous touches moving horizontally in the same direction, > 20pt total distance, velocity > 50pt/sec.
+
+**Standard behavior** (all stages):
+- World scrolls in swipe direction at 2x swipe velocity
+- Creature stays in place (camera moves, not creature)
+- Reveals terrain, landmarks, objects beyond current view
+- After 1 second of no input, camera smoothly returns to creature over 0.5s
+
+**Sage+ behavior** (time rewind/forward):
+- Swipe LEFT: temporal rewind vision — sky gradient shifts backward in time, faded ghost of previous weather/lighting states appear
+- Swipe RIGHT: temporal forward — shows predicted near-future based on circadian cycle
+- Visual: entire scene takes on a Dusk tint during temporal view (alpha 0.3)
+- Duration: holds as long as 2 fingers are down, reverts on release
+
+**Depends on**: P6-T1-02 (multi-finger gesture), Phase 3 camera system, Phase 2 creature stage
 
 ---
 
@@ -438,7 +502,7 @@ struct GestureEvent {
 
 **Read access**: MCP server can read touch stats via `pushling_sense("developer")` for Claude to know how interactive the human is. Read-only from MCP (as per architecture rules).
 
-**Migration**: This table is added in schema version N (determined during Phase 1). Default values are all 0.
+**Migration**: This table is added as a Phase 6 schema migration (v2). The `game_scores` and `game_unlocks` tables (see P6-T3-04 and P6-T3-11) are added in the same migration. Default values are all 0.
 
 **Depends on**: Phase 1 state system, P6-T1-12 (provides the counts)
 
@@ -457,8 +521,10 @@ struct GestureEvent {
 | `finger_trail` | 25 total touches | Dragging leaves sparkle trail creature chases | Drag gesture |
 | `petting` | 50 total touches | Petting stroke gesture enabled | Slow drag across creature |
 | `laser_pointer` | 100 total touches | Laser pointer mode enabled | Drag (not on creature) |
+| `first_mini_game` | First game completion | Toybox access — tap a gesture to offer the creature a toy | Game-specific gestures |
 | `belly_rub` | 250 total touches | Belly rub gesture enabled | 2-finger sustained touch |
 | `pre_contact_purr` | 500 total touches | Creature purrs BEFORE touch contact (anticipation) | N/A (passive) |
+| `pet_streak_7` | 7-day daily interaction streak | Creature brings a daily gift (cosmetic world item) | N/A (passive) |
 | `touch_mastery` | 1000 total touches | All interactions have enhanced particle effects | N/A (passive) |
 
 **Unlock state storage**: SQLite `milestones` table:
@@ -1126,6 +1192,11 @@ struct GameResult {
 - [ ] Touch tracking operates at 60Hz with sub-pixel precision (verify with position logging)
 - [ ] All gesture types recognized correctly: tap, double-tap, triple-tap, long press, sustained touch, drag, flick, multi-finger
 - [ ] Gesture priority resolution works (double-tap wins over two taps, etc.)
+- [ ] Basic gesture responses: tap creature = heart + pet cycle, double-tap = bounce, triple-tap = stage easter egg, long press = examine, sustained = chin scratch
+- [ ] Tap left/right of creature causes creature to walk to touch point
+- [ ] HUD overlay appears on tap-on-world (away from creature/objects), shows hearts/stage/XP/streak for 3 seconds
+- [ ] Near-evolution progress bar appears at bottom edge when within 10% of threshold, pulses at 95%+
+- [ ] 2-finger horizontal swipe pans world view, camera returns to creature after 1 second
 - [ ] Laser pointer Ember dot tracks finger at 60Hz with no visible lag
 - [ ] Creature stalks at slow drag speed, chases at fast drag speed, pounces when dot stops
 - [ ] Petting stroke produces fur ripple in drag direction at correct speed threshold
@@ -1146,7 +1217,7 @@ struct GameResult {
 ### Track 2 (Human Progression) Verification
 
 - [ ] Touch counter persists across app restarts
-- [ ] Milestones unlock at exactly the correct thresholds (25, 50, 100, 250, 500, 1000)
+- [ ] All 9 milestones unlock at correct thresholds (first_touch, 25, 50, 100, first_mini_game, 250, 500, pet_streak_7, 1000)
 - [ ] Gestures are gated before unlock (laser pointer doesn't work at 99 touches)
 - [ ] Unlock ceremony plays with banner, demo, and journal entry
 - [ ] Finger trail appears at 25 touches (sparkle follows drag)

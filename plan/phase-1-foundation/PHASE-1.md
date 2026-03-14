@@ -426,6 +426,92 @@ A menu-bar daemon that takes over the Touch Bar and shows a blank SpriteKit scen
 
 ---
 
+### P1-T2-06b: Schema v1 — Commits Table
+
+**What**: Create the commits table for tracking processed commit feed data.
+
+**Acceptance Criteria**:
+- Table: `commits`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PRIMARY KEY AUTOINCREMENT | |
+| `sha` | TEXT NOT NULL UNIQUE | Commit SHA (short) |
+| `message` | TEXT NOT NULL | First 120 chars of commit message |
+| `repo_name` | TEXT NOT NULL | Repository name |
+| `files_changed` | INTEGER NOT NULL DEFAULT 0 | |
+| `lines_added` | INTEGER NOT NULL DEFAULT 0 | |
+| `lines_removed` | INTEGER NOT NULL DEFAULT 0 | |
+| `languages` | TEXT | Comma-separated file extensions |
+| `is_merge` | INTEGER NOT NULL DEFAULT 0 | Boolean |
+| `is_revert` | INTEGER NOT NULL DEFAULT 0 | Boolean |
+| `is_force_push` | INTEGER NOT NULL DEFAULT 0 | Boolean |
+| `branch` | TEXT | Branch name |
+| `xp_awarded` | INTEGER NOT NULL DEFAULT 0 | XP calculated for this commit |
+| `commit_type` | TEXT | Detected type: large_refactor, test, docs, css, etc. |
+| `eaten_at` | TEXT NOT NULL | ISO 8601 datetime when processed |
+
+- Index on `sha` for dedup
+- Index on `eaten_at` for chronological queries
+- Index on `repo_name` for per-repo filtering
+- Index on `languages` for mutation badge detection (Polyglot)
+
+**Constraints**:
+- Used for `pushling_recall("commits")` queries, mutation badge detection, and language preference calculation
+- Rows older than 6 months can be archived (retain summary stats)
+
+---
+
+### P1-T2-06c: Schema v1 — Surprises Table
+
+**What**: Create the surprise tracking table for scheduling, cooldowns, and history.
+
+**Acceptance Criteria**:
+- Table: `surprises`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PRIMARY KEY | Surprise number (1-78) |
+| `category` | TEXT NOT NULL | visual, contextual, cat, milestone, time, easter_egg, hook_aware, collaborative |
+| `last_fired_at` | TEXT | ISO 8601 datetime |
+| `fire_count` | INTEGER NOT NULL DEFAULT 0 | Total times this surprise has fired |
+| `cooldown_until` | TEXT | ISO 8601 datetime (per-surprise cooldown) |
+| `enabled` | INTEGER NOT NULL DEFAULT 1 | Can be disabled for one-time surprises that have fired |
+
+- Populated with 78 rows on initial migration (one per surprise)
+- Category cooldown tracked separately in application logic (15-minute per-category, 5-minute global)
+
+**Constraints**:
+- One-time surprises (e.g., commit #404, commit #42) set `enabled = 0` after firing
+- Recency penalty: surprises fired in the last hour have 50% reduced probability (computed from `last_fired_at`)
+
+---
+
+### P1-T2-06d: Schema v1 — Milestones Table
+
+**What**: Create the milestones table for tracking achievements, mutation badges, and one-time events.
+
+**Acceptance Criteria**:
+- Table: `milestones`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | TEXT PRIMARY KEY | e.g., "first_word", "nocturne", "touch_laser_pointer" |
+| `category` | TEXT NOT NULL | evolution, mutation, touch, commit, surprise, speech |
+| `earned_at` | TEXT | ISO 8601 datetime (NULL if not yet earned) |
+| `data_json` | TEXT | Type-specific payload (e.g., commit count at earning, stage at earning) |
+| `ceremony_played` | INTEGER NOT NULL DEFAULT 0 | Whether the visual ceremony has been shown |
+
+- Pre-populated rows for known milestones (10 mutation badges, 9 human touch milestones, commit count milestones, stage transitions)
+- Index on `category` for filtered queries
+- Index on `earned_at` for chronological display
+
+**Constraints**:
+- Touch milestones (first_touch, finger_trail, petting, laser_pointer, first_mini_game, belly_rub, pre_contact_purr, touch_mastery) gate gesture unlocks
+- Mutation badges (nocturne, polyglot, marathon, etc.) apply visual and behavioral changes when earned
+
+---
+
 ### P1-T2-07: Migration System
 
 **What**: Version-tracked schema upgrades that run automatically on app launch.
@@ -437,7 +523,7 @@ A menu-bar daemon that takes over the Touch Bar and shows a blank SpriteKit scen
   - Runs all pending migrations in order
   - Each migration runs in a transaction (rollback on failure)
   - Logs each migration applied
-- Migration v1 creates all tables defined in P1-T2-02 through P1-T2-06
+- Migration v1 creates all tables defined in P1-T2-02 through P1-T2-06d
 - Future migrations are added as numbered files/functions (v2, v3, etc.)
 - Downgrade is NOT supported (forward-only) — log a fatal error if database is newer than app
 
@@ -551,7 +637,7 @@ SQLite database at `~/.local/share/pushling/state.db` with all tables created, m
 |---------|----------------|---------|
 | `sense` | self, body, surroundings, visual, events, developer, evolve, full | `pushling_sense` |
 | `move` | goto, walk, stop, jump, turn, retreat, pace, approach_edge, center, follow_cursor | `pushling_move` |
-| `express` | joy, curiosity, surprise, contentment, thinking, mischief, ... (15 expressions) | `pushling_express` |
+| `express` | joy, curiosity, surprise, contentment, thinking, mischief, ... (16 expressions including neutral) | `pushling_express` |
 | `speak` | say, think, exclaim, whisper, sing, dream, narrate | `pushling_speak` |
 | `perform` | wave, spin, bow, dance, ... OR sequence mode | `pushling_perform` |
 | `world` | weather, event, place, create, remove, modify, time_override, sound, companion | `pushling_world` |
@@ -899,7 +985,7 @@ All of the following must be verified before Phase 1 is considered complete:
 | 4 | **Frame budget** | Empty scene frame time < 1ms average over 60 frames |
 | 5 | **Clean quit** | "Quit Pushling" restores system Touch Bar, no orphaned processes |
 | 6 | **Database creates** | `~/.local/share/pushling/state.db` exists with all tables after first launch |
-| 7 | **Schema complete** | All tables from P1-T2-02 through P1-T2-06 exist with correct columns |
+| 7 | **Schema complete** | All tables from P1-T2-02 through P1-T2-06d exist with correct columns (creature, journal, world, taught_behaviors, habits, preferences, quirks, routines, world_objects, commits, surprises, milestones) |
 | 8 | **Migration runs** | Schema version 1 is recorded, migration log shows success |
 | 9 | **Heartbeat file** | `/tmp/pushling.heartbeat` exists while running, removed on clean quit |
 | 10 | **Backup runs** | `~/.local/share/pushling/backups/state-YYYY-MM-DD.db` created |

@@ -42,7 +42,7 @@ Claude Code ──► MCP Server (Node.js) ──► /tmp/pushling.sock ──�
 | `pushling_sense` | Proprioception — feel self, body, world, events, developer | Perception |
 | `pushling_recall` | Memory access — commits, touches, milestones, dreams, failed speech | Perception |
 | `pushling_move` | Locomotion — goto, walk, stop, jump, turn, retreat, pace | Action |
-| `pushling_express` | Emotional display — 15 expressions with intensity and duration | Action |
+| `pushling_express` | Emotional display — 16 expressions (including neutral) with intensity and duration | Action |
 | `pushling_speak` | Stage-gated speech — 7 styles, filtering layer, failed speech logging | Action |
 | `pushling_perform` | Complex animations — 18 behaviors with variants, sequence mode | Action |
 | `pushling_world` | Environment shaping — weather, events, objects, companions, sounds | Action |
@@ -551,7 +551,7 @@ The action tools let Claude move, emote, speak, perform, and shape the world thr
 ```
 
 **Verification**:
-- [ ] All 15 expressions produce distinct, recognizable animations
+- [ ] All 16 expressions (including neutral) produce distinct, recognizable animations
 - [ ] Intensity parameter visibly scales animation amplitude
 - [ ] Duration parameter controls how long expression holds
 - [ ] Expression fades to autonomous state after duration (0.8s crossfade)
@@ -1481,7 +1481,7 @@ Daemon → MCP Server:  {"ok":true,"session_id":"uuid","creature_state":{...},"w
 - [ ] `pushling_sense` returns accurate data for all 7 aspects + "full"
 - [ ] `pushling_recall` returns correct data for all 8 filter types
 - [ ] `pushling_move` produces correct movement for all 10 action types
-- [ ] `pushling_express` produces distinct animations for all 15 expressions
+- [ ] `pushling_express` produces distinct animations for all 16 expressions (including neutral)
 - [ ] `pushling_speak` correctly filters speech per creature stage
 - [ ] Failed speech is logged in journal
 - [ ] `pushling_perform` plays all 18 behaviors with correct stage gating

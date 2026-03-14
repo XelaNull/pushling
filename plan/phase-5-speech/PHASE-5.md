@@ -972,7 +972,7 @@ Main Thread (60fps render)    Voice Queue (serial)       Audio Thread (AVAudioEn
 
 ### P5-T3-06: Special Commit Type Variations
 
-**What**: 12+ unique eating animation variations based on commit type.
+**What**: 15 unique eating animation variations based on commit type.
 
 **Type detection** (from commit JSON fields):
 
@@ -1062,6 +1062,30 @@ xp = (base + lines + message + breadth) * streak_multiplier * fallow_multiplier 
 - Fallow multiplier shown in XP float: `+12 (x1.5)`
 
 **Depends on**: P5-T3-07 (XP formula), timestamp tracking in SQLite
+
+---
+
+### P5-T3-08b: Language Preference Drift
+
+**What**: The creature develops and shifts favorite/disliked languages over time, as specified in the vision's Personality System ("Preferences shift every ~200 commits, keeping it unpredictable").
+
+**Mechanics**:
+- **Favorite language**: Recalculated every 200 commits (rolling window). The language with the highest weighted XP in the last 200 commits becomes the favorite. Weight = per-commit XP * language proportion.
+- **Disliked language**: Randomly selected from language categories with < 5% of recent commits (the categories the creature has eaten least). Re-rolled every 200 commits.
+- **Shift check**: After every commit, increment a counter. At every 200th commit since last shift:
+  1. Calculate new favorite from last 200 commits' `languages` field
+  2. If favorite changed: journal entry `"Zepus developed a taste for [lang]"`, satisfaction +5
+  3. Re-roll disliked from underrepresented categories
+  4. If disliked changed: journal entry `"Zepus seems tired of [lang]"`
+  5. Update `creature.favorite_language` and `creature.disliked_language` in SQLite
+
+**Creature reactions** (integrated with P5-T3-06 commit type variations):
+- Commit in favorite language: extra purr particles, `"YES! .[lang]!"` at Beast+, satisfaction +5 bonus
+- Commit in disliked language: ears flatten briefly, reluctant eating, `"ugh .[lang]"` at Beast+
+
+**Storage**: `favorite_language` and `disliked_language` columns already exist in creature table. Add `language_shift_counter` (INTEGER DEFAULT 0) to track commits since last shift.
+
+**Depends on**: P5-T3-07 (XP formula), Phase 1 commits table (rolling window query)
 
 ---
 
