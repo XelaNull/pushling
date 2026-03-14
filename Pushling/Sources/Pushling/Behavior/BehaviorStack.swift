@@ -171,6 +171,10 @@ final class BehaviorStack {
         // 5. Feed blended position back to physics for boundary tracking
         physics.updatePosition(x: blended.positionX)
 
+        // 5b. Sync clamped position back to autonomous layer so it doesn't
+        //     accumulate past boundaries
+        autonomous.syncPosition(blended.positionX)
+
         // 6. Handle boundary hits — if physics says we hit a boundary,
         //    tell autonomous to turn around
         if let boundary = physics.nearBoundary() {
@@ -370,6 +374,7 @@ final class BehaviorStack {
         )
         physics.currentX = position.x
         physics.currentY = position.y
+        autonomous.syncPosition(position.x)
         blendController.reset(position: position, facing: facing)
         reflexes.clearAll()
         aiDirected.cancelAll()

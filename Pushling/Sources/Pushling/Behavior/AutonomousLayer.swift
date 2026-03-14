@@ -57,6 +57,9 @@ final class AutonomousLayer: BehaviorLayer {
     /// Current facing direction (maintained independently of physics).
     private var facing: Direction = .right
 
+    /// Current world X position — integrated from walkSpeed each frame.
+    private(set) var currentX: CGFloat = 542.5
+
     /// Current walk speed (points/second), personality-modulated.
     private var currentWalkSpeed: CGFloat = 0
 
@@ -121,10 +124,19 @@ final class AutonomousLayer: BehaviorLayer {
         stateTimer += deltaTime
         updateStateMachine(deltaTime: deltaTime, output: &output)
 
-        // Always set facing
+        // Always output current position and facing — even during idle/behavior
+        // so the creature doesn't snap to default position
+        if output.positionX == nil {
+            output.positionX = currentX
+        }
         output.facing = facing
 
         return output
+    }
+
+    /// Sync position from external source (e.g., after physics boundary clamping)
+    func syncPosition(_ x: CGFloat) {
+        currentX = x
     }
 
     // MARK: - State Machine
@@ -168,6 +180,11 @@ final class AutonomousLayer: BehaviorLayer {
         let jitter = 1.0 + randomJitter(range: 0.1)  // +/-10%
         currentWalkSpeed = baseSpeed * CGFloat(energyMod * emotionMod * jitter)
 
+        // Integrate speed into position
+        let direction: CGFloat = facing == .right ? 1.0 : -1.0
+        currentX += currentWalkSpeed * direction * CGFloat(deltaTime)
+
+        output.positionX = currentX
         output.walkSpeed = currentWalkSpeed
         output.bodyState = "stand"
 

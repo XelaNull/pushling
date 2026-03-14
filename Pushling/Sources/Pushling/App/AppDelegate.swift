@@ -76,6 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
 
+        // Version header (non-clickable)
+        let versionItem = NSMenuItem(title: "Pushling v0.1.0-dev", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         let aboutItem = NSMenuItem(
             title: "About Pushling",
             action: #selector(showAbout),
