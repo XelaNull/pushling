@@ -198,8 +198,8 @@ final class PushlingScene: SKScene {
     /// World — parallax scrolling, terrain generation/recycling, biomes,
     /// visual effects, creature-dependent visuals.
     private func updateWorld(deltaTime: TimeInterval) {
-        // Simulate creature walking
-        simulateCreatureWalk(deltaTime: deltaTime)
+        // Creature position is now driven by the behavior stack (applyBehaviorOutput)
+        // Old simulateCreatureWalk() removed — behavior stack owns movement
 
         // Update world system with current camera position
         worldManager.update(deltaTime: deltaTime, trackedX: creatureWorldX)
