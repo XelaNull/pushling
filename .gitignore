@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Node
+node_modules/
+dist/
+*.js.map
+
+# SQLite
+*.db-wal
+*.db-shm
+
+# Pushling runtime
+/tmp/pushling.*
