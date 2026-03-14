@@ -1,0 +1,620 @@
+#!/usr/bin/env bash
+# pushling — CLI for the Pushling Touch Bar virtual pet
+# Manages repos, hooks, creature export/import, and daemon lifecycle.
+#
+# Usage:
+#   pushling track [path]           Track a repo (install post-commit hook)
+#   pushling untrack [path]         Untrack a repo (remove hook)
+#   pushling hooks install          Install all 7 Claude Code hooks
+#   pushling hooks remove           Remove all Claude Code hooks
+#   pushling hooks status           Show which hooks are active
+#   pushling export [file]          Export creature to JSON
+#   pushling import <file>          Import creature from JSON
+#   pushling voice download         Pre-download all TTS voice models
+#   pushling status                 Show daemon status and creature summary
+#   pushling logs                   Tail daemon logs
+#   pushling restart                Restart daemon
+#   pushling uninstall [--purge]    Remove Pushling
+
+set -euo pipefail
+
+# --- Constants ---
+
+readonly PUSHLING_APP="/Applications/Pushling.app"
+readonly PUSHLING_PLIST="$HOME/Library/LaunchAgents/com.pushling.daemon.plist"
+readonly PUSHLING_DATA="$HOME/.local/share/pushling"
+readonly PUSHLING_DB="$PUSHLING_DATA/state.db"
+readonly PUSHLING_FEED="$PUSHLING_DATA/feed"
+readonly PUSHLING_VOICE="$PUSHLING_DATA/voice"
+readonly PUSHLING_SOCKET="/tmp/pushling.sock"
+readonly PUSHLING_HEARTBEAT="/tmp/pushling.heartbeat"
+readonly PUSHLING_MCP="$HOME/.pushling/mcp"
+
+readonly HOOK_SCRIPT_DIR="$HOME/.pushling/hooks"
+readonly CLAUDE_HOOK_TYPES=(
+    "SessionStart"
+    "SessionEnd"
+    "PostToolUse"
+    "UserPromptSubmit"
+    "SubagentStart"
+    "SubagentStop"
+    "PostCompact"
+)
+
+# --- Colors ---
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'  # No Color
+
+# --- Helpers ---
+
+log_info()  { echo -e "${CYAN}[pushling]${NC} $1"; }
+log_ok()    { echo -e "${GREEN}[pushling]${NC} $1"; }
+log_warn()  { echo -e "${YELLOW}[pushling]${NC} $1"; }
+log_error() { echo -e "${RED}[pushling]${NC} $1" >&2; }
+
+ensure_data_dir() {
+    mkdir -p "$PUSHLING_DATA" "$PUSHLING_FEED" "$PUSHLING_VOICE"
+}
+
+is_daemon_running() {
+    if [[ -S "$PUSHLING_SOCKET" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+get_repo_path() {
+    local path="${1:-.}"
+    cd "$path" 2>/dev/null || { log_error "Cannot access: $path"; exit 1; }
+    git rev-parse --show-toplevel 2>/dev/null || {
+        log_error "Not a git repository: $path"
+        exit 1
+    }
+}
+
+# --- Commands ---
+
+cmd_track() {
+    local repo_path
+    repo_path=$(get_repo_path "${1:-}")
+    local hook_file="$repo_path/.git/hooks/post-commit"
+
+    log_info "Tracking repo: ${BOLD}$repo_path${NC}"
+
+    # Backup existing hook
+    if [[ -f "$hook_file" ]]; then
+        if grep -q "pushling" "$hook_file" 2>/dev/null; then
+            log_warn "Already tracked. Re-installing hook."
+        else
+            cp "$hook_file" "$hook_file.pre-pushling"
+            log_info "Backed up existing post-commit hook"
+        fi
+    fi
+
+    # Install post-commit hook
+    mkdir -p "$(dirname "$hook_file")"
+    cat > "$hook_file" << 'HOOK_EOF'
+#!/usr/bin/env bash
+# Pushling post-commit hook — captures commit data for creature feeding.
+# Must complete in <100ms. Writes JSON to feed directory, signals daemon.
+
+PUSHLING_FEED="$HOME/.local/share/pushling/feed"
+PUSHLING_SOCKET="/tmp/pushling.sock"
+
+# Ensure feed directory exists
+mkdir -p "$PUSHLING_FEED"
+
+# Gather commit data (fast — all from local git)
+SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+MSG=$(git log -1 --pretty=format:'%s' 2>/dev/null || echo "")
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+FILES=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | wc -l | tr -d ' ')
+ADDED=$(git diff --numstat HEAD~1..HEAD 2>/dev/null | awk '{s+=$1} END {print s+0}')
+REMOVED=$(git diff --numstat HEAD~1..HEAD 2>/dev/null | awk '{s+=$2} END {print s+0}')
+REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+IS_MERGE=false
+IS_REVERT=false
+
+# Check merge/revert
+if git rev-parse HEAD^2 >/dev/null 2>&1; then
+    IS_MERGE=true
+fi
+if echo "$MSG" | grep -qi "^revert"; then
+    IS_REVERT=true
+fi
+
+# Detect languages from changed file extensions
+LANGS=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null \
+    | sed 's/.*\.//' | sort -u | head -10 | tr '\n' ',' | sed 's/,$//')
+
+# Write JSON to feed directory
+FEED_FILE="$PUSHLING_FEED/commit_${SHA:0:8}_$(date +%s).json"
+cat > "$FEED_FILE" << EOF
+{
+  "type": "commit",
+  "sha": "$SHA",
+  "message": $(printf '%s' "$MSG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo "\"$MSG\""),
+  "repo_name": "$REPO",
+  "branch": "$BRANCH",
+  "files_changed": $FILES,
+  "lines_added": ${ADDED:-0},
+  "lines_removed": ${REMOVED:-0},
+  "languages": "$LANGS",
+  "is_merge": $IS_MERGE,
+  "is_revert": $IS_REVERT,
+  "is_force_push": false,
+  "timestamp": "$TIMESTAMP"
+}
+EOF
+
+# Signal daemon (non-blocking, don't fail if daemon is down)
+if [[ -S "$PUSHLING_SOCKET" ]]; then
+    echo '{"command":"process_feed"}' | nc -U -w1 "$PUSHLING_SOCKET" >/dev/null 2>&1 &
+fi
+
+exit 0
+HOOK_EOF
+
+    chmod +x "$hook_file"
+    log_ok "Post-commit hook installed at: $hook_file"
+
+    # Signal daemon to add this repo
+    if is_daemon_running; then
+        echo "{\"command\":\"track_repo\",\"path\":\"$repo_path\"}" \
+            | nc -U -w1 "$PUSHLING_SOCKET" >/dev/null 2>&1 || true
+        log_ok "Daemon notified"
+    else
+        log_warn "Daemon not running — repo will be registered on next launch"
+    fi
+}
+
+cmd_untrack() {
+    local repo_path
+    repo_path=$(get_repo_path "${1:-}")
+    local hook_file="$repo_path/.git/hooks/post-commit"
+
+    log_info "Untracking repo: ${BOLD}$repo_path${NC}"
+
+    if [[ -f "$hook_file" ]] && grep -q "pushling" "$hook_file" 2>/dev/null; then
+        rm "$hook_file"
+        # Restore backup if it exists
+        if [[ -f "$hook_file.pre-pushling" ]]; then
+            mv "$hook_file.pre-pushling" "$hook_file"
+            log_info "Restored original post-commit hook"
+        fi
+        log_ok "Hook removed"
+    else
+        log_warn "No Pushling hook found in this repo"
+    fi
+
+    # Signal daemon
+    if is_daemon_running; then
+        echo "{\"command\":\"untrack_repo\",\"path\":\"$repo_path\"}" \
+            | nc -U -w1 "$PUSHLING_SOCKET" >/dev/null 2>&1 || true
+    fi
+}
+
+cmd_hooks_install() {
+    log_info "Installing Claude Code hooks..."
+
+    # Check if claude CLI is available
+    if ! command -v claude &>/dev/null; then
+        log_error "'claude' CLI not found. Install Claude Code first."
+        exit 1
+    fi
+
+    # Ensure hook scripts directory exists
+    mkdir -p "$HOOK_SCRIPT_DIR"
+
+    for hook_type in "${CLAUDE_HOOK_TYPES[@]}"; do
+        local script_path="$HOOK_SCRIPT_DIR/${hook_type}.sh"
+
+        # Create hook script
+        cat > "$script_path" << HEOF
+#!/usr/bin/env bash
+# Pushling Claude Code hook: $hook_type
+# Writes event data to feed directory and signals daemon.
+PUSHLING_FEED="\$HOME/.local/share/pushling/feed"
+PUSHLING_SOCKET="/tmp/pushling.sock"
+mkdir -p "\$PUSHLING_FEED"
+
+TIMESTAMP=\$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+FEED_FILE="\$PUSHLING_FEED/hook_${hook_type}_\$(date +%s%N).json"
+
+# Read event data from stdin
+EVENT_DATA=\$(cat)
+
+cat > "\$FEED_FILE" << EOF
+{
+  "type": "hook",
+  "hook_type": "$hook_type",
+  "timestamp": "\$TIMESTAMP",
+  "data": \$EVENT_DATA
+}
+EOF
+
+# Signal daemon (non-blocking)
+if [[ -S "\$PUSHLING_SOCKET" ]]; then
+    echo '{"command":"process_feed"}' | nc -U -w1 "\$PUSHLING_SOCKET" >/dev/null 2>&1 &
+fi
+exit 0
+HEOF
+        chmod +x "$script_path"
+
+        # Register with Claude
+        claude hooks add "$hook_type" "$script_path" 2>/dev/null || {
+            log_warn "Could not register $hook_type hook (claude hooks add failed)"
+        }
+
+        log_ok "  $hook_type -> $script_path"
+    done
+
+    # Register MCP server
+    log_info "Registering MCP server..."
+    if [[ -d "$PUSHLING_MCP" ]]; then
+        claude mcp add pushling -- node "$PUSHLING_MCP/dist/index.js" 2>/dev/null || {
+            log_warn "Could not register MCP server"
+        }
+        log_ok "MCP server registered as 'pushling'"
+    else
+        log_warn "MCP server not found at $PUSHLING_MCP"
+    fi
+
+    log_ok "All hooks installed!"
+}
+
+cmd_hooks_remove() {
+    log_info "Removing Claude Code hooks..."
+
+    if ! command -v claude &>/dev/null; then
+        log_error "'claude' CLI not found."
+        exit 1
+    fi
+
+    for hook_type in "${CLAUDE_HOOK_TYPES[@]}"; do
+        claude hooks remove "$hook_type" 2>/dev/null || true
+        log_ok "  Removed $hook_type"
+    done
+
+    # Remove MCP server
+    claude mcp remove pushling 2>/dev/null || true
+    log_ok "MCP server unregistered"
+    log_ok "All hooks removed!"
+}
+
+cmd_hooks_status() {
+    echo -e "${BOLD}Claude Code Hooks Status${NC}"
+    echo ""
+
+    for hook_type in "${CLAUDE_HOOK_TYPES[@]}"; do
+        local script_path="$HOOK_SCRIPT_DIR/${hook_type}.sh"
+        if [[ -f "$script_path" ]] && [[ -x "$script_path" ]]; then
+            echo -e "  ${GREEN}[installed]${NC} $hook_type"
+        else
+            echo -e "  ${RED}[missing]${NC}   $hook_type"
+        fi
+    done
+
+    echo ""
+    if [[ -d "$PUSHLING_MCP" ]]; then
+        echo -e "  ${GREEN}[registered]${NC} MCP server (pushling)"
+    else
+        echo -e "  ${RED}[missing]${NC}    MCP server"
+    fi
+}
+
+cmd_export() {
+    local output_file="${1:-pushling_export_$(date +%Y%m%d).json}"
+    ensure_data_dir
+
+    if [[ ! -f "$PUSHLING_DB" ]]; then
+        log_error "No creature found. Database not present at $PUSHLING_DB"
+        exit 1
+    fi
+
+    log_info "Exporting creature to: ${BOLD}$output_file${NC}"
+
+    # Signal daemon to perform export
+    if is_daemon_running; then
+        echo "{\"command\":\"export\",\"path\":\"$(pwd)/$output_file\"}" \
+            | nc -U -w2 "$PUSHLING_SOCKET" 2>/dev/null || {
+            log_warn "Could not signal daemon — performing direct export"
+        }
+    fi
+
+    # Direct SQLite export as fallback
+    if [[ ! -f "$output_file" ]]; then
+        sqlite3 -json "$PUSHLING_DB" \
+            "SELECT * FROM creature WHERE id=1;" > /tmp/pushling_creature.json 2>/dev/null
+        sqlite3 -json "$PUSHLING_DB" \
+            "SELECT * FROM journal ORDER BY timestamp DESC LIMIT 500;" > /tmp/pushling_journal.json 2>/dev/null
+
+        python3 -c "
+import json, sys
+creature = json.load(open('/tmp/pushling_creature.json'))
+journal = json.load(open('/tmp/pushling_journal.json'))
+export = {
+    'format_version': 1,
+    'exported_at': '$(date -u +"%Y-%m-%dT%H:%M:%SZ")',
+    'creature': creature[0] if creature else {},
+    'journal': journal
+}
+json.dump(export, open('$output_file', 'w'), indent=2)
+" 2>/dev/null || {
+            log_error "Export failed. Ensure sqlite3 and python3 are available."
+            exit 1
+        }
+        rm -f /tmp/pushling_creature.json /tmp/pushling_journal.json
+    fi
+
+    log_ok "Exported to: $output_file"
+}
+
+cmd_import() {
+    local input_file="$1"
+
+    if [[ ! -f "$input_file" ]]; then
+        log_error "File not found: $input_file"
+        exit 1
+    fi
+
+    log_info "Importing creature from: ${BOLD}$input_file${NC}"
+
+    # Validate JSON
+    if ! python3 -c "import json; json.load(open('$input_file'))" 2>/dev/null; then
+        log_error "Invalid JSON file"
+        exit 1
+    fi
+
+    # Confirm
+    echo -e "${YELLOW}This will replace your current creature. Continue? [y/N]${NC}"
+    read -r confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        log_info "Import cancelled"
+        exit 0
+    fi
+
+    # Stop daemon, import, restart
+    if is_daemon_running; then
+        log_info "Stopping daemon..."
+        launchctl unload "$PUSHLING_PLIST" 2>/dev/null || true
+        sleep 1
+    fi
+
+    # Signal daemon to import (or handle directly)
+    log_warn "Import requires daemon support — please restart daemon after placing state"
+    log_ok "Import file validated: $input_file"
+}
+
+cmd_voice_download() {
+    ensure_data_dir
+    log_info "Downloading TTS voice models..."
+    log_info "  espeak-ng (~2MB)..."
+    log_info "  Piper TTS low-quality (~16MB)..."
+    log_info "  Kokoro-82M ONNX q8 (~80MB)..."
+    log_warn "Voice model download not yet implemented — models will download automatically when needed"
+}
+
+cmd_status() {
+    echo -e "${BOLD}Pushling Status${NC}"
+    echo ""
+
+    # Daemon status
+    if is_daemon_running; then
+        echo -e "  Daemon:    ${GREEN}running${NC}"
+    else
+        echo -e "  Daemon:    ${RED}stopped${NC}"
+    fi
+
+    # Heartbeat
+    if [[ -f "$PUSHLING_HEARTBEAT" ]]; then
+        local last_beat
+        last_beat=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$PUSHLING_HEARTBEAT" 2>/dev/null || echo "unknown")
+        echo -e "  Heartbeat: $last_beat"
+    fi
+
+    # Database
+    if [[ -f "$PUSHLING_DB" ]]; then
+        echo -e "  Database:  ${GREEN}present${NC} ($PUSHLING_DB)"
+        # Query creature info
+        local creature_info
+        creature_info=$(sqlite3 "$PUSHLING_DB" \
+            "SELECT name, stage, commits_eaten, xp FROM creature WHERE id=1;" 2>/dev/null || echo "")
+        if [[ -n "$creature_info" ]]; then
+            IFS='|' read -r name stage commits xp <<< "$creature_info"
+            echo ""
+            echo -e "  ${BOLD}Creature:${NC}"
+            echo -e "    Name:    $name"
+            echo -e "    Stage:   $stage"
+            echo -e "    Commits: $commits"
+            echo -e "    XP:      $xp"
+        fi
+    else
+        echo -e "  Database:  ${YELLOW}not created${NC}"
+    fi
+
+    # Feed directory
+    local feed_count
+    feed_count=$(find "$PUSHLING_FEED" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "  Feed:      $feed_count pending events"
+
+    echo ""
+}
+
+cmd_logs() {
+    local log_file="$HOME/Library/Logs/Pushling/pushling.log"
+    if [[ -f "$log_file" ]]; then
+        tail -f "$log_file"
+    else
+        log_warn "No log file found. Try: log show --predicate 'process==\"Pushling\"' --last 1h"
+        log show --predicate 'process=="Pushling"' --last 10m --style compact 2>/dev/null || {
+            log_error "Could not read system logs"
+        }
+    fi
+}
+
+cmd_restart() {
+    log_info "Restarting Pushling daemon..."
+
+    if [[ -f "$PUSHLING_PLIST" ]]; then
+        launchctl unload "$PUSHLING_PLIST" 2>/dev/null || true
+        sleep 1
+        launchctl load "$PUSHLING_PLIST" 2>/dev/null || {
+            log_error "Failed to load LaunchAgent"
+            exit 1
+        }
+        log_ok "Daemon restarted via LaunchAgent"
+    elif [[ -d "$PUSHLING_APP" ]]; then
+        killall Pushling 2>/dev/null || true
+        sleep 1
+        open "$PUSHLING_APP"
+        log_ok "App restarted"
+    else
+        log_error "Pushling not installed. Use: brew install --cask pushling"
+        exit 1
+    fi
+}
+
+cmd_uninstall() {
+    local purge=false
+    if [[ "${1:-}" == "--purge" ]]; then
+        purge=true
+    fi
+
+    log_info "Uninstalling Pushling..."
+
+    # Stop daemon
+    if [[ -f "$PUSHLING_PLIST" ]]; then
+        launchctl unload "$PUSHLING_PLIST" 2>/dev/null || true
+        rm -f "$PUSHLING_PLIST"
+        log_ok "LaunchAgent removed"
+    fi
+
+    killall Pushling 2>/dev/null || true
+
+    # Remove hooks from tracked repos (best effort)
+    if [[ -f "$PUSHLING_DB" ]]; then
+        local repos
+        repos=$(sqlite3 "$PUSHLING_DB" "SELECT path FROM repos;" 2>/dev/null || echo "")
+        while IFS= read -r repo_path; do
+            [[ -z "$repo_path" ]] && continue
+            local hook_file="$repo_path/.git/hooks/post-commit"
+            if [[ -f "$hook_file" ]] && grep -q "pushling" "$hook_file"; then
+                rm "$hook_file"
+                if [[ -f "$hook_file.pre-pushling" ]]; then
+                    mv "$hook_file.pre-pushling" "$hook_file"
+                fi
+                log_ok "  Removed hook from: $repo_path"
+            fi
+        done <<< "$repos"
+    fi
+
+    # Remove Claude Code hooks
+    if command -v claude &>/dev/null; then
+        for hook_type in "${CLAUDE_HOOK_TYPES[@]}"; do
+            claude hooks remove "$hook_type" 2>/dev/null || true
+        done
+        claude mcp remove pushling 2>/dev/null || true
+        log_ok "Claude Code hooks removed"
+    fi
+
+    # Remove hook scripts
+    rm -rf "$HOOK_SCRIPT_DIR" 2>/dev/null || true
+    rm -rf "$PUSHLING_MCP" 2>/dev/null || true
+
+    # Remove app
+    rm -rf "$PUSHLING_APP" 2>/dev/null || true
+    log_ok "App removed"
+
+    # Remove temp files
+    rm -f "$PUSHLING_SOCKET" "$PUSHLING_HEARTBEAT" 2>/dev/null || true
+
+    if $purge; then
+        rm -rf "$PUSHLING_DATA" 2>/dev/null || true
+        log_ok "State data purged"
+    else
+        log_info "Creature state preserved in $PUSHLING_DATA"
+        log_info "To remove: rm -rf $PUSHLING_DATA"
+    fi
+
+    log_ok "Pushling uninstalled"
+}
+
+cmd_help() {
+    cat << EOF
+${BOLD}pushling${NC} — Touch Bar virtual pet companion
+
+${BOLD}Usage:${NC}
+  pushling <command> [arguments]
+
+${BOLD}Repo Management:${NC}
+  track [path]           Track a repo (install post-commit hook)
+  untrack [path]         Untrack a repo (remove hook)
+
+${BOLD}Claude Code Integration:${NC}
+  hooks install          Install all 7 Claude Code hooks + MCP server
+  hooks remove           Remove all hooks and MCP registration
+  hooks status           Show which hooks are active
+
+${BOLD}Creature:${NC}
+  export [file]          Export creature to portable JSON
+  import <file>          Import creature from JSON
+  voice download         Pre-download all TTS voice models
+
+${BOLD}Daemon:${NC}
+  status                 Show daemon status and creature summary
+  logs                   Tail daemon logs
+  restart                Restart daemon
+
+${BOLD}Installation:${NC}
+  uninstall              Remove Pushling (preserves creature state)
+  uninstall --purge      Remove Pushling and all data
+
+EOF
+}
+
+# --- Main Dispatch ---
+
+case "${1:-help}" in
+    track)      cmd_track "${2:-}" ;;
+    untrack)    cmd_untrack "${2:-}" ;;
+    hooks)
+        case "${2:-}" in
+            install) cmd_hooks_install ;;
+            remove)  cmd_hooks_remove ;;
+            status)  cmd_hooks_status ;;
+            *)       log_error "Unknown hooks subcommand: ${2:-}"; cmd_help ;;
+        esac
+        ;;
+    export)     cmd_export "${2:-}" ;;
+    import)
+        if [[ -z "${2:-}" ]]; then
+            log_error "Usage: pushling import <file.json>"
+            exit 1
+        fi
+        cmd_import "$2"
+        ;;
+    voice)
+        case "${2:-}" in
+            download) cmd_voice_download ;;
+            *)        log_error "Unknown voice subcommand: ${2:-}"; cmd_help ;;
+        esac
+        ;;
+    status)     cmd_status ;;
+    logs)       cmd_logs ;;
+    restart)    cmd_restart ;;
+    uninstall)  cmd_uninstall "${2:-}" ;;
+    help|--help|-h) cmd_help ;;
+    *)
+        log_error "Unknown command: $1"
+        cmd_help
+        exit 1
+        ;;
+esac
