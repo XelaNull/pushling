@@ -10,20 +10,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem!
     private var touchBarController: TouchBarController?
+    private var stateCoordinator: StateCoordinator?
+    private var socketServer: SocketServer?
     private var debugOverlayEnabled = false
 
     // MARK: - App Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSLog("[Pushling] Starting up...")
+
+        // 1. State: SQLite database, heartbeat, crash recovery, backups
+        let coordinator = StateCoordinator()
+        do {
+            try coordinator.start()
+            NSLog("[Pushling] State coordinator started")
+        } catch {
+            NSLog("[Pushling] WARNING: State coordinator failed to start: \(error)")
+        }
+        self.stateCoordinator = coordinator
+
+        // 2. IPC: Unix socket server for MCP communication
+        let eventBuffer = EventBuffer()
+        let router = CommandRouter(eventBuffer: eventBuffer)
+        let server = SocketServer(router: router)
+        server.start()
+        self.socketServer = server
+        NSLog("[Pushling] Socket server started at /tmp/pushling.sock")
+
+        // 3. Feed directory: create if needed for hook events
+        let feedDir = NSString(string: "~/.local/share/pushling/feed").expandingTildeInPath
+        try? FileManager.default.createDirectory(atPath: feedDir, withIntermediateDirectories: true)
+
+        // 4. UI: menu bar status item
         setupStatusItem()
+
+        // 5. Touch Bar: SpriteKit scene with creature
         setupTouchBar()
 
-        NSLog("[Pushling] Daemon started — menu bar active, Touch Bar initializing")
+        NSLog("[Pushling] Daemon started — all systems active")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        NSLog("[Pushling] Shutting down — releasing Touch Bar")
+        NSLog("[Pushling] Shutting down...")
         touchBarController?.dismiss()
+        socketServer?.stop()
+        stateCoordinator?.shutdown()
+        NSLog("[Pushling] Clean shutdown complete")
     }
 
     /// Keep the app running even if all windows are closed (there are none).
