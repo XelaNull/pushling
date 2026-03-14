@@ -58,17 +58,12 @@ pushling_timestamp() {
     echo "1970-01-01T00:00:00Z"
 }
 
-# Returns millisecond-precision epoch for unique filenames
+# Returns millisecond-precision epoch for unique filenames.
+# Uses second precision + PID + random for uniqueness (avoids slow python/perl).
 pushling_timestamp_ms() {
-    # macOS date doesn't support %N, use python or perl for ms precision
-    if command -v python3 >/dev/null 2>&1; then
-        python3 -c 'import time; print(int(time.time() * 1000))' 2>/dev/null && return 0
-    fi
-    if command -v perl >/dev/null 2>&1; then
-        perl -MTime::HiRes=time -e 'printf "%d\n", time * 1000' 2>/dev/null && return 0
-    fi
-    # Fallback: second precision with a random suffix for uniqueness
-    echo "$(date +%s)$(( RANDOM % 1000 ))"
+    # Fast path: second precision with PID and random suffix for uniqueness
+    # This avoids spawning python3/perl which adds ~40ms each
+    echo "$(date +%s)$(printf '%03d' $((RANDOM % 1000)))_$$"
 }
 
 # Escapes a string for safe embedding in JSON values.

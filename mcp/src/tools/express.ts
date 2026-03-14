@@ -4,6 +4,10 @@
  * Claude expresses emotions through the creature — joy, curiosity,
  * mischief, love. Each expression has a visual animation that plays
  * with configurable intensity and duration.
+ *
+ * AI-directed expressions transition at 0.3s (faster than autonomous 0.8s)
+ * for a more intentional feel. After duration, expression fades to
+ * autonomous emotional state over 0.8s.
  */
 
 import type { DaemonClient, PendingEvent } from "../ipc.js";
@@ -26,6 +30,26 @@ const VALID_EXPRESSIONS = [
   "melancholy",
   "neutral",
 ] as const;
+
+/** Human-readable description of what each expression looks like */
+const EXPRESSION_DESCRIPTIONS: Record<string, string> = {
+  joy: "eyes bright, ears up, tail high, bouncy step",
+  curiosity: "head tilt, ears rotate independently, eyes widen",
+  surprise: "ears snap back, eyes wide, jump-startle, fur puffs",
+  contentment: "slow-blink, kneading paws, purr particles",
+  thinking: "head slight tilt, one ear forward one back, tail still",
+  mischief: "narrow eyes, low crouch, tail tip twitching",
+  pride: "chest out, chin up, tail high and still",
+  embarrassment: "ears flat, looks away, tail wraps around body",
+  determination: "ears forward, eyes focused, stance widens",
+  wonder: "eyes huge, ears high, mouth slightly open",
+  sleepy: "heavy blinks, yawns, ears droop",
+  love: "slow-blink, headbutt toward screen, purr particles",
+  confusion: "head tilts alternating sides, ear rotates, '?' symbol",
+  excitement: "zoomies trigger, tail poofs, ears wild",
+  melancholy: "tail low, slow movement, muted colors, quiet",
+  neutral: "reset to default idle expression",
+};
 
 export const expressSchema = {
   name: "pushling_express",
@@ -106,18 +130,20 @@ export async function handleExpress(
   if (!daemon.isConnected()) {
     return {
       content:
-        "The Pushling daemon is not running. Your creature's state is readable " +
-        "but it cannot act. Launch Pushling.app to bring it to life.",
+        "Your body cannot express what you feel — the Pushling daemon is not running. " +
+        "Launch Pushling.app to inhabit your creature.",
       pendingEvents: [],
     };
   }
 
+  const actualIntensity = intensity ?? 0.7;
+  const actualDuration = duration ?? 3.0;
+
   try {
     const params: Record<string, unknown> = {
-      expression,
+      intensity: actualIntensity,
+      duration: actualDuration,
     };
-    if (intensity !== undefined) params.intensity = intensity;
-    if (duration !== undefined) params.duration = duration;
 
     const response = await daemon.send("express", expression, params);
     const pendingEvents = response.pending_events ?? [];
@@ -129,13 +155,18 @@ export async function handleExpress(
       };
     }
 
+    const desc = EXPRESSION_DESCRIPTIONS[expression] ?? expression;
+
     return {
       content: JSON.stringify(
         {
-          ok: true,
+          accepted: true,
           expression,
-          intensity: intensity ?? 0.7,
-          duration: duration ?? 3.0,
+          visual: desc,
+          intensity: actualIntensity,
+          duration_s: actualDuration,
+          transition_speed_s: 0.3,
+          fade_to_autonomous_s: 0.8,
           pending_events: pendingEvents,
         },
         null,

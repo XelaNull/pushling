@@ -177,6 +177,26 @@ export interface CommitRecord {
   eaten_at: string;
 }
 
+export interface RepoRecord {
+  id: number;
+  path: string;
+  name: string;
+  landmark_type: string;
+  dominant_language: string | null;
+  world_x_position: number;
+  commit_count: number;
+  analyzed_at: string;
+  created_at: string;
+}
+
+export interface MilestoneRecord {
+  id: string;
+  category: string;
+  earned_at: string | null;
+  data_json: string | null;
+  ceremony_played: number;
+}
+
 // ─── StateReader ─────────────────────────────────────────────────────
 
 export class StateReader {
@@ -356,6 +376,132 @@ export class StateReader {
       return this.db
         .prepare("SELECT * FROM commits ORDER BY eaten_at DESC LIMIT ?")
         .all(count) as CommitRecord[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get today's commit count.
+   */
+  getCommitsToday(): number {
+    if (!this.db) return 0;
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const row = this.db
+        .prepare(
+          "SELECT COUNT(*) as cnt FROM commits WHERE eaten_at >= ?"
+        )
+        .get(todayStart.toISOString()) as { cnt: number } | undefined;
+      return row?.cnt ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Get distinct repos active today.
+   */
+  getReposActiveToday(): string[] {
+    if (!this.db) return [];
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const rows = this.db
+        .prepare(
+          "SELECT DISTINCT repo_name FROM commits WHERE eaten_at >= ?"
+        )
+        .all(todayStart.toISOString()) as { repo_name: string }[];
+      return rows.map((r) => r.repo_name);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get repo landmarks.
+   */
+  getRepos(): RepoRecord[] {
+    if (!this.db) return [];
+    try {
+      return this.db
+        .prepare("SELECT * FROM repos ORDER BY world_x_position ASC")
+        .all() as RepoRecord[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get active world objects near a given X position within a radius.
+   */
+  getObjectsNear(x: number, radius: number): WorldObject[] {
+    if (!this.db) return [];
+    try {
+      return this.db
+        .prepare(
+          "SELECT * FROM world_objects WHERE is_active = 1 " +
+          "AND position_x >= ? AND position_x <= ? ORDER BY position_x ASC"
+        )
+        .all(x - radius, x + radius) as WorldObject[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get the count of active AI-placed objects.
+   */
+  getAIPlacedObjectCount(): number {
+    if (!this.db) return 0;
+    try {
+      const row = this.db
+        .prepare(
+          "SELECT COUNT(*) as cnt FROM world_objects " +
+          "WHERE is_active = 1 AND source = 'ai_placed'"
+        )
+        .get() as { cnt: number } | undefined;
+      return row?.cnt ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Get a taught behavior by name.
+   */
+  getTaughtBehaviorByName(name: string): TaughtBehavior | null {
+    if (!this.db) return null;
+    try {
+      return (
+        (this.db
+          .prepare("SELECT * FROM taught_behaviors WHERE name = ?")
+          .get(name) as TaughtBehavior) ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get milestone data.
+   */
+  getMilestones(category?: string): MilestoneRecord[] {
+    if (!this.db) return [];
+    try {
+      if (category) {
+        return this.db
+          .prepare(
+            "SELECT * FROM milestones WHERE category = ? AND earned_at IS NOT NULL ORDER BY earned_at DESC"
+          )
+          .all(category) as MilestoneRecord[];
+      }
+      return this.db
+        .prepare(
+          "SELECT * FROM milestones WHERE earned_at IS NOT NULL ORDER BY earned_at DESC"
+        )
+        .all() as MilestoneRecord[];
     } catch {
       return [];
     }

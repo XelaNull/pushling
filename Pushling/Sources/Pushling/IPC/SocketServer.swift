@@ -249,9 +249,18 @@ final class SocketServer {
         connectionsLock.unlock()
 
         if let sid = conn.sessionId {
-            let req = IPCRequest(id: UUID().uuidString, cmd: "disconnect",
-                action: nil, params: ["session_id": sid], sessionId: sid)
-            _ = router.route(req)
+            // P4-T4-03: Use handleAbruptDisconnect for socket-level disconnects.
+            // This triggers the abrupt disconnect animation (flicker + fast dissolve)
+            // rather than the clean farewell.
+            if reason == "server shutdown" {
+                // Server shutdown is orderly, route as clean disconnect
+                let req = IPCRequest(id: UUID().uuidString, cmd: "disconnect",
+                    action: nil, params: ["session_id": sid], sessionId: sid)
+                _ = router.route(req)
+            } else {
+                // Socket EOF or error — abrupt disconnect
+                router.handleAbruptDisconnect(sessionId: sid)
+            }
         }
         NSLog("[Pushling:IPC] Client disconnected: \(conn.id) (\(reason))")
     }

@@ -31,13 +31,13 @@ _resolve_lib() {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 
-    # If we're in .git/hooks/, the lib is at the repo's hooks/lib/
-    local lib_path="${script_dir}/../../hooks/lib/pushling-hook-lib.sh"
-    [[ -f "$lib_path" ]] && echo "$lib_path" && return 0
+    # Direct sibling: hooks/lib/ when script is in hooks/
+    local direct_lib="${script_dir}/lib/pushling-hook-lib.sh"
+    [[ -f "$direct_lib" ]] && echo "$direct_lib" && return 0
 
-    # Try the pushling repo location
-    local pushling_lib="${script_dir}/../lib/pushling-hook-lib.sh"
-    [[ -f "$pushling_lib" ]] && echo "$pushling_lib" && return 0
+    # If we're in .git/hooks/, the lib might be at the installed location
+    local git_lib="${script_dir}/../../hooks/lib/pushling-hook-lib.sh"
+    [[ -f "$git_lib" ]] && echo "$git_lib" && return 0
 
     # Try via PUSHLING_HOME env var
     [[ -n "${PUSHLING_HOME:-}" && -f "${PUSHLING_HOME}/hooks/lib/pushling-hook-lib.sh" ]] && \
@@ -51,12 +51,14 @@ if [[ -n "$LIB_PATH" ]]; then
     source "$LIB_PATH"
 else
     # Minimal fallback: define just enough to write the JSON file
-    PUSHLING_FEED_DIR="${HOME}/.local/share/pushling/feed"
-    PUSHLING_SOCKET="/tmp/pushling.sock"
-    exec 2>/dev/null
+    PUSHLING_FEED_DIR="${PUSHLING_FEED_DIR:-${HOME}/.local/share/pushling/feed}"
+    PUSHLING_SOCKET="${PUSHLING_SOCKET:-/tmp/pushling.sock}"
+    # Suppress stderr but don't use exec (preserves caller's stderr)
     pushling_ensure_feed_dir() { mkdir -p "$PUSHLING_FEED_DIR" 2>/dev/null || true; }
     pushling_signal() { return 0; }
-    pushling_json_escape() { echo -n "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' 2>/dev/null || echo -n "$1"; }
+    pushling_json_escape() {
+        local r="$1"; r="${r//\\/\\\\}"; r="${r//\"/\\\"}"; echo -n "$r"
+    }
     pushling_timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "1970-01-01T00:00:00Z"; }
 fi
 
@@ -64,7 +66,9 @@ fi
 
 # Maps file extension to language name
 ext_to_language() {
-    case "${1,,}" in
+    # Direct match first (most extensions are already lowercase)
+    # Only fall back to tr for uppercase cases
+    case "$1" in
         # Systems
         rs) echo "rust" ;; c) echo "c" ;; cpp|cc|cxx) echo "cpp" ;;
         h|hpp|hxx) echo "c_header" ;; go) echo "go" ;; zig) echo "zig" ;;
@@ -80,15 +84,15 @@ ext_to_language() {
         # JVM
         java) echo "java" ;; kt|kts) echo "kotlin" ;; scala) echo "scala" ;;
         groovy) echo "groovy" ;; clj|cljs) echo "clojure" ;;
-        # Mobile
-        swift) echo "swift" ;; m|mm) echo "objc" ;; dart) echo "dart" ;;
+        # Mobile (include common capitalization)
+        swift|Swift) echo "swift" ;; m|mm) echo "objc" ;; dart) echo "dart" ;;
         # JS/TS
         js|mjs|cjs) echo "javascript" ;; ts|mts|cts) echo "typescript" ;;
         # Data
-        sql) echo "sql" ;; ipynb) echo "jupyter" ;;
+        sql|SQL) echo "sql" ;; ipynb) echo "jupyter" ;;
         # Config / Infra
         yaml|yml) echo "yaml" ;; toml) echo "toml" ;; json) echo "json" ;;
-        xml) echo "xml" ;; tf|hcl) echo "terraform" ;;
+        xml|XML) echo "xml" ;; tf|hcl) echo "terraform" ;;
         dockerfile) echo "docker" ;; nix) echo "nix" ;;
         # Docs
         md) echo "markdown" ;; txt) echo "text" ;; rst) echo "rst" ;;
@@ -99,22 +103,23 @@ ext_to_language() {
         ml|mli) echo "ocaml" ;; fs|fsi|fsx) echo "fsharp" ;;
         # Blade templates
         blade.php) echo "blade" ;;
+        # Uppercase variants for common types
+        C) echo "c" ;; H) echo "c_header" ;; R) echo "r" ;;
         *) echo "" ;;
     esac
 }
 
-# Extract unique languages from the list of changed files
+# Extract unique languages from the list of changed files.
+# Uses bash built-ins only (no subprocess per file for speed).
 detect_languages() {
     local files="$1"
-    local languages=""
     local seen=""
 
     while IFS= read -r filepath; do
         [[ -z "$filepath" ]] && continue
 
-        # Get the extension (handle multi-part like .blade.php)
-        local filename
-        filename="$(basename "$filepath")"
+        # Get filename using bash built-in (no subprocess)
+        local filename="${filepath##*/}"
         local ext=""
 
         # Check for multi-part extensions first

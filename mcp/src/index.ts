@@ -127,7 +127,7 @@ server.tool(
     ),
   },
   async (args) => {
-    const result = await handleMove(args, daemon);
+    const result = await handleMove(args, daemon, state);
     const eventsText = formatPendingEvents(result.pendingEvents);
     return {
       content: [{ type: "text", text: result.content + eventsText }],
@@ -227,7 +227,7 @@ server.tool(
     ),
   },
   async (args) => {
-    const result = await handleWorld(args, daemon);
+    const result = await handleWorld(args, daemon, state);
     const eventsText = formatPendingEvents(result.pendingEvents);
     return {
       content: [{ type: "text", text: result.content + eventsText }],

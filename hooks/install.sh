@@ -104,7 +104,7 @@ register_claude_hooks() {
   "hooks": {
     "SessionStart": {
       "command": "${PUSHLING_HOOKS_INSTALL_DIR}/session-start.sh",
-      "timeout_ms": 100,
+      "timeout_ms": 200,
       "capture_stdout": true
     },
     "SessionEnd": {

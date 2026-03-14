@@ -2,7 +2,20 @@
  * pushling_speak — The voice of the creature. Stage-gated.
  *
  * Speech bubbles rendered on the Touch Bar. Each growth stage unlocks
- * more vocabulary. A Spore cannot speak at all. An Apex has full fluency.
+ * more vocabulary. Claude sends a full-intelligence message; the filtering
+ * layer extracts key words to fit stage constraints while preserving
+ * emotional intent.
+ *
+ * Stage limits:
+ *   Spore:   0 chars — cannot speak
+ *   Drop:    1 char (symbols only: ! ? hearts ~ ... music star)
+ *   Critter: 20 chars / 3 words
+ *   Beast:   50 chars / 8 words
+ *   Sage:    80 chars / 20 words
+ *   Apex:    120 chars / 30 words
+ *
+ * Failed speech (content lost in filtering) is logged to the journal
+ * through IPC so Claude can recall what it tried to say.
  */
 
 import type { DaemonClient, PendingEvent } from "../ipc.js";
@@ -21,20 +34,37 @@ const VALID_STYLES = [
 // Stage gates: [maxChars, maxWords]
 const STAGE_LIMITS: Record<string, [number, number]> = {
   spore: [0, 0],
-  drop: [1, 0], // Only symbols: ! ? ♡ ~ ... ♪ ★
+  drop: [6, 0], // symbols only
   critter: [20, 3],
   beast: [50, 8],
   sage: [80, 20],
   apex: [120, 30],
 };
 
-const DROP_SYMBOLS = ["!", "?", "♡", "~", "...", "♪", "★"];
+const DROP_SYMBOLS = ["!", "?", "\u2661", "~", "...", "\u266A", "\u2605", "!?"];
+
+// Stage minimum for each speech style
+const STYLE_STAGE_MIN: Record<string, string> = {
+  say: "drop",
+  think: "drop",
+  exclaim: "drop",
+  whisper: "critter",
+  sing: "beast",
+  dream: "spore", // any stage during sleep
+  narrate: "sage",
+};
+
+const STAGE_ORDER = ["spore", "drop", "critter", "beast", "sage", "apex"];
+
+function stageIndex(stage: string): number {
+  return STAGE_ORDER.indexOf(stage);
+}
 
 export const speakSchema = {
   name: "pushling_speak",
   description:
     "The voice of the creature. Stage-gated — Spore cannot speak, " +
-    "Drop can only use symbols (! ? ♡ ~ ... ♪ ★), Critter gets 3 words, " +
+    "Drop can only use symbols (! ? \u2661 ~ ... \u266A \u2605), Critter gets 3 words, " +
     "and so on up to Apex with full fluency. Choose a style for the speech bubble.",
   inputSchema: {
     type: "object" as const,
@@ -80,66 +110,53 @@ export async function handleSpeak(
   // Check creature stage for gating
   const creature = state.getCreature();
   const stage = creature?.stage ?? "spore";
-  const limits = STAGE_LIMITS[stage] ?? STAGE_LIMITS.spore;
 
   // Spore: cannot speak at all
   if (stage === "spore") {
     return {
       content:
         "You cannot speak yet. You are pure light — no mouth, no voice. " +
-        "You can only pulse and glow. At Drop stage (20 commits), " +
-        "you will gain eyes and symbols.",
+        "You can only pulse and glow. Use pushling_express to communicate through brightness. " +
+        "At Drop stage (20 commits), you will gain eyes and symbols.",
       pendingEvents: [],
     };
   }
 
-  // Drop: only symbols
-  if (stage === "drop") {
-    if (!DROP_SYMBOLS.includes(text)) {
-      return {
-        content:
-          `At Drop stage, you can only express single symbols: ${DROP_SYMBOLS.join(" ")}. ` +
-          `You tried to say "${text}" but your body can only produce symbols right now. ` +
-          `At Critter stage (100 commits), you will gain your first words.`,
-        pendingEvents: [],
-      };
-    }
-  }
-
-  // Narrate requires Sage+
-  if (style === "narrate" && stage !== "sage" && stage !== "apex") {
+  // Check style stage gate
+  const styleMinStage = STYLE_STAGE_MIN[style] ?? "drop";
+  if (stageIndex(stage) < stageIndex(styleMinStage)) {
+    const availableStyles = VALID_STYLES.filter(
+      (s) => stageIndex(stage) >= stageIndex(STYLE_STAGE_MIN[s] ?? "drop")
+    );
     return {
       content:
-        `The 'narrate' style requires Sage stage or higher. ` +
-        `Your current stage is ${stage}. At Sage (2500 commits), ` +
-        `you will unlock environmental narration.`,
+        `The '${style}' style requires ${styleMinStage} stage or higher. ` +
+        `Your current stage is ${stage}. ` +
+        `Available styles at ${stage}: ${availableStyles.join(", ")}.`,
       pendingEvents: [],
     };
   }
 
-  // Validate text length for stage
-  const [maxChars, maxWords] = limits;
-  const wordCount = text.split(/\s+/).length;
-  const truncatedText =
-    text.length > maxChars ? text.slice(0, maxChars) : text;
-  const wasFiltered = text.length > maxChars || wordCount > maxWords;
+  // Apply stage-gated filtering
+  const [maxChars, maxWords] = STAGE_LIMITS[stage] ?? STAGE_LIMITS.spore!;
+  const filtered = filterSpeech(text, stage, maxChars, maxWords);
 
   // Requires daemon
   if (!daemon.isConnected()) {
     return {
       content:
-        "The Pushling daemon is not running. Your creature's state is readable " +
-        "but it cannot act. Launch Pushling.app to bring it to life.",
+        "Your body is still — the Pushling daemon is not running. " +
+        "Launch Pushling.app to inhabit your creature and speak.",
       pendingEvents: [],
     };
   }
 
   try {
     const params: Record<string, unknown> = {
-      text: truncatedText,
+      text: filtered.spoken,
       style,
     };
-    if (wasFiltered) {
+    if (filtered.contentLost) {
       params.intended_text = text;
     }
 
@@ -154,15 +171,24 @@ export async function handleSpeak(
     }
 
     const result: Record<string, unknown> = {
-      ok: true,
-      rendered: truncatedText,
+      accepted: true,
+      spoken: filtered.spoken,
       style,
+      stage,
+      max_chars: maxChars,
+      max_words: maxWords,
       pending_events: pendingEvents,
     };
 
-    if (wasFiltered) {
+    if (filtered.contentLost) {
       result.intended = text;
-      result.note = `Your ${stage} body can express ${maxChars} characters / ${maxWords} words. The full message was logged as failed_speech.`;
+      result.filtered = true;
+      result.content_lost = true;
+      result.note =
+        `Your ${stage} body can express ${maxChars} characters / ${maxWords} words. ` +
+        `The full message was logged as failed_speech in your journal.`;
+    } else {
+      result.filtered = filtered.spoken !== text;
     }
 
     return {
@@ -175,4 +201,268 @@ export async function handleSpeak(
       pendingEvents: [],
     };
   }
+}
+
+// ─── Speech filtering ─────────────────────────────────────────────────
+
+interface FilterResult {
+  spoken: string;
+  contentLost: boolean;
+}
+
+/**
+ * Filter text to fit stage constraints while preserving emotional intent.
+ *
+ * Drop: Match emotional intent to a single symbol.
+ * Critter: Extract 1-3 key words + punctuation.
+ * Beast: Extract 1-8 key words, preserve some sentence structure.
+ * Sage: Light trimming to 20 words.
+ * Apex: Pass through (up to 120 chars / 30 words).
+ */
+function filterSpeech(
+  text: string,
+  stage: string,
+  maxChars: number,
+  maxWords: number
+): FilterResult {
+  // Drop: symbol only
+  if (stage === "drop") {
+    return filterToSymbol(text);
+  }
+
+  // Apex: minimal filtering — just enforce limits
+  if (stage === "apex") {
+    return filterApex(text, maxChars, maxWords);
+  }
+
+  // Critter/Beast/Sage: content-aware extraction
+  return filterContentAware(text, maxChars, maxWords);
+}
+
+/**
+ * Drop stage: map emotional intent to a single symbol.
+ */
+function filterToSymbol(text: string): FilterResult {
+  // If the input is already a valid symbol, use it directly
+  if (DROP_SYMBOLS.includes(text.trim())) {
+    return { spoken: text.trim(), contentLost: false };
+  }
+
+  const lower = text.toLowerCase();
+
+  // Detect emotional intent and map to symbol
+  const positiveWords = [
+    "happy", "good", "great", "love", "like", "nice", "wonderful",
+    "beautiful", "awesome", "thank", "thanks", "yes", "yay", "joy",
+    "morning", "hello", "hi", "hey", "welcome", "proud", "amazing",
+  ];
+  const questionWords = [
+    "what", "how", "why", "when", "where", "who", "which", "?",
+    "wonder", "curious", "question",
+  ];
+  const excitementWords = [
+    "wow", "amazing", "incredible", "awesome", "fantastic", "exciting",
+    "!", "whoa", "look", "see", "watch", "cool", "excellent",
+  ];
+  const sadWords = [
+    "sad", "sorry", "miss", "bad", "wrong", "unfortunately", "fail",
+    "broken", "error", "bug", "oops",
+  ];
+  const musicWords = [
+    "sing", "song", "music", "melody", "hum", "tune", "la", "tra",
+  ];
+  const thoughtWords = [
+    "think", "hmm", "maybe", "perhaps", "consider", "ponder",
+    "wondering", "interesting",
+  ];
+
+  if (musicWords.some((w) => lower.includes(w))) {
+    return { spoken: "\u266A", contentLost: true };
+  }
+  if (positiveWords.some((w) => lower.includes(w))) {
+    return { spoken: "\u2661", contentLost: true };
+  }
+  if (excitementWords.some((w) => lower.includes(w))) {
+    return { spoken: "!", contentLost: true };
+  }
+  if (questionWords.some((w) => lower.includes(w))) {
+    return { spoken: "?", contentLost: true };
+  }
+  if (sadWords.some((w) => lower.includes(w))) {
+    return { spoken: "...", contentLost: true };
+  }
+  if (thoughtWords.some((w) => lower.includes(w))) {
+    return { spoken: "~", contentLost: true };
+  }
+
+  // If the text ends with ! or ?
+  if (text.trim().endsWith("!")) {
+    return { spoken: "!", contentLost: true };
+  }
+  if (text.trim().endsWith("?")) {
+    return { spoken: "?", contentLost: true };
+  }
+
+  // Default: star (general expression)
+  return { spoken: "\u2605", contentLost: true };
+}
+
+/**
+ * Apex: pass through with minimal length enforcement.
+ */
+function filterApex(
+  text: string,
+  maxChars: number,
+  maxWords: number
+): FilterResult {
+  const words = text.split(/\s+/);
+  if (text.length <= maxChars && words.length <= maxWords) {
+    return { spoken: text, contentLost: false };
+  }
+
+  // Trim words first, then chars
+  let trimmed = words.slice(0, maxWords).join(" ");
+  if (trimmed.length > maxChars) {
+    trimmed = trimmed.slice(0, maxChars).trimEnd();
+    // Try not to cut mid-word
+    const lastSpace = trimmed.lastIndexOf(" ");
+    if (lastSpace > maxChars * 0.6) {
+      trimmed = trimmed.slice(0, lastSpace);
+    }
+  }
+
+  return {
+    spoken: trimmed,
+    contentLost: trimmed !== text,
+  };
+}
+
+/**
+ * Content-aware filtering for Critter/Beast/Sage.
+ * Extracts the most important words while preserving emotional intent.
+ */
+function filterContentAware(
+  text: string,
+  maxChars: number,
+  maxWords: number
+): FilterResult {
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+
+  // If already within limits, pass through
+  if (text.length <= maxChars && words.length <= maxWords) {
+    return { spoken: text, contentLost: false };
+  }
+
+  // Score each word by importance
+  const scored = words.map((word, index) => ({
+    word,
+    index,
+    score: scoreWord(word, index, words.length),
+  }));
+
+  // Sort by score descending, take top N words
+  const topWords = scored
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxWords);
+
+  // Restore original order
+  topWords.sort((a, b) => a.index - b.index);
+
+  // Build output respecting char limit
+  let result = "";
+  for (const item of topWords) {
+    const candidate = result ? result + " " + item.word : item.word;
+    if (candidate.length > maxChars) break;
+    result = candidate;
+  }
+
+  // Add punctuation based on original text's tone
+  if (result.length > 0 && result.length < maxChars) {
+    if (text.includes("!") && !result.endsWith("!")) {
+      result += "!";
+    } else if (text.includes("?") && !result.endsWith("?")) {
+      result += "?";
+    }
+  }
+
+  // Clean up any trailing/leading punctuation issues
+  result = result.trim();
+
+  return {
+    spoken: result,
+    contentLost: result.length < text.length * 0.8,
+  };
+}
+
+/**
+ * Score a word's importance for extraction.
+ * Higher = more important, more likely to be kept.
+ */
+function scoreWord(word: string, index: number, totalWords: number): number {
+  let score = 0;
+  const lower = word.toLowerCase().replace(/[^a-z]/g, "");
+
+  // ─── Content words score higher ─────────────────────────────
+  // Common stop words score low
+  const stopWords = new Set([
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+    "should", "may", "might", "must", "can", "could", "am", "to", "of",
+    "in", "for", "on", "with", "at", "by", "from", "as", "into", "that",
+    "this", "it", "its", "and", "but", "or", "not", "no", "so", "if",
+    "than", "too", "very", "just", "about", "up", "out", "also",
+  ]);
+
+  if (stopWords.has(lower)) {
+    score -= 5;
+  } else {
+    score += 3;
+  }
+
+  // ─── Nouns and key content words ────────────────────────────
+  // Capitalized words (not at sentence start) are likely proper nouns
+  if (index > 0 && word[0] === word[0]?.toUpperCase() && word[0] !== word[0]?.toLowerCase()) {
+    score += 4;
+  }
+
+  // Technical words (common in dev context) get a boost
+  const techWords = new Set([
+    "code", "bug", "fix", "error", "test", "build", "deploy", "merge",
+    "commit", "branch", "release", "feature", "auth", "api", "data",
+    "config", "server", "client", "refactor", "debug", "function",
+    "module", "component", "database", "query", "cache", "performance",
+  ]);
+  if (techWords.has(lower)) {
+    score += 3;
+  }
+
+  // Emotional words get high priority (preserve intent)
+  const emotionWords = new Set([
+    "good", "great", "bad", "happy", "sad", "love", "hate", "nice",
+    "wonderful", "terrible", "awesome", "beautiful", "ugly", "proud",
+    "sorry", "thanks", "thank", "please", "help", "amazing", "wow",
+    "cool", "elegant", "broken", "perfect", "morning", "night",
+    "hello", "hi", "bye", "yes", "no", "ok", "ready", "done",
+  ]);
+  if (emotionWords.has(lower)) {
+    score += 5;
+  }
+
+  // ─── Position bias ──────────────────────────────────────────
+  // First and last words are often important
+  if (index === 0) score += 2;
+  if (index === totalWords - 1) score += 1;
+
+  // ─── Length heuristic ───────────────────────────────────────
+  // Very short words are usually less important (except emotional ones)
+  if (lower.length <= 2 && !emotionWords.has(lower)) score -= 2;
+  // Medium-length words tend to be content words
+  if (lower.length >= 4 && lower.length <= 8) score += 1;
+
+  // ─── Punctuation words ──────────────────────────────────────
+  // Words with ! or ? attached carry emphasis
+  if (word.includes("!") || word.includes("?")) score += 2;
+
+  return score;
 }

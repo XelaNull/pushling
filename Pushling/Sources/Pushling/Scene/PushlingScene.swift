@@ -4,6 +4,7 @@
 // Integrates WorldManager for terrain, parallax, biomes, and landmarks.
 // Hosts the CreatureNode — the living Pushling creature.
 // P3-T3: Integrates HUD overlay, evolution progress bar, and visual polish systems.
+// P4-T4: Diamond indicator for Claude's session presence.
 
 import SpriteKit
 
@@ -41,6 +42,18 @@ final class PushlingScene: SKScene {
 
     /// Near-evolution progress bar — 1pt bar at bottom edge.
     let evolutionProgressBar = EvolutionProgressBar()
+
+    // MARK: - Session Lifecycle (P4-T4)
+
+    /// Diamond indicator — Claude's presence near the creature.
+    private(set) var diamondIndicator: DiamondIndicator?
+
+    /// Session lifecycle reaction coordinator.
+    private(set) var sessionReactions: SessionLifecycleReactions?
+
+    /// Idle timeout update throttle — check every 0.5s, not every frame.
+    private var idleTimeoutAccumulator: TimeInterval = 0
+    private static let idleTimeoutInterval: TimeInterval = 0.5
 
     // MARK: - Debug Overlay
 
@@ -143,6 +156,16 @@ final class PushlingScene: SKScene {
 
         // 5. UI — evolution progress bar pulse (P3-T3-07)
         evolutionProgressBar.update(deltaTime: deltaTime)
+
+        // 6. Diamond indicator — per-frame animation (P4-T4-01)
+        diamondIndicator?.update(deltaTime: deltaTime)
+
+        // 7. Idle timeout gradient check — throttled to every 0.5s (P4-T4-04)
+        idleTimeoutAccumulator += deltaTime
+        if idleTimeoutAccumulator >= Self.idleTimeoutInterval {
+            idleTimeoutAccumulator = 0
+            updateSessionIdleTimeout()
+        }
 
         // End frame timing and check budget
         frameBudgetMonitor.endFrame()
@@ -286,7 +309,23 @@ final class PushlingScene: SKScene {
         )
         self.behaviorStack = stack
 
-        NSLog("[Pushling] Creature node active — %d nodes | Behavior stack ready",
+        // P4-T4-01: Diamond indicator — Claude's presence near the creature.
+        // Added as child of creature so it follows automatically.
+        let diamond = DiamondIndicator()
+        creature.addChild(diamond)
+        diamond.setup()
+        self.diamondIndicator = diamond
+
+        // P4-T4: Session lifecycle reactions coordinator
+        let reactions = SessionLifecycleReactions(
+            diamond: diamond,
+            reflexLayer: stack.reflexes,
+            aiDirectedLayer: stack.aiDirected
+        )
+        self.sessionReactions = reactions
+
+        NSLog("[Pushling] Creature node active — %d nodes | Behavior stack ready"
+              + " | Diamond indicator ready",
               creature.countNodes())
     }
 
@@ -340,6 +379,33 @@ final class PushlingScene: SKScene {
     func onSatisfactionChanged(_ satisfaction: Double) {
         worldManager.updateSatisfaction(satisfaction)
         hudOverlay.updateSatisfaction(satisfaction)
+    }
+
+    // MARK: - Session Lifecycle (P4-T4)
+
+    /// The session manager reference — set via wireSessionManager().
+    private weak var sessionManager: SessionManager?
+
+    /// Wire the SessionManager's event handler to the scene's reaction coordinator.
+    /// Call this after the scene is set up and the CommandRouter is initialized.
+    func wireSessionManager(_ sessionManager: SessionManager) {
+        self.sessionManager = sessionManager
+        guard let reactions = sessionReactions else {
+            NSLog("[Pushling] Warning: sessionReactions not ready when wiring SessionManager")
+            return
+        }
+        sessionManager.onSessionEvent = { [weak reactions] event in
+            reactions?.handleSessionEvent(event)
+        }
+        NSLog("[Pushling] SessionManager wired to scene reactions")
+    }
+
+    /// Checks idle timeout gradient and updates diamond opacity.
+    /// Called every 0.5s from the update loop (P4-T4-04).
+    private func updateSessionIdleTimeout() {
+        guard let sm = sessionManager, sm.isSessionActive else { return }
+        let opacity = sm.updateIdleTimeout()
+        diamondIndicator?.setIdleOpacity(opacity)
     }
 
     // MARK: - Behavior Output Application

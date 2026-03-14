@@ -6,12 +6,14 @@ import Foundation
 
 /// Routes incoming IPC commands to their handler functions.
 /// Manages session state and delegates event buffer operations.
+/// Session lifecycle is managed by SessionManager (P4-T4).
 final class CommandRouter {
 
     typealias Handler = (IPCRequest) -> IPCResult
 
     private var handlers: [String: Handler] = [:]
     private let eventBuffer: EventBuffer
+    let sessionManager: SessionManager
     private var activeSessions: Set<String> = []
     private let sessionsLock = NSLock()
 
@@ -42,8 +44,9 @@ final class CommandRouter {
                      "suggest", "list", "remove"]
     ]
 
-    init(eventBuffer: EventBuffer) {
+    init(eventBuffer: EventBuffer, sessionManager: SessionManager = SessionManager()) {
         self.eventBuffer = eventBuffer
+        self.sessionManager = sessionManager
         registerAllHandlers()
     }
 
@@ -76,6 +79,13 @@ final class CommandRouter {
                 error: "Unknown action '\(action)' for command '\(request.cmd)'. Valid: \(valid.joined(separator: ", "))",
                 code: "UNKNOWN_ACTION")
         }
+
+        // Track commands with session manager for idle timeout (P4-T4-04)
+        let sessionCmds: Set<String> = ["connect", "disconnect", "ping"]
+        if !sessionCmds.contains(request.cmd) {
+            sessionManager.recordCommand()
+        }
+
         return handler(request)
     }
 
@@ -86,32 +96,54 @@ final class CommandRouter {
     // MARK: - Session Handlers
 
     private func handleConnect(_ req: IPCRequest) -> IPCResult {
-        let sessionId = UUID().uuidString
-        sessionsLock.lock()
-        activeSessions.insert(sessionId)
-        sessionsLock.unlock()
-        eventBuffer.addSession(sessionId)
-        NSLog("[Pushling:IPC] Session started: \(sessionId)")
+        // P4-T4-02/05: Session connect via SessionManager (single-session enforcement)
+        let result = sessionManager.startSession()
 
-        return .success([
-            "session_id": sessionId,
-            "protocol_version": "1.0",
-            "creature": placeholderCreature
-        ])
+        // If session was accepted, track in event buffer and legacy set
+        if result.ok, let sessionId = result.data["session_id"] as? String {
+            sessionsLock.lock()
+            activeSessions.insert(sessionId)
+            sessionsLock.unlock()
+            eventBuffer.addSession(sessionId)
+
+            // Add creature state to response
+            var responseData = result.data
+            responseData["creature"] = placeholderCreature
+            return .success(responseData)
+        }
+
+        return result
     }
 
     private func handleDisconnect(_ req: IPCRequest) -> IPCResult {
         let sid = req.params["session_id"] as? String ?? req.sessionId ?? ""
-        sessionsLock.lock()
-        let removed = activeSessions.remove(sid)
-        sessionsLock.unlock()
+        let reason = req.params["reason"] as? String
 
-        guard removed != nil else {
-            return .failure(error: "Session '\(sid)' not found.", code: "SESSION_NOT_FOUND")
-        }
+        // P4-T4-03: Determine disconnect reason
+        let disconnectReason: DisconnectReason = (reason == "abrupt") ? .abrupt : .clean
+
+        // End session via SessionManager
+        sessionManager.endSession(sessionId: sid, reason: disconnectReason)
+
+        // Clean up legacy tracking
+        sessionsLock.lock()
+        activeSessions.remove(sid)
+        sessionsLock.unlock()
         eventBuffer.removeSession(sid)
-        NSLog("[Pushling:IPC] Session ended: \(sid)")
+
         return .success(["farewell": true])
+    }
+
+    /// Called when a socket connection drops unexpectedly (P4-T4-03).
+    /// This is invoked by SocketServer when it detects EOF on a client
+    /// that has an active session.
+    func handleAbruptDisconnect(sessionId: String) {
+        sessionManager.endSession(sessionId: sessionId, reason: .abrupt)
+
+        sessionsLock.lock()
+        activeSessions.remove(sessionId)
+        sessionsLock.unlock()
+        eventBuffer.removeSession(sessionId)
     }
 
     private func handlePing(_ req: IPCRequest) -> IPCResult {
