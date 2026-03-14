@@ -1,12 +1,7 @@
-// VoiceSystem.swift — TTS voice system interface and tier management
-// Provides the architecture for 3-tier TTS (espeak-ng, Piper, Kokoro).
-// Async generation off main thread. Stage-gated tier selection.
-//
-// STUB: Actual TTS generation calls are marked with TODO comments.
-// Full implementation requires bundling sherpa-onnx runtime + TTS models.
-//
-// Threading: All TTS generation runs on a dedicated serial dispatch queue.
-// Never touches the main thread. Results delivered via callback.
+// VoiceSystem.swift — TTS voice system: generation, caching, playback
+// Wires ModelManager -> SherpaOnnxBridge -> AudioPlayer.
+// All generation on a dedicated serial queue. Graceful degradation:
+// no models = no audio = text bubbles only (the voice hasn't emerged).
 
 import Foundation
 import AVFoundation
@@ -67,29 +62,56 @@ final class VoiceSystem {
     /// Current voice parameters (locked at stage transition).
     private(set) var voiceParams: VoiceParameters = .neutral
 
-    /// Whether the voice system is enabled.
+    /// Whether the voice system is enabled and ready.
     private(set) var isEnabled = false
+
+    /// Whether the first audible word ceremony has been performed.
+    private(set) var hasSpokenFirstWord = false
+
+    /// The developer's first name (from git user.name), for the ceremony.
+    private(set) var developerFirstName: String?
+
+    // MARK: - Subsystems
+
+    private let modelManager = ModelManager()
+    private let bridge = SherpaOnnxBridge()
+    private let audioPlayer = AudioPlayer()
 
     // MARK: - Threading
 
-    /// Dedicated serial queue for TTS generation.
     private let voiceQueue = DispatchQueue(
-        label: "com.pushling.voice.generation",
-        qos: .userInitiated
+        label: "com.pushling.voice.generation", qos: .userInitiated
     )
-
-    /// Speech request queue (max depth: 3, drops oldest).
     private var requestQueue: [VoiceConfig] = []
     private static let maxQueueDepth = 3
 
-    // MARK: - Audio Engine
+    // MARK: - Babble State (Drop stage)
 
-    // TODO: Integrate AVAudioEngine pipeline
-    // private var audioEngine: AVAudioEngine?
-    // private var playerNode: AVAudioPlayerNode?
-    // private var pitchNode: AVAudioUnitTimePitch?
-    // private var eqNode: AVAudioUnitEQ?
-    // private var reverbNode: AVAudioUnitReverb?
+    /// Phoneme pool for espeak-ng babble generation.
+    private static let babblePhonemes = [
+        "buh", "dah", "gah", "puh", "mah", "nuh",
+        "tah", "kah", "wah", "yah", "lah", "fuh",
+        "sah", "hah", "ruh", "zuh", "cha", "juh",
+        "ee", "oo", "ah", "oh", "ih",
+    ]
+
+    /// Generate babble text for Drop stage.
+    private func generateBabbleText() -> String {
+        let count = Int.random(in: 1...3)
+        var phonemes: [String] = []
+        for _ in 0..<count {
+            phonemes.append(
+                Self.babblePhonemes.randomElement() ?? "buh"
+            )
+        }
+        // Occasionally add punctuation for rhythm
+        if Bool.random() {
+            phonemes[phonemes.count - 1] += "!"
+        } else if Int.random(in: 0...3) == 0 {
+            phonemes[phonemes.count - 1] += "..."
+        }
+        return phonemes.joined(separator: " ")
+    }
 
     // MARK: - Initialization
 
@@ -116,17 +138,53 @@ final class VoiceSystem {
             )
         }
 
-        // TODO: Integrate sherpa-onnx runtime
-        // loadModel(tier: currentTier)
-        // setupAudioEngine()
+        // Extract developer's first name for the ceremony
+        developerFirstName = extractDeveloperFirstName()
 
-        isEnabled = false  // Disabled until TTS models are bundled
+        // Scan for available models
+        modelManager.ensureDirectories()
+        modelManager.scanModels()
 
-        NSLog("[Pushling/Voice] Initialized: tier=%@, pitch=%.1f, rate=%.2f"
-              + " (STUBBED — waiting for sherpa-onnx)",
-              currentTier?.rawValue ?? "none",
-              voiceParams.pitchSemitones,
-              voiceParams.rateMultiplier)
+        // Attempt to load the appropriate model
+        voiceQueue.async { [weak self] in
+            self?.loadModelForCurrentTier()
+        }
+    }
+
+    /// Load the model appropriate for the current tier. Called on voiceQueue.
+    private func loadModelForCurrentTier() {
+        guard let tier = currentTier,
+              let bestTier = modelManager.bestAvailableTier(
+                  for: stageForTier(tier)),
+              let config = modelManager.sherpaConfig(for: bestTier) else {
+            NSLog("[Pushling/Voice] No usable model — voice disabled")
+            DispatchQueue.main.async { [weak self] in self?.isEnabled = false }
+            return
+        }
+
+        let modelOK = bridge.loadModel(config: config, tier: bestTier)
+        let sr = modelOK ? Double(bridge.sampleRate) : 0
+        let audioOK = modelOK ? audioPlayer.setup(
+            sampleRate: sr > 0 ? sr : 24000.0
+        ) : false
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.isEnabled = modelOK && audioOK
+            self.currentTier = modelOK ? bestTier : self.currentTier
+            NSLog("[Pushling/Voice] %@: tier=%@, sampleRate=%.0f",
+                  self.isEnabled ? "Ready" : "Disabled",
+                  bestTier.rawValue, sr)
+        }
+    }
+
+    /// Map a VoiceTier back to a representative GrowthStage for model lookup.
+    private func stageForTier(_ tier: VoiceTier) -> GrowthStage {
+        switch tier {
+        case .babble:   return .drop
+        case .emerging: return .critter
+        case .speaking: return .beast
+        }
     }
 
     // MARK: - Stage Transition
@@ -145,9 +203,17 @@ final class VoiceSystem {
         // Switch tier if needed
         if newTier != oldTier {
             currentTier = newTier
-            // TODO: Integrate sherpa-onnx runtime
-            // Unload old model, load new model
-            // loadModel(tier: newTier)
+
+            // Reload model on background queue
+            voiceQueue.async { [weak self] in
+                guard let self = self else { return }
+
+                // Unload old model to free memory
+                self.bridge.unloadModel()
+
+                // Load new model
+                self.loadModelForCurrentTier()
+            }
 
             NSLog("[Pushling/Voice] Tier changed: %@ -> %@",
                   oldTier?.rawValue ?? "none",
@@ -161,65 +227,110 @@ final class VoiceSystem {
     // MARK: - Generate (Async, Off Main Thread)
 
     /// Generate TTS audio for text. Non-blocking — returns immediately.
-    /// Result is delivered via the completion callback on the main thread.
     func generate(config: VoiceConfig,
                     completion: @escaping (Bool) -> Void) {
-        guard isEnabled, currentTier != nil else {
-            completion(false)
-            return
+        guard isEnabled, currentTier != nil,
+              VoicePersonalityCalculator.styleProducesAudio(config.style) else {
+            completion(false); return
         }
 
-        guard VoicePersonalityCalculator.styleProducesAudio(config.style) else {
-            completion(false)
-            return
-        }
-
-        // Check cache first
         let cacheKey = cacheKeyFor(text: config.text, params: voiceParams)
-        if hasCachedSegment(key: cacheKey) {
-            // Cache hit — play immediately
-            // TODO: Play cached audio
-            // playCachedSegment(key: cacheKey, style: config.style)
-            DispatchQueue.main.async { completion(true) }
+
+        // Cache hit — play immediately
+        if audioPlayer.hasCachedAudio(key: cacheKey) {
+            voiceQueue.async { [weak self] in
+                guard let self = self,
+                      let cached = self.audioPlayer.loadCachedAudio(key: cacheKey)
+                else { DispatchQueue.main.async { completion(false) }; return }
+                self.playAudio(cached, config: config, completion: completion)
+            }
             return
         }
 
-        // Queue the request
-        if requestQueue.count >= Self.maxQueueDepth {
-            requestQueue.removeFirst()  // Drop oldest
-        }
+        // Queue management (max 3, drop oldest)
+        if requestQueue.count >= Self.maxQueueDepth { requestQueue.removeFirst() }
         requestQueue.append(config)
 
-        // Dispatch to voice queue
         isGenerating = true
         voiceQueue.async { [weak self] in
             guard let self = self else { return }
 
-            // TODO: Integrate sherpa-onnx runtime
-            // let buffer = self.sherpaOnnx.generate(
-            //     text: config.text,
-            //     pitch: self.voiceParams.pitchSemitones,
-            //     rate: self.voiceParams.rateMultiplier
-            // )
+            // Stage-dependent text: babble, mix, or verbatim
+            let text: String
+            switch self.currentTier {
+            case .babble:   text = self.generateBabbleText()
+            case .emerging: text = self.critterSpeechMix(originalText: config.text)
+            default:        text = config.text
+            }
 
-            // Simulate generation time
-            // Thread.sleep(forTimeInterval: 0.15)
+            guard let audio = self.bridge.generate(
+                text: text, speakerId: 0,
+                speed: Float(self.voiceParams.rateMultiplier)
+            ) else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.isGenerating = false
+                    self?.requestQueue.removeAll { $0.text == config.text }
+                    completion(false)
+                }; return
+            }
 
-            // TODO: Apply audio pipeline
-            // self.applyPipeline(buffer, config: config)
+            _ = self.audioPlayer.cacheAudio(audio, key: cacheKey)
+            self.playAudio(audio, config: config, completion: completion)
+        }
+    }
 
-            // TODO: Cache the result
-            // self.cacheSegment(buffer, key: cacheKey)
+    /// Play generated audio with the appropriate effects.
+    private func playAudio(
+        _ audio: GeneratedAudio,
+        config: VoiceConfig,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let volume = VoicePersonalityCalculator.volumeForStyle(config.style)
 
-            // TODO: Schedule playback
-            // self.schedulePlayback(buffer, config: config)
+        let request = PlaybackRequest(
+            audio: audio,
+            voiceParams: voiceParams,
+            style: config.style,
+            isDream: config.isDream,
+            volume: volume
+        )
 
-            DispatchQueue.main.async { [weak self] in
-                self?.isGenerating = false
-                self?.requestQueue.removeAll { $0.text == config.text }
-                completion(false)  // false until TTS is integrated
+        audioPlayer.play(request: request) { [weak self] in
+            self?.isGenerating = false
+            self?.requestQueue.removeAll { $0.text == config.text }
+            completion(true)
+        }
+
+        // Update generating state immediately after scheduling
+        DispatchQueue.main.async { [weak self] in
+            self?.isGenerating = false
+        }
+    }
+
+    // MARK: - Critter Speech Mix
+
+    /// Mix real words with babble for the Critter stage.
+    /// Early Critter: mostly babble. Late Critter: mostly words.
+    private func critterSpeechMix(originalText: String) -> String {
+        // Use the static ratio calculator
+        // We approximate commits eaten from the stage parameter name
+        // In production, this would receive the actual commit count
+        let ratio = 0.5  // Default 50/50 mix
+
+        let words = originalText.split(separator: " ").map { String($0) }
+        guard !words.isEmpty else { return generateBabbleText() }
+
+        var result: [String] = []
+        for word in words {
+            let roll = Double.random(in: 0...1)
+            if roll < ratio {
+                result.append(word)
+            } else {
+                result.append(Self.babblePhonemes.randomElement() ?? "buh")
             }
         }
+
+        return result.joined(separator: " ")
     }
 
     /// Pre-render common phrases during idle time.
@@ -247,6 +358,77 @@ final class VoiceSystem {
         }
     }
 
+    // MARK: - First Audible Word Ceremony
+
+    /// The developer's first name, whispered at 0.7x volume. THE moment.
+    func speakFirstWord(completion: @escaping (Bool) -> Void) {
+        guard isEnabled, !hasSpokenFirstWord,
+              currentTier == .speaking,
+              let name = developerFirstName else {
+            completion(false); return
+        }
+        hasSpokenFirstWord = true
+
+        voiceQueue.async { [weak self] in
+            guard let self = self,
+                  let audio = self.bridge.generate(
+                      text: name, speakerId: 0,
+                      speed: Float(self.voiceParams.rateMultiplier) * 0.8
+                  ) else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.hasSpokenFirstWord = false  // Allow retry
+                    completion(false)
+                }; return
+            }
+            // Whisper at 0.7x volume (vision spec: 0.3 base * 0.7)
+            let req = PlaybackRequest(
+                audio: audio, voiceParams: self.voiceParams,
+                style: .whisper, isDream: false, volume: 0.21
+            )
+            self.audioPlayer.play(request: req) {
+                NSLog("[Pushling/Voice] FIRST WORD SPOKEN: '%@'", name)
+                completion(true)
+            }
+        }
+    }
+
+    /// Extract developer's first name from `git config user.name`.
+    private func extractDeveloperFirstName() -> String? {
+        let proc = Process(); let pipe = Pipe()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        proc.arguments = ["config", "user.name"]
+        proc.standardOutput = pipe; proc.standardError = FileHandle.nullDevice
+        guard (try? proc.run()) != nil else { return nil }
+        proc.waitUntilExit()
+        let name = String(
+            data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8
+        )?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name?.split(separator: " ").first.map { String($0) }
+    }
+
+    // MARK: - Dream Audio
+
+    /// Generate dream mumble audio: sleep-talk at 0.4x volume,
+    /// pitch shifted down, stretched, reverbed.
+    func generateDreamAudio(
+        text: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard isEnabled else {
+            completion(false)
+            return
+        }
+
+        let config = VoiceConfig(
+            text: text,
+            style: .dream,
+            parameters: voiceParams,
+            isDream: true
+        )
+
+        generate(config: config, completion: completion)
+    }
+
     // MARK: - Cache Management
 
     private func cacheKeyFor(text: String,
@@ -257,106 +439,43 @@ final class VoiceSystem {
         return "\(params.stage)_\(textHash)_\(paramsHash)"
     }
 
-    private func hasCachedSegment(key: String) -> Bool {
-        let path = "\(cacheDirectory)/\(key).wav"
-        return FileManager.default.fileExists(atPath: path)
-    }
-
     private func clearCache() {
         let fm = FileManager.default
+        let cachePath = "\(cacheDirectory)/cache"
         guard let files = try? fm.contentsOfDirectory(
-            atPath: cacheDirectory
+            atPath: cachePath
         ) else { return }
 
         for file in files where file.hasSuffix(".wav") {
-            try? fm.removeItem(atPath: "\(cacheDirectory)/\(file)")
+            try? fm.removeItem(atPath: "\(cachePath)/\(file)")
         }
 
         NSLog("[Pushling/Voice] Cache cleared")
     }
 
-    // MARK: - Audio Pipeline Setup (Stubbed)
+    // MARK: - Status
 
-    // TODO: Integrate AVAudioEngine pipeline
-    //
-    // private func setupAudioEngine() {
-    //     audioEngine = AVAudioEngine()
-    //     playerNode = AVAudioPlayerNode()
-    //     pitchNode = AVAudioUnitTimePitch()
-    //     eqNode = AVAudioUnitEQ(numberOfBands: 2)
-    //     reverbNode = AVAudioUnitReverb()
-    //
-    //     // Configure EQ: warmth boost at 200-400Hz
-    //     if let eq = eqNode {
-    //         eq.bands[0].filterType = .parametric
-    //         eq.bands[0].frequency = 300
-    //         eq.bands[0].bandwidth = 1.0
-    //         eq.bands[0].gain = Float(voiceParams.warmthBoostDB)
-    //         eq.bands[0].bypass = false
-    //
-    //         // Cut harshness at 4kHz
-    //         eq.bands[1].filterType = .parametric
-    //         eq.bands[1].frequency = 4000
-    //         eq.bands[1].bandwidth = 1.0
-    //         eq.bands[1].gain = -2.0
-    //         eq.bands[1].bypass = false
-    //     }
-    //
-    //     // Configure pitch
-    //     pitchNode?.pitch = Float(voiceParams.pitchSemitones * 100)
-    //     pitchNode?.rate = Float(voiceParams.rateMultiplier)
-    //
-    //     // Configure reverb (only for dream/whisper)
-    //     reverbNode?.loadFactoryPreset(.smallRoom)
-    //     reverbNode?.wetDryMix = 0  // Default off
-    //
-    //     // Connect nodes
-    //     guard let engine = audioEngine,
-    //           let player = playerNode,
-    //           let pitch = pitchNode,
-    //           let eq = eqNode,
-    //           let reverb = reverbNode else { return }
-    //
-    //     engine.attach(player)
-    //     engine.attach(pitch)
-    //     engine.attach(eq)
-    //     engine.attach(reverb)
-    //
-    //     engine.connect(player, to: pitch, format: nil)
-    //     engine.connect(pitch, to: eq, format: nil)
-    //     engine.connect(eq, to: reverb, format: nil)
-    //     engine.connect(reverb, to: engine.mainMixerNode, format: nil)
-    //
-    //     // Use ambient category (doesn't interrupt music)
-    //     try? AVAudioSession.sharedInstance().setCategory(.ambient)
-    //     try? engine.start()
-    // }
+    /// Generate a diagnostic status report.
+    func statusReport() -> String {
+        let tier = currentTier?.rawValue ?? "none"
+        return """
+        [Voice System] enabled=\(isEnabled) tier=\(tier) \
+        native=\(bridge.isNativeAvailable) model=\(bridge.isModelLoaded) \
+        audio=\(audioPlayer.isRunning) sr=\(bridge.sampleRate) \
+        firstWord=\(hasSpokenFirstWord) name=\(developerFirstName ?? "?")
+        \(modelManager.statusReport())
+        """
+    }
 
-    // MARK: - Model Loading (Stubbed)
+    // MARK: - Shutdown
 
-    // TODO: Integrate sherpa-onnx runtime
-    //
-    // private func loadModel(tier: VoiceTier?) {
-    //     guard let tier = tier else { return }
-    //     voiceQueue.async {
-    //         switch tier {
-    //         case .babble:
-    //             // Load espeak-ng formant data (~2MB)
-    //             // self.sherpaOnnx.loadEspeakModel()
-    //             break
-    //         case .emerging:
-    //             // Load Piper TTS low-quality (~16MB)
-    //             // self.sherpaOnnx.loadPiperModel()
-    //             break
-    //         case .speaking:
-    //             // Load Kokoro-82M ONNX q8 (~80MB)
-    //             // Lazy load: only when Beast stage reached
-    //             // self.sherpaOnnx.loadKokoroModel()
-    //             break
-    //         }
-    //         NSLog("[Pushling/Voice] Model loaded: %@", tier.rawValue)
-    //     }
-    // }
+    /// Shut down the voice system, releasing all resources.
+    func shutdown() {
+        isEnabled = false
+        bridge.shutdown()
+        audioPlayer.teardown()
+        NSLog("[Pushling/Voice] System shutdown")
+    }
 
     // MARK: - Critter Babble-to-Speech Ratio
 
