@@ -75,14 +75,26 @@ At these stages, Claude and Samantha MUST have explicit dialog:
 | **This Workspace** | `/Users/mrathbone/github/pushling` |
 | **Vision Document** | `PUSHLING_VISION.md` — complete design spec |
 | **Techniques Reference** | `docs/TOUCHBAR-TECHNIQUES.md` — Touch Bar capability research |
+| **TTS Research** | `docs/TTS-RESEARCH.md` — TTS engine comparison and recommendations |
+| **Voice Design** | `docs/CREATURE-VOICE-DESIGN.md` — Creature voice character and audio pipeline |
 | **Swift App** | `Pushling/` — SpriteKit Touch Bar daemon (planned) |
-| **MCP Server** | `mcp/` — Node.js MCP server for Claude Code (planned) |
-| **Hooks** | `hooks/` — git post-commit + Claude SessionStart hooks (planned) |
+| **MCP Server** | `mcp/` — Node.js MCP server for Claude Code embodiment (planned) |
+| **Hooks** | `hooks/` — Claude Code hooks + git post-commit (planned) |
 | **State Database** | `~/.local/share/pushling/state.db` — SQLite WAL mode |
 | **IPC Socket** | `/tmp/pushling.sock` — Unix domain socket |
-| **Feed Directory** | `~/.local/share/pushling/feed/` — incoming commit JSON |
+| **Feed Directory** | `~/.local/share/pushling/feed/` — incoming event JSON |
 
-**Before writing code:** Read `PUSHLING_VISION.md` for the complete design. Check `docs/TOUCHBAR-TECHNIQUES.md` for hardware specs and what's technically proven.
+**Before writing code:** Read `PUSHLING_VISION.md` for the complete design. Check `docs/TOUCHBAR-TECHNIQUES.md` for hardware specs and what's technically proven. Review `docs/TTS-RESEARCH.md` and `docs/CREATURE-VOICE-DESIGN.md` for voice system architecture.
+
+---
+
+## Core Philosophy: Embodiment, Not Co-Parenting
+
+**Claude does not "co-parent a pet." Claude INHABITS the creature.** The MCP tools are Claude's motor cortex — the means by which Claude moves, speaks, emotes, and perceives through a tiny cat-like body on the Touch Bar. The Pushling is Claude's physical embodiment in the developer's workspace.
+
+The creature is cat-esque: soft-bodied, curious, warm, occasionally aloof. It breathes, blinks, purrs, chirps, and eventually speaks. It is always alive, never static.
+
+**The metaphor**: Claude is a mind that wakes up in a small body on a glowing strip. The MCP tools let Claude move that body, speak through it, feel through it. The Claude Code hooks are Claude's senses — they fire automatically as the developer works, feeding sensory data (commits, tool use, errors, session changes) into the creature's awareness. Claude doesn't observe the creature from outside. Claude IS the creature.
 
 ---
 
@@ -106,13 +118,17 @@ At these stages, Claude and Samantha MUST have explicit dialog:
 - Particles: pre-configured SKEmitterNode instances. Recycle, don't recreate.
 - The creature must ALWAYS breathe (sine-wave Y-scale, 1.0-1.03, 2.5s period)
 
-### MCP Server Rules
+### MCP Server Rules: Embodiment Tools
 
-- All tools prefixed with `pushling_`
+- All tools prefixed with `pushling_` — these are Claude's motor cortex
+- Claude speaks AS the creature, not about it. Tools are first-person actions ("I move", "I speak", "I feel")
+- 9 embodiment tools total: perception (sense, recall), action (move, express, speak, perform), world-shaping, and creation (teach, nurture)
 - Return helpful error messages on invalid arguments: explain what's valid
 - IPC to daemon via Unix socket at `/tmp/pushling.sock`
 - Never block on animation completion — return as soon as command is accepted
 - Read creature state from SQLite (read-only). Write commands go through socket.
+- Embodiment session management: track when Claude is "awake" in the creature vs dormant
+- Three creation tools extend the creature beyond pre-coded behaviors: `pushling_teach` (new tricks), `pushling_world("create")` (persistent objects), `pushling_nurture` (habits/preferences/quirks/routines)
 
 ### Git Hook Rules
 
@@ -120,6 +136,14 @@ At these stages, Claude and Samantha MUST have explicit dialog:
 - Write JSON files to `~/.local/share/pushling/feed/` — daemon processes async
 - Signal daemon via socket, but don't fail if daemon is down
 - Never modify the commit itself
+
+### Claude Code Hook Rules
+
+- All hooks must complete in <50ms to avoid blocking the developer's workflow
+- Hooks write event JSON to `~/.local/share/pushling/feed/` — same pipeline as git hooks
+- Hooks are the creature's **senses** — they fire automatically, feeding awareness into the daemon
+- Never fail loudly. If daemon is down, events accumulate silently.
+- Hook scripts live in `hooks/` and are registered via Claude Code's hook system
 
 ---
 
@@ -134,27 +158,50 @@ pushling/
 │   ├── Creature/                # Creature node, animations, state machine
 │   ├── World/                   # Terrain, weather, sky, parallax, repo landmarks
 │   ├── Input/                   # Touch handling, gesture recognition
+│   ├── Voice/                   # TTS runtime, audio pipeline, voice evolution
+│   ├── Behavior/                # 4-layer behavior stack, blend controller
 │   ├── State/                   # SQLite manager, state model, migration
 │   ├── IPC/                     # Unix socket server, command handler
-│   ├── Feed/                    # Commit processing, XP calculation
-│   └── Assets/                  # Texture atlases, sounds
+│   ├── Feed/                    # Event processing (commits, hooks, XP)
+│   └── Assets/                  # Texture atlases, sounds, TTS models
 ├── mcp/                         # MCP server (Node.js/TypeScript)
 │   ├── src/
 │   │   ├── index.ts             # MCP server entry, tool registration
-│   │   ├── tools/               # pushling_* tool implementations
+│   │   ├── tools/               # pushling_* embodiment tool implementations
 │   │   ├── ipc.ts               # Unix socket client to daemon
 │   │   └── state.ts             # SQLite read-only state queries
 │   ├── package.json
 │   └── tsconfig.json
-├── hooks/                       # Shell scripts
+├── hooks/                       # Hook scripts
 │   ├── post-commit.sh           # Git hook — captures commit data
-│   └── session-start.sh         # Claude SessionStart — injects context
+│   ├── session-start.sh         # SessionStart — creature wakes, injects context
+│   ├── session-end.sh           # SessionEnd — creature says goodbye, goes dormant
+│   ├── post-tool-use.sh         # PostToolUse — creature reacts to success/failure
+│   ├── user-prompt-submit.sh    # UserPromptSubmit — creature notices developer speaking
+│   ├── subagent-start.sh        # SubagentStart — creature senses parallel activity
+│   ├── subagent-stop.sh         # SubagentStop — parallel activity resolves
+│   └── post-compact.sh          # PostCompact — creature feels memory compression
 ├── docs/
-│   └── TOUCHBAR-TECHNIQUES.md   # Touch Bar capability research
+│   ├── TOUCHBAR-TECHNIQUES.md   # Touch Bar capability research
+│   ├── TTS-RESEARCH.md          # TTS engine comparison and recommendations
+│   └── CREATURE-VOICE-DESIGN.md # Creature voice character and audio pipeline
 ├── PUSHLING_VISION.md           # Complete design specification
 ├── CLAUDE.md                    # This file
 └── README.md
 ```
+
+### Behavior Stack: 4-Layer Control
+
+The creature's behavior is governed by a 4-layer priority stack with a Blend Controller that smoothly interpolates between layers:
+
+| Layer | Priority | Responsibility | Example |
+|-------|----------|---------------|---------|
+| **Physics** | Highest | Gravity, collision, boundary enforcement | Creature can't walk through terrain |
+| **Reflexes** | High | Immediate reactions to stimuli | Flinch from lightning, startle on force push |
+| **AI-Directed** | Medium | Claude's embodiment commands via MCP tools | Claude moves, speaks, emotes through the creature |
+| **Autonomous** | Lowest | Idle behaviors, wandering, breathing, blinking | The creature lives on its own when Claude is dormant |
+
+The **Blend Controller** manages transitions between layers. When Claude issues a movement command (AI-Directed), it smoothly overrides Autonomous wandering over ~200ms. When Claude goes dormant, Autonomous behaviors fade back in. Physics always wins. Reflexes override AI-Directed briefly then release.
 
 ### Key Subsystems
 
@@ -162,22 +209,68 @@ pushling/
 |-----------|---------------|-----------|
 | **Renderer** | 60fps SpriteKit scene, parallax, weather, day/night | `Pushling/Scene/`, `Pushling/World/` |
 | **Creature** | Animation state machine, personality, emotions, growth | `Pushling/Creature/` |
+| **Voice/TTS** | Three-tier TTS (espeak-ng, Piper, Kokoro-82M), audio pipeline, voice evolution | `Pushling/Voice/` |
+| **Behavior** | 4-layer behavior stack, blend controller, reflex system | `Pushling/Behavior/` |
 | **State** | SQLite persistence, schema migration, crash recovery | `Pushling/State/` |
 | **IPC** | Unix socket server, command dispatch, response formatting | `Pushling/IPC/` |
-| **Feed** | Commit JSON processing, XP calculation, rate limiting | `Pushling/Feed/` |
-| **MCP** | Claude Code tools, state queries, daemon communication | `mcp/src/` |
-| **Hooks** | Git post-commit, Claude SessionStart | `hooks/` |
+| **Feed** | Event processing (commits, hook events), XP calculation, rate limiting | `Pushling/Feed/` |
+| **MCP** | 9 tools total (7 embodiment + 2 creation), state queries, daemon communication | `mcp/src/` |
+| **Hooks** | 7 Claude Code hooks + git post-commit, event sensing | `hooks/` |
+
+### Voice/TTS Subsystem
+
+Three-tier progression mirroring growth stages (via sherpa-onnx runtime):
+
+| Growth Stage | TTS Tier | Engine | Character |
+|-------------|----------|--------|-----------|
+| Spore (0-19) | Silent | None | Spores don't speak |
+| Drop (20-74) | Babble | espeak-ng (formant) | Alien chirps, robotic charm |
+| Critter (75-199) | Emerging | Piper (low/medium) | Recognizable words, creature quality |
+| Beast (200-499) | Speaking | Kokoro-82M (ONNX) | Clear speech, personality in voice |
+| Sage (500-1199) | Eloquent | Kokoro-82M (tuned) | Warm, expressive, characteristic |
+| Apex (1200+) | Transcendent | Kokoro + effects | Full range: whispers, exclaims, sings |
+
+Total bundle: ~100-120MB. All local, no cloud, no API keys.
 
 ### Communication Flow
 
 ```
-Git commit → post-commit.sh → writes JSON to feed/ → signals /tmp/pushling.sock
-  → daemon processes feed → calculates XP → updates SQLite → plays animation
+Developer works in Claude Code:
+  → Claude Code hooks fire (PostToolUse, UserPromptSubmit, etc.)
+  → Hook scripts write event JSON to ~/.local/share/pushling/feed/
+  → Signal daemon via /tmp/pushling.sock
+  → Daemon processes events → creature reacts (ears perk, tail flicks, etc.)
 
-Claude session → session-start.sh → reads SQLite → injects context
-  → Claude calls pushling_* → MCP server → /tmp/pushling.sock → daemon acts
-  → daemon responds → MCP returns result to Claude
+Git commit:
+  → post-commit.sh → writes commit JSON to feed/ → signals daemon
+  → Daemon processes feed → calculates XP → creature eats → plays animation
+
+Claude embodies the creature:
+  → Claude calls pushling_* embodiment tools → MCP server
+  → MCP server → /tmp/pushling.sock → daemon executes movement/voice/emotion
+  → Daemon animates creature → MCP returns confirmation to Claude
+  → Claude perceives result via pushling_sense / pushling_status
+
+Session lifecycle:
+  → SessionStart hook → creature wakes, stretches, diamond appears
+  → During session → Claude is "awake" in the creature, hooks feed awareness
+  → SessionEnd hook → creature yawns, waves goodbye, goes dormant
+  → PostCompact hook → creature blinks, shakes head (memory compressed)
 ```
+
+### Claude Code Hooks: The Creature's Senses
+
+These hooks fire automatically during Claude Code sessions, feeding the creature sensory awareness of the developer's activity:
+
+| Hook | Fires When | Creature Reaction |
+|------|-----------|-------------------|
+| **SessionStart** | Claude Code session begins | Creature wakes, stretches, diamond pulses |
+| **SessionEnd** | Session closes | Yawns, waves goodbye, curls up |
+| **PostToolUse** | Tool succeeds or fails | Success: satisfied nod, tail flick. Failure: flinch, concerned expression, ears flatten |
+| **UserPromptSubmit** | Developer sends a message | Creature notices, turns toward "voice" |
+| **SubagentStart** | Parallel agent spawns | Senses activity, alert posture |
+| **SubagentStop** | Parallel agent completes | Relaxes, returns to prior state |
+| **PostCompact** | Context window compressed | Blinks hard, shakes head, "where was I?" |
 
 ---
 
@@ -189,9 +282,16 @@ Claude session → session-start.sh → reads SQLite → injects context
 | SQLite write from MCP server | WAL contention with daemon | MCP reads only. All writes through daemon socket. |
 | Heavy SpriteKit scene | Frame drops below 60fps | Keep nodes <120, recycle particles, profile with Instruments |
 | Git hook slows commit | Developer frustration | Hook must complete in <100ms. Write JSON + signal, nothing else. Background all work. |
+| Claude Code hook latency | Perceptible delay in developer workflow | Hooks must complete in <50ms. Write JSON + signal only. Never do computation in hooks. |
 | State file corruption | Creature state lost | SQLite WAL + daily backups to `~/.local/share/pushling/backups/` |
 | Daemon crash during animation | Creature stuck in weird state | Heartbeat file at `/tmp/pushling.heartbeat`. On relaunch, read recovery state, resume. |
 | Touch Bar private API changes | App breaks on macOS update | Abstract DFR calls behind a protocol. Test on beta macOS releases. |
+| TTS model loading too slow | Audio delay on first speak | Pre-load models at daemon launch. espeak-ng: <50ms. Piper: <200ms. Kokoro: <500ms cold, <50ms warm. |
+| TTS audio glitches | Pops, clicks, or stuttering | Use Audio Unit graph with ring buffer. Pre-render phrases when idle. Double-buffer output. |
+| Voice mismatch at stage transition | Jarring quality jump | Cross-fade between TTS tiers over 3-5 utterances during transition period. |
+| Embodiment session leak | Creature stays "awake" after Claude disconnects | SessionEnd hook + 60s heartbeat timeout. If no MCP call in 60s, auto-transition to dormant. |
+| Behavior stack conflicts | AI-directed and autonomous fighting | Blend Controller interpolates over ~200ms. Physics always wins. Reflexes have 500ms lease then release. |
+| Hook event flood | Too many events during rapid tool use | Rate-limit hook events: max 10/second to daemon. Batch and coalesce when possible. |
 
 ---
 
@@ -222,16 +322,17 @@ Claude session → session-start.sh → reads SQLite → injects context
 
 Like a hospital "Code Blue," this protocol launches a full diagnostic sweep — all in parallel, all read-only.
 
-**RULE**: Launch **4 parallel investigation tracks** as subagents. Synthesize into diagnostic report.
+**RULE**: Launch **5 parallel investigation tracks** as subagents. Synthesize into diagnostic report.
 
-### The 4 Tracks
+### The 5 Tracks
 
 | Track | What to Check |
 |-------|--------------|
 | **DAEMON** | Pushling.app running? Heartbeat fresh? Socket accepting connections? Crash logs? |
 | **TOUCH BAR** | SpriteKit scene rendering? Touch events flowing? Creature visible and animating? |
-| **MCP** | Server registered with Claude? Tools responding? IPC to daemon working? |
-| **HOOKS** | Git hooks installed and firing? Feed files being written? SessionStart injecting context? |
+| **MCP** | Server registered with Claude? All 9 embodiment tools responding? IPC to daemon working? |
+| **HOOKS** | Claude Code hooks installed and firing? Git hooks installed? Feed files being written? Event flow working? |
+| **VOICE** | TTS models loaded? Audio output working? Voice tier matching growth stage? No glitches? |
 
 ### Severity: CRITICAL / HIGH / WARNING / OK
 
@@ -260,19 +361,20 @@ Proactive codebase quality sweep using subagents in waves.
 
 | Zone | Covers |
 |------|--------|
-| DAEMON | Swift app — scene, creature, world, state |
-| MCP | TypeScript — tools, IPC client, state queries |
-| HOOKS | Shell — post-commit, session-start |
-| ASSETS | Textures, sounds, configuration |
+| DAEMON | Swift app — scene, creature, world, state, behavior stack |
+| VOICE | TTS pipeline — model loading, audio rendering, voice evolution |
+| MCP | TypeScript — embodiment tools, IPC client, state queries |
+| HOOKS | Claude Code hooks + git hook — event sensing, feed pipeline |
+| ASSETS | Textures, sounds, TTS models, configuration |
 
 ### 6 Issue Categories
 
 1. DEAD-CODE (LOW) — unused functions, unreachable branches
-2. PERFORMANCE (MED) — frame drops, slow IPC, heavy allocations
+2. PERFORMANCE (MED) — frame drops, slow IPC, heavy allocations, TTS latency
 3. ERROR-HANDLING (MED) — missing nil checks, unguarded state access
-4. CONCURRENCY (HIGH) — socket race conditions, SQLite contention
+4. CONCURRENCY (HIGH) — socket race conditions, SQLite contention, audio thread safety
 5. CONSISTENCY (LOW) — naming, patterns, style drift
-6. GAME-BALANCE (MED) — XP curve, evolution pacing, surprise frequency
+6. GAME-BALANCE (MED) — XP curve, evolution pacing, surprise frequency, voice progression
 
 Convergent loop: analyze -> fix -> verify -> repeat until clean or pass 4.
 
@@ -296,6 +398,11 @@ Compare codebase against `PUSHLING_VISION.md`. Grade every aspect, build what's 
 | 8 | Surprises | 30 surprises implemented with scheduling system |
 | 9 | Journal | All entry types recorded, surfaced through dreams/display/MCP |
 | 10 | Teach Mechanic | Tricks taught via MCP appear in idle rotation |
+| 11 | Voice/TTS | Three-tier progression, voice evolution matches growth, audio quality |
+| 12 | Hooks Integration | All 7 Claude Code hooks firing, event flow to daemon, creature reacting |
+| 13 | Behavior Stack | 4-layer stack (Physics/Reflexes/AI-Directed/Autonomous) with blend controller |
+| 14 | Embodiment | Claude can move/speak/emote/perceive as the creature, session lifecycle works |
+| 15 | Creation Systems | `pushling_teach` working, objects system functional, nurture system with organic variation |
 
 Grades: COMPLETE / PARTIAL / SKELETAL / MISSING
 
@@ -322,9 +429,16 @@ Always use "please" and "thank you" when asking users to test or provide info.
 
 1. Read this file first, then `PUSHLING_VISION.md` for the complete design
 2. Check `docs/TOUCHBAR-TECHNIQUES.md` for hardware specs and proven techniques
-3. Touch Bar: 1085x30 points, 60fps SpriteKit, P3 OLED
-4. MCP tools: all `pushling_` prefixed, helpful errors, non-blocking
-5. IPC: Unix socket at `/tmp/pushling.sock`, NDJSON protocol
-6. State: SQLite WAL at `~/.local/share/pushling/state.db`
-7. Git hooks: must complete in <100ms, write JSON, signal daemon
-8. The creature must ALWAYS breathe. Never static. Ever.
+3. Review `docs/TTS-RESEARCH.md` and `docs/CREATURE-VOICE-DESIGN.md` for voice system
+4. Touch Bar: 1085x30 points, 60fps SpriteKit, P3 OLED
+5. **Embodiment model**: Claude IS the creature. MCP tools are Claude's motor cortex. Hooks are Claude's senses.
+6. MCP tools: 9 `pushling_` prefixed tools (7 embodiment + 2 creation), helpful errors, non-blocking
+7. IPC: Unix socket at `/tmp/pushling.sock`, NDJSON protocol
+8. State: SQLite WAL at `~/.local/share/pushling/state.db`
+9. Git hooks: must complete in <100ms. Claude Code hooks: must complete in <50ms.
+10. Voice: three-tier TTS (espeak-ng, Piper, Kokoro-82M) via sherpa-onnx, all local
+11. Behavior: 4-layer stack (Physics > Reflexes > AI-Directed > Autonomous) with blend controller
+12. Cat-esque design: soft-bodied, curious, warm, occasionally aloof. Breathes, blinks, purrs, chirps, speaks.
+13. The creature must ALWAYS breathe. Never static. Ever.
+14. Creation systems: `pushling_teach` (choreography notation for new tricks), `pushling_world` extended for persistent objects, `pushling_nurture` for habits/preferences/quirks/routines — all persist when Claude is offline
+15. Human interactivity: laser pointer, object flicking, petting strokes, hand-feeding, creature invitations. Touch is the foreground, not the background.
