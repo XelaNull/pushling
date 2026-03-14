@@ -1,6 +1,8 @@
 // PushlingScene.swift — Main SpriteKit scene for the Touch Bar
 // Size: 1085 x 30 points (2170 x 60 pixels @2x Retina)
 // Runs at 60fps with frame budget monitoring.
+// Integrates WorldManager for terrain, parallax, biomes, and landmarks.
+// Hosts the CreatureNode — the living Pushling creature.
 
 import SpriteKit
 
@@ -11,24 +13,62 @@ final class PushlingScene: SKScene {
     private let frameBudgetMonitor = FrameBudgetMonitor()
     private var lastUpdateTime: TimeInterval = 0
 
+    // MARK: - World System
+
+    /// The world rendering system — parallax, terrain, biomes, landmarks, tinting.
+    let worldManager = WorldManager()
+
+    // MARK: - Creature
+
+    /// The Pushling creature — composite SKNode with all body parts.
+    private(set) var creatureNode: CreatureNode?
+
+    /// Creature world-X position for camera tracking.
+    private var creatureWorldX: CGFloat = 542.5
+    private var creatureWalkSpeed: CGFloat = 20.0  // pts/sec
+    private var creatureDirection: CGFloat = 1.0   // 1.0 = right, -1.0 = left
+
     // MARK: - Debug Overlay
 
     private var debugOverlayNode: SKLabelNode?
     private var isDebugOverlayVisible = false
-
-    // MARK: - Test Node (Phase 1 visual confirmation)
-
-    private var testNode: SKShapeNode?
 
     // MARK: - Lifecycle
 
     override func didMove(to view: SKView) {
         super.didMove(to: view)
 
-        setupTestNode()
+        // Set scene background to OLED true black
+        backgroundColor = .black
+
+        // Initialize the world system
+        setupWorld()
+
+        // Setup the creature (replaces Phase 1 test node)
+        setupCreature()
+
         setupDebugOverlay()
 
         NSLog("[Pushling] Scene active — \(Int(size.width))x\(Int(size.height))pt")
+    }
+
+    // MARK: - World Setup
+
+    private func setupWorld() {
+        var config = WorldConfig()
+        config.specialty = "polyglot"
+        config.initialCreatureX = creatureWorldX
+        // Landmarks will be loaded from SQLite in future phases.
+        // For now, add a few demo landmarks to prove the system works.
+        worldManager.setup(scene: self, config: config)
+
+        // Demo landmarks (will be replaced by SQLite reads)
+        worldManager.addRepoLandmark(repoName: "pushling",
+                                     landmarkType: .windmill)
+        worldManager.addRepoLandmark(repoName: "web-app",
+                                     landmarkType: .neonTower)
+        worldManager.addRepoLandmark(repoName: "api-server",
+                                     landmarkType: .fortress)
     }
 
     // MARK: - Update Loop
@@ -46,14 +86,17 @@ final class PushlingScene: SKScene {
         // Start frame timing
         frameBudgetMonitor.beginFrame()
 
-        // === Subsystem update order (skeleton for Phase 2+) ===
+        // === Subsystem update order ===
         // 1. Physics — collision detection, force application
         updatePhysics(deltaTime: deltaTime)
 
         // 2. State — creature AI, emotional state, growth checks
         updateState(deltaTime: deltaTime)
 
-        // 3. Render — animation advancement, particle updates, camera
+        // 3. World — parallax, terrain recycling, chunk management
+        updateWorld(deltaTime: deltaTime)
+
+        // 4. Render — creature animations (breathing, blink, tail sway)
         updateRender(deltaTime: deltaTime)
 
         // End frame timing and check budget
@@ -65,44 +108,84 @@ final class PushlingScene: SKScene {
         }
     }
 
-    // MARK: - Subsystem Stubs (Phase 2+)
+    // MARK: - Subsystem Updates
 
-    /// Phase 2: Physics — collision detection, creature jump arcs, rain particles
+    /// Physics — collision detection, creature jump arcs, rain particles.
     private func updatePhysics(deltaTime: TimeInterval) {
-        // Intentionally empty — Phase 2
+        // Intentionally empty — Phase 2 Track 2
     }
 
-    /// Phase 2: State — creature AI, emotions, hunger, growth
+    /// State — creature AI, emotions, hunger, growth.
     private func updateState(deltaTime: TimeInterval) {
-        // Intentionally empty — Phase 2
+        // Intentionally empty — Phase 2 Track 2
     }
 
-    /// Phase 2: Render — animation frames, parallax, weather, camera
+    /// World — parallax scrolling, terrain generation/recycling, biomes.
+    private func updateWorld(deltaTime: TimeInterval) {
+        // Simulate creature walking
+        simulateCreatureWalk(deltaTime: deltaTime)
+
+        // Update world system with current camera position
+        worldManager.update(deltaTime: deltaTime, trackedX: creatureWorldX)
+
+        // Position the creature on the terrain surface
+        if let creature = creatureNode {
+            let terrainY = worldManager.terrainHeightAt(worldX: creatureWorldX)
+            let config = StageConfiguration.all[creature.currentStage]!
+            creature.position = CGPoint(
+                x: creatureWorldX,
+                y: terrainY + config.size.height / 2
+            )
+        }
+    }
+
+    /// Render — creature per-frame animations (breathing, blink, tail sway).
     private func updateRender(deltaTime: TimeInterval) {
-        // Intentionally empty — Phase 2
+        creatureNode?.update(deltaTime: deltaTime)
     }
 
-    // MARK: - Test Node
+    // MARK: - Creature Walking Simulation
 
-    /// A small visible node to confirm SpriteKit rendering works on the Touch Bar.
-    /// This will be replaced by the creature node in Phase 2.
-    private func setupTestNode() {
-        let node = SKShapeNode(circleOfRadius: 8)
-        node.fillColor = SKColor.white
-        node.strokeColor = SKColor.clear
-        node.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        node.name = "testNode"
+    /// Simulates the creature walking back and forth through the world.
+    /// Will be replaced by the behavior stack's autonomous walk in Track 2.
+    private func simulateCreatureWalk(deltaTime: TimeInterval) {
+        creatureWorldX += creatureWalkSpeed * creatureDirection
+            * CGFloat(deltaTime)
 
-        // Gentle breathing animation — the creature must ALWAYS breathe
-        let breatheUp = SKAction.scaleY(to: 1.03, duration: 1.25)
-        breatheUp.timingMode = .easeInEaseOut
-        let breatheDown = SKAction.scaleY(to: 1.0, duration: 1.25)
-        breatheDown.timingMode = .easeInEaseOut
-        let breathe = SKAction.sequence([breatheUp, breatheDown])
-        node.run(SKAction.repeatForever(breathe), withKey: "breathe")
+        // Reverse direction at world boundaries (for demo)
+        if creatureWorldX > 5000 {
+            creatureDirection = -1.0
+            creatureNode?.setFacing(.left)
+        } else if creatureWorldX < -1000 {
+            creatureDirection = 1.0
+            creatureNode?.setFacing(.right)
+        }
+    }
 
-        addChild(node)
-        self.testNode = node
+    // MARK: - Creature Setup
+
+    /// Initialize the Pushling creature and add it to the scene.
+    /// Replaces the Phase 1 test node with a real composite creature.
+    private func setupCreature() {
+        let creature = CreatureNode()
+
+        // Default to critter stage for visual testing
+        // (will be read from SQLite in production)
+        creature.configureForStage(.critter)
+
+        creature.position = CGPoint(x: creatureWorldX, y: 15)
+        creature.zPosition = 10  // Above terrain objects
+
+        // Add to foreground layer (not scene root) so it scrolls
+        if let foreLayer = worldManager.parallax.foreLayer {
+            foreLayer.addChild(creature)
+        } else {
+            addChild(creature)
+        }
+        self.creatureNode = creature
+
+        NSLog("[Pushling] Creature node active — %d nodes",
+              creature.countNodes())
     }
 
     // MARK: - Debug Overlay
@@ -138,8 +221,16 @@ final class PushlingScene: SKScene {
         let stats = frameBudgetMonitor.currentStats
         let fpsStr = String(format: "%.0f", stats.fps)
         let frameTimeStr = String(format: "%.1f", stats.averageFrameTimeMs)
-        let nodeCount = children.count
+        let totalNodes = countAllNodes(in: self)
+        let worldNodes = worldManager.worldNodeCount
+        let biome = worldManager.currentBiome(at: creatureWorldX)
 
-        debugOverlayNode?.text = "\(fpsStr)fps | \(frameTimeStr)ms | \(nodeCount) nodes"
+        debugOverlayNode?.text = "\(fpsStr)fps | \(frameTimeStr)ms | "
+            + "\(totalNodes)n | w:\(worldNodes) | \(biome.rawValue)"
+    }
+
+    /// Recursively counts all nodes in the scene tree.
+    private func countAllNodes(in node: SKNode) -> Int {
+        return 1 + node.children.reduce(0) { $0 + countAllNodes(in: $1) }
     }
 }
