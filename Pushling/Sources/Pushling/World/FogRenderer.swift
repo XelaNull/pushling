@@ -12,7 +12,7 @@ import SpriteKit
 // MARK: - Fog Layer Config
 
 /// Configuration for a single fog strip.
-private struct FogLayerConfig {
+fileprivate struct FogLayerConfig {
     let baseAlpha: CGFloat     // Resting alpha at full density
     let driftSpeed: CGFloat    // Horizontal drift in pts/sec (negative = left)
     let yPosition: CGFloat     // Vertical center of the strip
@@ -69,7 +69,7 @@ final class FogStripNode: SKNode {
     /// Current horizontal offset for drift.
     private var driftOffset: CGFloat = 0
 
-    init(config: FogLayerConfig) {
+    fileprivate init(config: FogLayerConfig) {
         self.config = config
 
         let stripSize = CGSize(width: Self.sceneWidth + Self.overlapWidth, height: config.height)

@@ -282,7 +282,7 @@ final class BehaviorSelector {
     private var performanceCount: [String: Int] = [:]
 
     /// When any behavior was last performed (global cooldown).
-    private var lastAnyBehavior: TimeInterval = -Self.globalCooldown
+    private var lastAnyBehavior: TimeInterval = -30.0
 
     /// Current scene time (updated each frame).
     private var currentTime: TimeInterval = 0

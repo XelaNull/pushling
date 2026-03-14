@@ -69,7 +69,7 @@ final class EvolutionCeremony {
         guard let creature = creature else { return }
 
         NSLog("[Pushling/Evolution] Beginning ceremony: %@ → %@",
-              fromStage.rawValue, toStage.rawValue)
+              "\(fromStage)", "\(toStage)")
 
         let container = SKNode()
         container.name = "evolution_ceremony"
@@ -325,7 +325,7 @@ final class EvolutionCeremony {
         let banner = SKLabelNode(fontNamed: "Menlo-Bold")
         banner.fontSize = 8
         banner.fontColor = PushlingPalette.gilt
-        banner.text = toStage.rawValue.uppercased()
+        banner.text = String(describing: toStage).uppercased()
         banner.horizontalAlignmentMode = .center
         banner.verticalAlignmentMode = .center
         banner.position = CGPoint(x: 40, y: 0)
@@ -369,7 +369,7 @@ final class EvolutionCeremony {
         playFirstAction()
 
         NSLog("[Pushling/Evolution] Ceremony complete: now %@",
-              toStage.rawValue)
+              "\(toStage)")
         completion()
     }
 

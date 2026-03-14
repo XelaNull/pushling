@@ -119,7 +119,7 @@ final class CreatureNode: SKNode {
         applyDefaultStates()
 
         NSLog("[Pushling/Creature] Configured for stage: %@, "
-              + "node count: %d", stage.rawValue, countNodes())
+              + "node count: %d", "\(stage)", countNodes())
     }
 
     // MARK: - Per-Frame Update (Called from PushlingScene)
@@ -301,9 +301,9 @@ final class CreatureNode: SKNode {
     func evolve(to newStage: GrowthStage,
                 completion: (() -> Void)? = nil) {
         guard !isEvolving else { return }
-        guard newStage.order == currentStage.order + 1 else {
+        guard newStage.rawValue == currentStage.rawValue + 1 else {
             NSLog("[Pushling/Creature] Cannot evolve from %@ to %@",
-                  currentStage.rawValue, newStage.rawValue)
+                  "\(currentStage)", "\(newStage)")
             return
         }
 

@@ -371,11 +371,12 @@ final class AutonomousLayer: BehaviorLayer {
             phaseOffset = walkCyclePhase * 0.4
         }
 
-        let angle = amplitude * sin(2.0 * Double.pi * (tailSwayPhase + phaseOffset) / period)
+        // Calculate angle (used by TailController for actual rotation).
+        // The value is stored in tailSwayPhase for external access.
+        _ = amplitude * sin(2.0 * Double.pi * (tailSwayPhase + phaseOffset) / period)
 
-        // We output the tail state as "sway" — the actual sine rotation
-        // is communicated through the tail sway phase for the creature node.
-        // The angle itself would be applied by the TailController.
+        // Output the tail state — the actual sine rotation is computed
+        // per-frame by the TailController based on its own parameters.
         output.tailState = output.tailState ?? "sway"
     }
 
@@ -406,7 +407,7 @@ final class AutonomousLayer: BehaviorLayer {
             stateDuration = base * (1.5 - energyMod)  // Hyper -> shorter idle
             applyDisciplineJitter(&stateDuration)
 
-        case .behavior(let name):
+        case .behavior:
             // Duration comes from the behavior definition
             if let def = activeBehavior?.definition {
                 stateDuration = def.duration

@@ -23,6 +23,9 @@ final class PushlingScene: SKScene {
     /// The Pushling creature — composite SKNode with all body parts.
     private(set) var creatureNode: CreatureNode?
 
+    /// The 4-layer behavior stack — single source of truth for creature state.
+    private(set) var behaviorStack: BehaviorStack?
+
     /// Creature world-X position for camera tracking.
     private var creatureWorldX: CGFloat = 542.5
     private var creatureWalkSpeed: CGFloat = 20.0  // pts/sec
@@ -110,14 +113,21 @@ final class PushlingScene: SKScene {
 
     // MARK: - Subsystem Updates
 
-    /// Physics — collision detection, creature jump arcs, rain particles.
+    /// Behavior stack update — runs all 4 layers, resolves output, blends.
+    /// This is where the creature's behavior is computed each frame.
     private func updatePhysics(deltaTime: TimeInterval) {
-        // Intentionally empty — Phase 2 Track 2
+        guard let stack = behaviorStack else { return }
+
+        let output = stack.update(deltaTime: deltaTime,
+                                   currentTime: lastUpdateTime)
+
+        // Apply blended state to creature node
+        applyBehaviorOutput(output)
     }
 
     /// State — creature AI, emotions, hunger, growth.
     private func updateState(deltaTime: TimeInterval) {
-        // Intentionally empty — Phase 2 Track 2
+        // Emotional decay, circadian cycle, etc. — Phase 2 Track 3
     }
 
     /// World — parallax scrolling, terrain generation/recycling, biomes.
@@ -184,8 +194,55 @@ final class PushlingScene: SKScene {
         }
         self.creatureNode = creature
 
-        NSLog("[Pushling] Creature node active — %d nodes",
+        // Initialize the behavior stack
+        let stack = BehaviorStack(
+            stage: .critter,
+            personality: .neutral,
+            emotions: .neutral
+        )
+        stack.reset(
+            stage: .critter,
+            position: CGPoint(x: creatureWorldX, y: SceneConstants.groundY),
+            facing: .right
+        )
+        self.behaviorStack = stack
+
+        NSLog("[Pushling] Creature node active — %d nodes | Behavior stack ready",
               creature.countNodes())
+    }
+
+    // MARK: - Behavior Output Application
+
+    /// Applies the behavior stack output to the creature node and world.
+    /// Breathing is handled by CreatureNode internally (per-frame sine wave)
+    /// and is NOT overridden here — it always runs via CreatureNode.update().
+    private func applyBehaviorOutput(_ output: BehaviorStackOutput) {
+        guard let creature = creatureNode else { return }
+        let state = output.creatureState
+
+        // Update tracked world position and creature facing
+        creatureWorldX = state.positionX
+        creature.setFacing(state.facing)
+
+        // Sleep state (modifies CreatureNode's internal breathing)
+        creature.setSleeping(behaviorStack?.physics.isSleeping ?? false)
+
+        // Body part states via controllers
+        creature.earLeftController?.setState(state.earLeftState, duration: 0)
+        creature.earRightController?.setState(state.earRightState, duration: 0)
+        creature.eyeLeftController?.setState(state.eyeLeftState, duration: 0)
+        creature.eyeRightController?.setState(state.eyeRightState, duration: 0)
+        creature.tailController?.setState(state.tailState, duration: 0)
+        creature.mouthController?.setState(state.mouthState, duration: 0)
+        creature.whiskerLeftController?.setState(state.whiskerState, duration: 0)
+        creature.whiskerRightController?.setState(state.whiskerState, duration: 0)
+
+        // Paw states
+        let paws = state.pawStates
+        if let s = paws["fl"] { creature.pawFLController?.setState(s, duration: 0) }
+        if let s = paws["fr"] { creature.pawFRController?.setState(s, duration: 0) }
+        if let s = paws["bl"] { creature.pawBLController?.setState(s, duration: 0) }
+        if let s = paws["br"] { creature.pawBRController?.setState(s, duration: 0) }
     }
 
     // MARK: - Debug Overlay
