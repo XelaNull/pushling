@@ -1,14 +1,9 @@
-// StageRenderer.swift — Builds geometric placeholder sprites for all 6 stages
-// Uses SKShapeNode for cat-spirit silhouettes. Each stage has a distinct
-// visual form with correct proportions and part visibility.
-// These are placeholder shapes — will be replaced by texture atlases later.
+// StageRenderer.swift — Builds geometric placeholder sprites for all 6 stages.
+// Shape helpers are in ShapeFactory.swift. Will be replaced by texture atlases.
 
 import SpriteKit
 
-// MARK: - Stage Renderer
-
 /// Builds the complete body part node hierarchy for a given growth stage.
-/// Returns a configured set of SKShapeNodes that form the creature's body.
 enum StageRenderer {
 
     /// Result of building a stage — contains all nodes and their z-positions.
@@ -501,5 +496,3 @@ enum StageRenderer {
         )
     }
 }
-
-// Shape factory helpers are in ShapeFactory.swift (StageRenderer extension).
