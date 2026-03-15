@@ -1,30 +1,25 @@
 // CommitEatingAnimation.swift — 4-phase character-by-character eating animation
 //
-// Phase 1 — Arrival (2s): Text materializes, drifts toward creature
-// Phase 2 — Notice (1.5s): Predator crouch, butt wiggle, eyes track
-// Phase 3 — Feast (3-6s): Character-by-character eating with crumbs
-// Phase 4 — Reaction (2-3s): Swallow, XP float, type-specific response
-//
-// CommitTextNode lives in CommitTextNode.swift (extracted for file size).
-// Crumb particles use a single recycled SKEmitterNode.
+// Phase 1 — Arrival (3s): Text materializes at bar edge, floats to creature
+// Phase 2 — Notice (1s): Creature perks ears, crouches
+// Phase 3 — Feast: Character-by-character eating from creature's side, with shake
+// Phase 4 — Reaction (2.5s): Swallow, XP float, speech reaction
 
 import SpriteKit
 
 // MARK: - Eating Phase
 
-/// The 4 phases of the commit eating animation.
 enum EatingPhase {
-    case idle           // Not eating
-    case arrival        // Text materializing and drifting
-    case notice         // Predator crouch, butt wiggle
-    case feast          // Character-by-character eating
+    case idle
+    case arrival        // Text floating toward creature
+    case notice         // Creature reacts
+    case feast          // Eating characters one by one
     case reaction       // Post-eat response
-    case complete       // Done
+    case complete
 }
 
 // MARK: - Commit Eating Animation
 
-/// Manages the full 4-phase commit eating animation sequence.
 final class CommitEatingAnimation {
 
     // MARK: - State
@@ -33,68 +28,50 @@ final class CommitEatingAnimation {
     private var phaseTimer: TimeInterval = 0
     private var totalTimer: TimeInterval = 0
 
-    /// The commit being eaten.
     private var commitType: CommitType = .normal
     private var commitData: CommitData?
     private var xpResult: XPResult?
 
     // MARK: - Text Nodes
 
-    /// The commit text container.
     private var textNode: CommitTextNode?
-
-    /// Index of the next character to eat.
     private var eatIndex: Int = 0
-
-    /// Time accumulator for character-by-character timing.
     private var eatTimer: TimeInterval = 0
-
-    /// Milliseconds per character for current commit.
-    private var msPerChar: Int = 150
-
-    /// Characters eaten counter (for swallow every 5th).
+    private var msPerChar: Int = 300   // Default: 300ms per character (visible eating)
     private var charsEatenSinceSwallow: Int = 0
+    private var eatingFromLeft: Bool = true  // Which side to eat from
 
     // MARK: - Dependencies
 
     private weak var creature: CreatureNode?
     private weak var scene: SKScene?
-
-    /// Crumb particle emitter (recycled, not recreated).
     private var crumbEmitter: SKEmitterNode?
-
-    /// XP float label.
     private var xpLabel: SKLabelNode?
 
     // MARK: - Callbacks
 
-    /// Called when the eating animation completes.
     var onComplete: ((_ commitType: CommitType, _ xpResult: XPResult?) -> Void)?
-
-    /// Called when a speech reaction should be triggered.
     var onSpeechReaction: ((_ reaction: String) -> Void)?
 
-    // MARK: - Initialization
+    // MARK: - Init
 
     init() {}
 
-    /// Configure with scene dependencies.
     func configure(creature: CreatureNode, scene: SKScene) {
         self.creature = creature
         self.scene = scene
 
-        // Create reusable crumb emitter
         let emitter = SKEmitterNode()
-        emitter.particleLifetime = 0.3
-        emitter.particleLifetimeRange = 0.1
-        emitter.particleBirthRate = 0  // Controlled manually
-        emitter.particleSpeed = 30
+        emitter.particleLifetime = 0.4
+        emitter.particleLifetimeRange = 0.15
+        emitter.particleBirthRate = 0
+        emitter.particleSpeed = 25
         emitter.particleSpeedRange = 10
-        emitter.emissionAngleRange = .pi / 2  // 90-degree spread upward
-        emitter.emissionAngle = .pi / 2       // Upward
-        emitter.particleScale = 0.3
+        emitter.emissionAngleRange = .pi / 2
+        emitter.emissionAngle = .pi / 2
+        emitter.particleScale = 0.4
         emitter.particleScaleRange = 0.2
-        emitter.particleAlphaSpeed = -3.0
+        emitter.particleAlphaSpeed = -2.5
         emitter.particleColorSequence = nil
         emitter.particleColor = PushlingPalette.tide
         emitter.particleColorBlendFactor = 1.0
@@ -104,16 +81,10 @@ final class CommitEatingAnimation {
         crumbEmitter = emitter
     }
 
-    // MARK: - Start Eating
+    // MARK: - Start
 
-    /// Begin the 4-phase eating animation for a commit.
-    func start(commit: CommitData,
-               commitType: CommitType,
-               xpResult: XPResult?) {
-        guard phase == .idle || phase == .complete else {
-            NSLog("[Pushling/Eating] Cannot start — already eating")
-            return
-        }
+    func start(commit: CommitData, commitType: CommitType, xpResult: XPResult?) {
+        guard phase == .idle || phase == .complete else { return }
 
         self.commitData = commit
         self.commitType = commitType
@@ -125,254 +96,293 @@ final class CommitEatingAnimation {
         self.eatTimer = 0
         self.charsEatenSinceSwallow = 0
 
-        // Calculate eating speed
-        if commitType.msPerCharacter > 0 {
-            msPerChar = commitType.msPerCharacter
-        } else {
-            msPerChar = CommitTypeDetector.eatingSpeed(
-                totalLines: commit.totalLines
-            )
+        // Eating speed — slower so each char is visible
+        switch commitType {
+        case .largeRefactor, .hugeRefactor:
+            msPerChar = 100   // Goblin mode — fast
+        case .test:
+            msPerChar = 250   // Crunchy
+        case .lazyMessage:
+            msPerChar = 400   // Reluctant chewing
+        default:
+            // Scale with commit size: small=350ms, medium=250ms, large=150ms
+            let lines = commit.totalLines
+            if lines < 20 {
+                msPerChar = 350
+            } else if lines < 100 {
+                msPerChar = 250
+            } else {
+                msPerChar = 150
+            }
         }
 
         // Create text node
         let textNode = CommitTextNode()
         textNode.configure(message: commit.message, sha: commit.sha)
 
-        // Spawn at edge of bar (further from creature)
         guard let creature = creature, let scene = scene else { return }
         let creatureX = creature.position.x
-        // Spawn text 120pt away from creature (not at edge of bar)
-        // so it arrives within the 2s arrival phase
+
+        // Spawn at edge of bar — the side further from creature
         let spawnX: CGFloat
-        if Bool.random() {
-            spawnX = creatureX + 120  // From the right
+        if creatureX > SceneConstants.sceneWidth / 2 {
+            spawnX = SceneConstants.sceneWidth + 10  // Right edge
+            eatingFromLeft = false  // Creature is to the right, eat from right side
         } else {
-            spawnX = creatureX - 120  // From the left
+            spawnX = -10  // Left edge
+            eatingFromLeft = true  // Creature is to the left, eat from left side
         }
-        textNode.position = CGPoint(
-            x: spawnX,
-            y: creature.position.y + 5
-        )
+
+        // Position at creature's height
+        textNode.position = CGPoint(x: spawnX, y: creature.position.y + 4)
+
+        // Start all characters invisible
+        for charNode in textNode.charNodes {
+            charNode.alpha = 0
+        }
 
         scene.addChild(textNode)
         self.textNode = textNode
 
-        NSLog("[Pushling/Eating] Start: '%@' type=%@ speed=%dms/char",
-              String(commit.message.prefix(20)),
-              commitType.rawValue, msPerChar)
+        NSLog("[Pushling/Eating] Start: '%@' type=%@ speed=%dms/char from=%@",
+              String(commit.message.prefix(20)), commitType.rawValue,
+              msPerChar, eatingFromLeft ? "left" : "right")
     }
 
-    // MARK: - Per-Frame Update
+    // MARK: - Update
 
-    /// Update the eating animation. Called every frame.
     func update(deltaTime: TimeInterval) {
         guard phase != .idle && phase != .complete else { return }
-
         phaseTimer += deltaTime
         totalTimer += deltaTime
 
         switch phase {
-        case .arrival:
-            updateArrival(deltaTime: deltaTime)
-        case .notice:
-            updateNotice(deltaTime: deltaTime)
-        case .feast:
-            updateFeast(deltaTime: deltaTime)
-        case .reaction:
-            updateReaction(deltaTime: deltaTime)
-        default:
-            break
+        case .arrival: updateArrival(deltaTime: deltaTime)
+        case .notice:  updateNotice(deltaTime: deltaTime)
+        case .feast:   updateFeast(deltaTime: deltaTime)
+        case .reaction: updateReaction(deltaTime: deltaTime)
+        default: break
         }
     }
 
-    // MARK: - Phase 1: Arrival (2s)
+    // MARK: - Phase 1: Arrival (3s)
+    // Text materializes character by character at bar edge,
+    // then floats toward the creature. Stops next to it.
 
     private func updateArrival(deltaTime: TimeInterval) {
         guard let textNode = textNode, let creature = creature else { return }
 
-        // Stagger character appearance (60ms between each)
+        // Stagger character fade-in (40ms apart)
         for (i, charNode) in textNode.charNodes.enumerated() {
-            let staggerTime = Double(i) * 0.06
-            if phaseTimer >= staggerTime && charNode.alpha < 1.0 {
-                let fadeProgress = min(1.0,
-                    (phaseTimer - staggerTime) / 0.12
-                )
+            let staggerTime = Double(i) * 0.04
+            if phaseTimer >= staggerTime {
+                let fadeProgress = min(1.0, (phaseTimer - staggerTime) / 0.15)
                 charNode.alpha = CGFloat(fadeProgress)
             }
         }
 
-        // Bob animation
+        // Gentle bob
         for (i, charNode) in textNode.charNodes.enumerated() {
-            let bobOffset = sin(totalTimer * 2.0 + Double(i) * 0.4) * 1.5
+            let bobOffset = sin(totalTimer * 1.5 + Double(i) * 0.3) * 1.0
             charNode.position.y = CGFloat(bobOffset)
         }
 
-        // Drift toward creature
+        // Drift toward creature — slow, giving time to read
         let creatureX = creature.position.x
         let textX = textNode.position.x
+        let distance = abs(textX - creatureX)
         let direction: CGFloat = textX > creatureX ? -1 : 1
-        let driftSpeed: CGFloat = commitType == .forcePush ? 200 : 80
+
+        // Speed up as it gets closer (easing)
+        let driftSpeed: CGFloat
+        if commitType == .forcePush {
+            driftSpeed = 300  // Force push slams in fast
+        } else if distance > 200 {
+            driftSpeed = 120  // Far away: moderate
+        } else if distance > 50 {
+            driftSpeed = 60   // Getting close: slow down
+        } else {
+            driftSpeed = 20   // Almost there: gentle approach
+        }
         textNode.position.x += direction * driftSpeed * CGFloat(deltaTime)
 
-        // Transition to Notice when within 60pt
-        let distance = abs(textNode.position.x - creatureX)
-        if distance < 60 || phaseTimer >= 2.0 {
+        // Stop when text is right next to creature (within 15pt)
+        if distance < 15 {
+            phase = .notice
+            phaseTimer = 0
+        }
+
+        // Safety timeout: if still not there after 4s, snap to creature
+        if phaseTimer >= 4.0 {
+            textNode.position.x = creatureX + (eatingFromLeft ? 30 : -30)
             phase = .notice
             phaseTimer = 0
         }
     }
 
-    // MARK: - Phase 2: Notice (1.5s)
+    // MARK: - Phase 2: Notice (1s)
+    // Creature perks ears, eyes widen, predator crouch
 
     private func updateNotice(deltaTime: TimeInterval) {
         guard let creature = creature, let textNode = textNode else { return }
 
-        // Continue bob animation on text
+        // Keep bobbing
         for (i, charNode) in textNode.charNodes.enumerated() {
-            let bobOffset = sin(totalTimer * 2.0 + Double(i) * 0.4) * 1.5
+            let bobOffset = sin(totalTimer * 1.5 + Double(i) * 0.3) * 1.0
             charNode.position.y = CGFloat(bobOffset)
         }
 
-        // Continue drift
-        let creatureX = creature.position.x
-        let textX = textNode.position.x
-        let direction: CGFloat = textX > creatureX ? -1 : 1
-        textNode.position.x += direction * 10 * CGFloat(deltaTime)
-
         // Creature reactions
-        if phaseTimer < 0.15 {
-            // Ear perk
-            creature.earLeftController?.setState("alert", duration: 0.15)
-            creature.earRightController?.setState("alert", duration: 0.15)
-        }
-        if phaseTimer >= 0.1 && phaseTimer < 0.3 {
-            // Eyes widen
-            creature.eyeLeftController?.setState("wide", duration: 0.15)
-            creature.eyeRightController?.setState("wide", duration: 0.15)
-        }
-        if phaseTimer >= 0.3 && phaseTimer < 0.7 {
-            // Predator crouch (skip for Spore/Drop)
-            if creature.currentStage >= .critter {
-                // Body Y-scale compress simulated via position
-            }
-        }
-        if phaseTimer >= 0.7 && phaseTimer < 1.2 {
-            // Butt wiggle for Beast+
-            if creature.currentStage >= .critter {
-                let wigglePhase = (phaseTimer - 0.7) * 6 * .pi
-                let wiggleOffset = sin(wigglePhase) * 1.5
-                creature.tailController?.setState(
-                    wiggleOffset > 0 ? "left" : "right", duration: 0
-                )
-            }
+        if phaseTimer < 0.1 {
+            creature.earLeftController?.setState("alert", duration: 0.1)
+            creature.earRightController?.setState("alert", duration: 0.1)
+            creature.eyeLeftController?.setState("wide", duration: 0.1)
+            creature.eyeRightController?.setState("wide", duration: 0.1)
         }
 
-        if phaseTimer >= 1.5 {
-            // Reset tail
+        // Face the text
+        if eatingFromLeft {
+            creature.setFacing(.left)
+        } else {
+            creature.setFacing(.right)
+        }
+
+        // Butt wiggle for Critter+
+        if phaseTimer >= 0.3 && creature.currentStage >= .critter {
+            let wiggle = sin((phaseTimer - 0.3) * 8 * .pi) * 1.5
+            creature.tailController?.setState(
+                wiggle > 0 ? "left" : "right", duration: 0)
+        }
+
+        if phaseTimer >= 1.0 {
             creature.tailController?.setState("sway", duration: 0.2)
+            creature.mouthController?.setState("open_small", duration: 0)
             phase = .feast
             phaseTimer = 0
         }
     }
 
-    // MARK: - Phase 3: Feast (3-6s)
+    // MARK: - Phase 3: Feast
+    // Eat characters one by one from the side closest to creature.
+    // Each character shakes, shrinks, flashes, and disappears.
 
     private func updateFeast(deltaTime: TimeInterval) {
         guard let creature = creature, let textNode = textNode else { return }
+        let charCount = textNode.charNodes.count
+        guard charCount > 0 else {
+            phase = .reaction
+            phaseTimer = 0
+            return
+        }
 
         eatTimer += deltaTime
 
-        // Milliseconds to seconds
         let eatInterval = Double(msPerChar) / 1000.0
 
-        // Check if it's time to eat the next character
-        if eatTimer >= eatInterval && eatIndex < textNode.charNodes.count {
-            eatCharacter(at: eatIndex)
+        if eatTimer >= eatInterval && eatIndex < charCount {
+            // Determine which character to eat — from the side closest to creature
+            let actualIndex: Int
+            if eatingFromLeft {
+                // Creature is to the left — eat leftmost remaining first
+                actualIndex = eatIndex
+            } else {
+                // Creature is to the right — eat rightmost remaining first
+                actualIndex = charCount - 1 - eatIndex
+            }
+
+            eatCharacter(at: actualIndex)
             eatIndex += 1
             eatTimer = 0
             charsEatenSinceSwallow += 1
 
-            // Chewing animation: jaw bobs (120ms total, 2 bobs)
+            // Chewing animation
             creature.mouthController?.setState("open_small", duration: 0)
-            let closeDelay = SKAction.wait(forDuration: 0.06)
-            let close = SKAction.run { [weak creature] in
-                creature?.mouthController?.setState("closed", duration: 0)
-            }
-            let openDelay = SKAction.wait(forDuration: 0.06)
-            let reopen = SKAction.run { [weak creature] in
-                creature?.mouthController?.setState("open_small", duration: 0)
-            }
-            creature.run(
-                SKAction.sequence([closeDelay, close, openDelay, reopen]),
-                withKey: "chewing"
-            )
+            let closeAction = SKAction.sequence([
+                .wait(forDuration: 0.06),
+                .run { [weak creature] in
+                    creature?.mouthController?.setState("closed", duration: 0)
+                },
+                .wait(forDuration: 0.06),
+                .run { [weak creature] in
+                    creature?.mouthController?.setState("open_small", duration: 0)
+                }
+            ])
+            creature.run(closeAction, withKey: "chewing")
 
             // Swallow every 5th character
             if charsEatenSinceSwallow >= 5 {
                 charsEatenSinceSwallow = 0
-                // Throat bob: slight Y dip
-                let dip = SKAction.moveBy(x: 0, y: -0.5, duration: 0.075)
-                let rise = SKAction.moveBy(x: 0, y: 0.5, duration: 0.075)
-                creature.run(
-                    SKAction.sequence([dip, rise]),
-                    withKey: "swallow"
-                )
+                let swallow = SKAction.sequence([
+                    .moveBy(x: 0, y: -0.5, duration: 0.075),
+                    .moveBy(x: 0, y: 0.5, duration: 0.075)
+                ])
+                creature.run(swallow, withKey: "swallow")
+            }
+
+            // Shake remaining text toward creature
+            if let textNode = self.textNode {
+                let shakeDir: CGFloat = eatingFromLeft ? -1 : 1
+                let shake = SKAction.sequence([
+                    .moveBy(x: shakeDir * 2, y: 0, duration: 0.03),
+                    .moveBy(x: shakeDir * -2, y: 0, duration: 0.03)
+                ])
+                textNode.run(shake, withKey: "eatShake")
             }
         }
 
-        // Check if all characters eaten
-        if eatIndex >= textNode.charNodes.count {
+        // Keep remaining characters bobbing gently
+        for (i, charNode) in textNode.charNodes.enumerated() {
+            if !charNode.isHidden {
+                let bobOffset = sin(totalTimer * 1.5 + Double(i) * 0.3) * 0.5
+                charNode.position.y = CGFloat(bobOffset)
+            }
+        }
+
+        // All eaten?
+        if eatIndex >= charCount {
             creature.mouthController?.setState("closed", duration: 0.1)
             phase = .reaction
             phaseTimer = 0
         }
     }
 
-    /// Animate eating a single character.
+    /// Animate a single character being eaten — shake, shrink, flash, gone.
     private func eatCharacter(at index: Int) {
         guard let textNode = textNode,
-              index < textNode.charNodes.count else { return }
+              index >= 0, index < textNode.charNodes.count else { return }
 
         let charNode = textNode.charNodes[index]
 
-        // Character shrinks, flashes white, emits crumbs, disappears
-        let shrink = SKAction.scale(to: 0.5, duration: 0.08)
-        let flashWhite = SKAction.run { [weak charNode] in
-            charNode?.fontColor = PushlingPalette.bone
-        }
-        let disappear = SKAction.fadeOut(withDuration: 0.04)
-        let hide = SKAction.run { [weak charNode] in
-            charNode?.isHidden = true
-        }
+        // Shake → shrink → flash white → disappear
+        let shake = SKAction.sequence([
+            .moveBy(x: -1, y: 0, duration: 0.02),
+            .moveBy(x: 2, y: 0, duration: 0.02),
+            .moveBy(x: -1, y: 0, duration: 0.02)
+        ])
+        let shrink = SKAction.scale(to: 0.3, duration: 0.1)
+        let flash = SKAction.run { charNode.fontColor = PushlingPalette.bone }
+        let fadeOut = SKAction.fadeOut(withDuration: 0.05)
+        let hide = SKAction.run { charNode.isHidden = true }
 
-        charNode.run(
-            SKAction.sequence([shrink, flashWhite, disappear, hide])
-        )
+        charNode.run(SKAction.sequence([shake, shrink, flash, fadeOut, hide]))
 
-        // Emit crumb particles
-        emitCrumbs(at: charNode.convert(.zero, to: scene!))
+        // Crumb particles
+        if let scene = scene {
+            emitCrumbs(at: charNode.convert(.zero, to: scene))
+        }
     }
 
-    /// Emit crumb particles from the eating position.
     private func emitCrumbs(at position: CGPoint) {
         guard let emitter = crumbEmitter, let scene = scene else { return }
-
         emitter.position = position
+        if emitter.parent == nil { scene.addChild(emitter) }
 
-        if emitter.parent == nil {
-            scene.addChild(emitter)
-        }
-
-        // Burst of 3-5 particles (10-15 in goblin mode)
-        let count = commitType == .hugeRefactor
-            || commitType == .largeRefactor ? 12 : 4
-        emitter.particleBirthRate = CGFloat(count) / 0.1  // Over 0.1s
+        let count = (commitType == .hugeRefactor || commitType == .largeRefactor)
+            ? 10 : 3
+        emitter.particleBirthRate = CGFloat(count) / 0.1
         emitter.numParticlesToEmit = count
-
-        // Reset emitter to fire again
         emitter.resetSimulation()
 
-        // Color based on commit type
         switch commitType {
         case .css:  emitter.particleColor = PushlingPalette.gilt
         case .docs: emitter.particleColor = PushlingPalette.moss
@@ -381,52 +391,47 @@ final class CommitEatingAnimation {
         }
     }
 
-    // MARK: - Phase 4: Reaction (2-3s)
+    // MARK: - Phase 4: Reaction (2.5s)
 
     private func updateReaction(deltaTime: TimeInterval) {
         guard let creature = creature, let scene = scene else { return }
 
-        if phaseTimer < 0.2 {
-            // Final swallow gulp
-            if phaseTimer == 0 || (phaseTimer > 0 && phaseTimer - deltaTime <= 0) {
-                let dip = SKAction.moveBy(x: 0, y: -1, duration: 0.1)
-                let rise = SKAction.moveBy(x: 0, y: 1, duration: 0.1)
-                creature.run(SKAction.sequence([dip, rise]),
-                             withKey: "finalSwallow")
-            }
+        // Final swallow at start
+        if phaseTimer < 0.1 {
+            let gulp = SKAction.sequence([
+                .moveBy(x: 0, y: -1, duration: 0.1),
+                .moveBy(x: 0, y: 1, duration: 0.1)
+            ])
+            creature.run(gulp, withKey: "finalSwallow")
         }
 
-        if phaseTimer >= 0.2 && phaseTimer - deltaTime < 0.2 {
-            // Show XP float
+        // XP float at 0.3s
+        if phaseTimer >= 0.3 && phaseTimer - deltaTime < 0.3 {
             showXPFloat(scene: scene)
-
-            // Reset eyes
             creature.eyeLeftController?.setState("open", duration: 0.2)
             creature.eyeRightController?.setState("open", duration: 0.2)
             creature.earLeftController?.setState("neutral", duration: 0.3)
             creature.earRightController?.setState("neutral", duration: 0.3)
         }
 
-        if phaseTimer >= 0.5 && phaseTimer - deltaTime < 0.5 {
-            // Trigger speech reaction
+        // Speech reaction at 0.6s
+        if phaseTimer >= 0.6 && phaseTimer - deltaTime < 0.6 {
             let reaction: String
             if creature.currentStage >= .beast {
                 reaction = commitType.speechReaction
             } else if creature.currentStage == .critter {
                 reaction = commitType.critterReaction
             } else {
-                // Drop: handled via symbol
                 reaction = DropSymbolSet.symbolForEmotion(
-                    commitType.dropSymbolEmotion
-                ).glyph
+                    commitType.dropSymbolEmotion).glyph
             }
             onSpeechReaction?(reaction)
         }
 
-        // Update XP float
+        // Float XP label
         if let xpLabel = xpLabel {
-            xpLabel.position.y += CGFloat(deltaTime) * 8  // Rise
-            xpLabel.alpha -= CGFloat(deltaTime) / 1.5     // Fade
+            xpLabel.position.y += CGFloat(deltaTime) * 6
+            xpLabel.alpha -= CGFloat(deltaTime) / 2.0
             if xpLabel.alpha <= 0 {
                 xpLabel.removeFromParent()
                 self.xpLabel = nil
@@ -434,52 +439,36 @@ final class CommitEatingAnimation {
         }
 
         if phaseTimer >= 2.5 {
-            // Clean up
             textNode?.resetAll()
             textNode?.removeFromParent()
             textNode = nil
             crumbEmitter?.removeFromParent()
-
             phase = .complete
             onComplete?(commitType, xpResult)
-
-            NSLog("[Pushling/Eating] Complete: type=%@ xp=%d",
-                  commitType.rawValue, xpResult?.xp ?? 0)
         }
     }
 
-    // MARK: - XP Float
-
     private func showXPFloat(scene: SKScene) {
         guard let xpResult = xpResult, let creature = creature else { return }
-
         let label = SKLabelNode(fontNamed: "SFProText-Bold")
         label.fontSize = 7
         label.fontColor = PushlingPalette.gilt
         label.text = xpResult.displayString
         label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
+        let creatureH = StageConfiguration.all[creature.currentStage]?.size.height ?? 16
         label.position = CGPoint(
             x: creature.position.x,
-            y: creature.position.y
-                + (StageConfiguration.all[creature.currentStage]?.size.height
-                   ?? 16) / 2 + 6
-        )
+            y: creature.position.y + creatureH / 2 + 6)
         label.zPosition = 38
-        label.alpha = 1.0
-
         scene.addChild(label)
         self.xpLabel = label
     }
 
     // MARK: - Status
 
-    /// Whether an eating animation is currently active.
-    var isEating: Bool {
-        phase != .idle && phase != .complete
-    }
+    var isEating: Bool { phase != .idle && phase != .complete }
 
-    /// Reset to idle state (for cleanup).
     func reset() {
         textNode?.resetAll()
         textNode?.removeFromParent()
