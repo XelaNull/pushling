@@ -280,7 +280,6 @@ final class GameCoordinator {
         // Set personality snapshot on creature node for PersonalityFilter
         scene.creatureNode?.personalitySnapshot = personality.toSnapshot()
 
-        // Configure creature node for correct stage (Gap 2: from DB, not hardcoded)
         scene.creatureNode?.configureForStage(creatureStage)
 
         // Update world visual complexity for the real stage (Gap 6)

@@ -229,7 +229,7 @@ final class RainRenderer {
 
     /// Spawn droplets based on spawn rate and delta time.
     private func spawnDroplets(deltaTime: TimeInterval) {
-        spawnAccumulator += Self.spawnRate * deltaTime * Double(intensity)
+        spawnAccumulator += Self.spawnRate * stormSpawnRateMultiplier * deltaTime * Double(intensity)
 
         while spawnAccumulator >= 1.0 {
             spawnAccumulator -= 1.0
@@ -359,11 +359,7 @@ final class RainRenderer {
 
     /// Increase droplet density for storm conditions (60-80 active).
     /// Called by StormSystem to override normal spawn rate.
-    var stormSpawnRateMultiplier: Double = 1.0 {
-        didSet {
-            // Storm doubles the effective spawn rate
-        }
-    }
+    var stormSpawnRateMultiplier: Double = 1.0
 
     /// Active droplet count (for debug/monitoring).
     var activeDropletCount: Int {

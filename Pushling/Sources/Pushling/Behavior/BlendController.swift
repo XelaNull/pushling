@@ -86,7 +86,7 @@ final class BlendController {
 
     /// Current rendered position.
     private(set) var currentPosition: CGPoint = CGPoint(
-        x: 542.5, y: SceneConstants.groundY
+        x: SceneConstants.sceneWidth / 2, y: SceneConstants.groundY
     )
 
     /// Active layer transition type (for determining blend timing).

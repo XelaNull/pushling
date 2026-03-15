@@ -251,7 +251,17 @@ enum CommitTypeDetector {
         let trimmed = message.trimmingCharacters(in: .whitespaces)
         let lower = trimmed.lowercased()
 
-        // Single word
+        // Exclude version tags (v1, v2.0, v1.2.3, etc.)
+        if lower.range(of: #"^v\d+"#, options: .regularExpression) != nil {
+            return false
+        }
+
+        // Exclude standard release/merge messages
+        if lower.hasPrefix("release") || lower.hasPrefix("merge") {
+            return false
+        }
+
+        // Single word under 15 chars (after exclusions above)
         if !lower.contains(" ") && lower.count < 15 { return true }
 
         // Very short
@@ -259,11 +269,6 @@ enum CommitTypeDetector {
 
         // Exact lazy matches
         if lazyPatterns.contains(lower) { return true }
-
-        // Default merge message
-        if lower.hasPrefix("merge branch") || lower.hasPrefix("merge pull") {
-            return true
-        }
 
         return false
     }

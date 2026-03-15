@@ -341,6 +341,14 @@ final class VoiceSystem {
                 "good morning!", "sleepy...", "yum!", "that was good",
                 creatureName, "MORNING!", "pretty!", "STRONG"
             ]
+        case .sage:
+            phrases = ["good morning.", "I remember this.", "interesting.",
+                       "let me think...", creatureName, "well done.",
+                       "that was elegant.", "careful here."]
+        case .apex:
+            phrases = ["good morning, friend.", "I see what you're doing.",
+                       "beautiful work.", creatureName, "shall we begin?",
+                       "this reminds me of something.", "together."]
         default:
             phrases = []
         }
@@ -446,16 +454,11 @@ final class VoiceSystem {
     }
 
     private func clearCache() {
-        let fm = FileManager.default
         let cachePath = "\(cacheDirectory)/cache"
-        guard let files = try? fm.contentsOfDirectory(
-            atPath: cachePath
-        ) else { return }
-
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: cachePath) else { return }
         for file in files where file.hasSuffix(".wav") {
-            try? fm.removeItem(atPath: "\(cachePath)/\(file)")
+            try? FileManager.default.removeItem(atPath: "\(cachePath)/\(file)")
         }
-
         NSLog("[Pushling/Voice] Cache cleared")
     }
 

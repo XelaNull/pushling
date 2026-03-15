@@ -31,7 +31,7 @@ final class PushlingScene: SKScene {
     private(set) var behaviorStack: BehaviorStack?
 
     /// Creature world-X position for camera tracking.
-    private var creatureWorldX: CGFloat = 542.5
+    private var creatureWorldX: CGFloat = SceneConstants.sceneWidth / 2
     private var creatureWalkSpeed: CGFloat = 20.0  // pts/sec
     private var creatureDirection: CGFloat = 1.0   // 1.0 = right, -1.0 = left
 
@@ -68,7 +68,14 @@ final class PushlingScene: SKScene {
     // MARK: - Game Coordinator
 
     /// The master wiring class — connects all subsystems. Set by AppDelegate.
-    weak var gameCoordinator: GameCoordinator?
+    weak var gameCoordinator: GameCoordinator? {
+        didSet {
+            // Release fallback speech coordinator now that the real one is available
+            if gameCoordinator != nil {
+                _fallbackSpeechCoordinator = nil
+            }
+        }
+    }
 
     // MARK: - Debug Overlay
 
@@ -107,19 +114,9 @@ final class PushlingScene: SKScene {
         var config = WorldConfig()
         config.specialty = "polyglot"
         config.initialCreatureX = creatureWorldX
-        config.creatureStage = .critter  // Will be read from SQLite in production
-        // Landmarks will be loaded from SQLite in future phases.
-        // For now, add a few demo landmarks to prove the system works.
+        config.creatureStage = gameCoordinator?.creatureStage ?? .spore
         worldManager.setup(scene: self, config: config,
                           db: DatabaseManager.shared)
-
-        // Demo landmarks (will be replaced by SQLite reads)
-        worldManager.addRepoLandmark(repoName: "pushling",
-                                     landmarkType: .windmill)
-        worldManager.addRepoLandmark(repoName: "web-app",
-                                     landmarkType: .neonTower)
-        worldManager.addRepoLandmark(repoName: "api-server",
-                                     landmarkType: .fortress)
     }
 
     // MARK: - HUD Setup (P3-T3-06, P3-T3-07)
@@ -131,14 +128,16 @@ final class PushlingScene: SKScene {
         // Evolution progress bar — 1pt at bottom edge
         evolutionProgressBar.addToScene(self)
 
-        // Set initial HUD state (demo values — will read from SQLite)
+        // Set initial HUD state from coordinator (or defaults for first launch)
+        let hudStage = gameCoordinator?.creatureStage ?? .spore
+        let hudXP = gameCoordinator?.totalXP ?? 0
         hudOverlay.updateState(HUDState(
-            satisfaction: 50.0,
-            stageName: "critter",
-            currentXP: 45,
+            satisfaction: gameCoordinator?.emotionalState.satisfaction ?? 50.0,
+            stageName: "\(hudStage)",
+            currentXP: hudXP % 100,
             xpToNext: 100,
-            streakDays: 3,
-            stageColor: PushlingPalette.stageColor(for: .critter)
+            streakDays: 0,
+            stageColor: PushlingPalette.stageColor(for: hudStage)
         ))
     }
 
@@ -169,10 +168,7 @@ final class PushlingScene: SKScene {
         // 1. Physics — collision detection, force application
         updatePhysics(deltaTime: deltaTime)
 
-        // 2. State — creature AI, emotional state, growth checks
-        updateState(deltaTime: deltaTime)
-
-        // 3. World — parallax, terrain recycling, chunk management, visual effects
+        // 2. World — parallax, terrain recycling, chunk management, visual effects
         updateWorld(deltaTime: deltaTime)
 
         // 4. Render — creature animations (breathing, blink, tail sway)
@@ -225,17 +221,9 @@ final class PushlingScene: SKScene {
         applyBehaviorOutput(output)
     }
 
-    /// State — creature AI, emotions, hunger, growth.
-    private func updateState(deltaTime: TimeInterval) {
-        // Emotional decay, circadian cycle, etc. — Phase 2 Track 3
-    }
-
     /// World — parallax scrolling, terrain generation/recycling, biomes,
     /// visual effects, creature-dependent visuals.
     private func updateWorld(deltaTime: TimeInterval) {
-        // Creature position is now driven by the behavior stack (applyBehaviorOutput)
-        // Old simulateCreatureWalk() removed — behavior stack owns movement
-
         // Update world system with current camera position
         worldManager.update(deltaTime: deltaTime, trackedX: creatureWorldX)
 
@@ -355,9 +343,9 @@ final class PushlingScene: SKScene {
     private func setupCreature() {
         let creature = CreatureNode()
 
-        // Default to critter stage for visual testing
-        // (will be read from SQLite in production)
-        creature.configureForStage(.critter)
+        // Read stage from coordinator, falling back to spore for initial setup
+        let initialStage = gameCoordinator?.creatureStage ?? .spore
+        creature.configureForStage(initialStage)
 
         creature.position = CGPoint(x: creatureWorldX, y: 15)
         creature.zPosition = 10  // Above terrain objects
@@ -372,12 +360,12 @@ final class PushlingScene: SKScene {
 
         // Initialize the behavior stack
         let stack = BehaviorStack(
-            stage: .critter,
+            stage: initialStage,
             personality: .neutral,
             emotions: .neutral
         )
         stack.reset(
-            stage: .critter,
+            stage: initialStage,
             position: CGPoint(x: creatureWorldX, y: SceneConstants.groundY),
             facing: .right
         )

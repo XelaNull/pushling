@@ -1,6 +1,6 @@
 // AIDirectedLayer.swift — Layer 3: AI-Directed behavior
-// Placeholder for Claude's MCP command queue. Inert until Phase 4,
-// but structurally complete in the behavior stack.
+// Claude's MCP command queue. Accepts commands from the MCP server,
+// queues them, and outputs LayerOutput for the current command.
 //
 // When active, this layer accepts commands from the MCP server via IPC,
 // queues them, and outputs the appropriate LayerOutput for the current

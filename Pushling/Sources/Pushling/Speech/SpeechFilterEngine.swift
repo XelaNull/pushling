@@ -453,7 +453,6 @@ enum SpeechFilterEngine {
     private static let beastSimplifyMap: [String: String] = [
         "authentication": "auth", "authorization": "auth",
         "configuration": "config", "documentation": "docs",
-        "implementation": "implementation",
         "repository": "repo"
     ]
 }

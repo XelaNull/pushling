@@ -108,7 +108,6 @@ struct WeatherTransition {
 
 /// Protocol for creature weather reactions.
 /// The creature's behavior system implements this to respond to weather changes.
-/// This is a STUB — the creature behavior system will connect in Phase 4.
 protocol WeatherReactionDelegate: AnyObject {
 
     /// Called when weather transitions to a new state.

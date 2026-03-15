@@ -79,7 +79,9 @@ final class EarController: BodyPartController {
             isTwitching = true
             twitchTimer = 0
         case "rotate_toward":
-            // rotate_toward needs a target — default to perk for now
+            // Defaults to perk until target coordinates are implemented.
+            // rotate_toward will eventually accept a world-space target and
+            // compute the rotation angle toward it.
             animateRotation(to: neutralAngle(Rotations.perk),
                             duration: duration)
         case "droop":

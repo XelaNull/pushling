@@ -65,7 +65,7 @@ final class AutonomousLayer: BehaviorLayer {
     private var stateTimer: TimeInterval = 0
     private var stateDuration: TimeInterval = 3.0
     private var facing: Direction = .right
-    private(set) var currentX: CGFloat = 542.5
+    private(set) var currentX: CGFloat = SceneConstants.sceneWidth / 2
     private var currentWalkSpeed: CGFloat = 0
     private var pendingDirectionChange: Bool = false
     private var walkCyclePhase: Double = 0
@@ -387,9 +387,6 @@ final class AutonomousLayer: BehaviorLayer {
             jitterFactor: randomJitter(range: 1.0), personality: personality)
 
         tailSwayPhase += deltaTime
-        var phaseOffset: Double = 0
-        if case .walking = state { phaseOffset = walkCyclePhase * 0.4 }
-        _ = amplitude * sin(2.0 * .pi * (tailSwayPhase + phaseOffset) / period)
         output.tailState = output.tailState ?? "sway"
     }
 

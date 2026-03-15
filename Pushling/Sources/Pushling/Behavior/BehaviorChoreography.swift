@@ -153,8 +153,10 @@ enum BehaviorChoreography {
             output.earLeftState = "wild"
             output.earRightState = "wild"
         }
-        // Reverse direction at halfway
-        if progress > 0.45 && progress < 0.55 {
+        // Reverse direction once at halfway. Use a narrow single-frame window
+        // to prevent rapid flip-flop at 60fps (the old 0.45-0.55 range caused
+        // multiple flips per zoomies cycle).
+        if progress > 0.49 && progress < 0.51 {
             facing = facing.flipped
         }
         output.facing = facing

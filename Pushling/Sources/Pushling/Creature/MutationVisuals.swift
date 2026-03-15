@@ -59,6 +59,7 @@ final class MutationVisualsManager {
         updateSwarmParticles(deltaTime: deltaTime)
         updateNineLivesHalo(deltaTime: deltaTime)
         updatePolyglotHue(deltaTime: deltaTime)
+        updateBilingualTail(deltaTime: deltaTime)
     }
 
     // MARK: - Apply Badge Visual
@@ -142,7 +143,16 @@ final class MutationVisualsManager {
     private func createMarathonTrail() -> SKNode {
         let container = SKNode()
         container.name = "marathon_trail"
-        // Trail particles are created dynamically during movement
+        // Pre-create 5 small circles that trail behind during walking
+        for i in 0..<5 {
+            let dot = SKShapeNode(circleOfRadius: 0.6)
+            dot.fillColor = PushlingPalette.ember
+            dot.strokeColor = .clear
+            dot.alpha = 0
+            dot.name = "trail_dot_\(i)"
+            dot.zPosition = -1
+            container.addChild(dot)
+        }
         return container
     }
 
@@ -238,8 +248,24 @@ final class MutationVisualsManager {
     }
 
     private func updateMarathonTrail(deltaTime: TimeInterval) {
-        // Trail particle spawning happens during movement — handled externally
+        guard let container = effectNodes[.marathon],
+              let creature = creature else { return }
+
+        // Trail dots follow behind the creature, spaced by index,
+        // fading out further back. Only visible during movement.
+        let isMoving = abs(creature.position.x - marathonLastX) > 0.3
+        marathonLastX = creature.position.x
+
+        for (i, child) in container.children.enumerated() {
+            let offset = CGFloat(i + 1) * -2.5
+            child.position = CGPoint(x: offset, y: -1)
+            let targetAlpha: CGFloat = isMoving
+                ? CGFloat(1.0 - Double(i) / 5.0) * 0.5
+                : 0
+            child.alpha += (targetAlpha - child.alpha) * CGFloat(deltaTime * 4.0)
+        }
     }
+    private var marathonLastX: CGFloat = 0
 
     private func updateSwarmParticles(deltaTime: TimeInterval) {
         guard let container = effectNodes[.swarm] else { return }
@@ -264,11 +290,35 @@ final class MutationVisualsManager {
     }
 
     private func updatePolyglotHue(deltaTime: TimeInterval) {
-        // Hue rotation on creature body — implemented via color filter
-        // on the body node, 30s cycle through P3 palette
-        guard effectNodes[.polyglot] != nil else { return }
-        // The actual hue shift is applied by the StageRenderer/creature
-        // body node's color property. This is a signal that polyglot is active.
+        guard effectNodes[.polyglot] != nil,
+              let creature = creature,
+              let bodyNode = creature.childNode(withName: "body") as? SKShapeNode else {
+            return
+        }
+        // Subtle per-frame hue rotation on the creature body color (+-10 degrees)
+        let hueOffset = CGFloat(sin(animationTime * 0.2)) * (10.0 / 360.0)
+        var hue: CGFloat = 0, sat: CGFloat = 0, bri: CGFloat = 0, alpha: CGFloat = 0
+        PushlingPalette.bone.getHue(&hue, saturation: &sat,
+                                      brightness: &bri, alpha: &alpha)
+        bodyNode.fillColor = SKColor(hue: hue + hueOffset,
+                                      saturation: max(0.05, sat + 0.03),
+                                      brightness: bri, alpha: alpha)
+    }
+
+    private func updateBilingualTail(deltaTime: TimeInterval) {
+        guard effectNodes[.bilingual] != nil,
+              let creature = creature,
+              let tailNode = creature.childNode(withName: "tail") as? SKShapeNode else {
+            return
+        }
+        // Alternating two-tone effect: oscillate tail stroke color between
+        // Tide and Ember at a slow rate (3s cycle)
+        let t = CGFloat((sin(animationTime * 2.0 / 3.0) + 1.0) / 2.0)
+        tailNode.strokeColor = PushlingPalette.lerp(
+            from: PushlingPalette.tide,
+            to: PushlingPalette.ember,
+            t: t
+        )
     }
 
     // MARK: - Guardian Shield Flash

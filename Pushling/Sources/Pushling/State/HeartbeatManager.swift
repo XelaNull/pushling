@@ -203,10 +203,11 @@ final class HeartbeatManager {
     }
 
     /// Records a crash recovery event in the journal table.
+    /// Note: This is typically a no-op during early launch because checkForCrash()
+    /// runs before the database is opened. The crash info is still logged via NSLog
+    /// and returned in CrashRecoveryInfo for the caller to persist after DB init.
     private func logCrashRecovery(previousPID: Int32, lastHeartbeat: String) {
         guard let db = databaseManager, db.isOpen else {
-            // Database may not be open yet during early launch.
-            // The caller can log this after DB is ready.
             NSLog("[Pushling/Heartbeat] Cannot write crash recovery to journal "
                   + "— database not open yet")
             return

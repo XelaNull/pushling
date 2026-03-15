@@ -1,5 +1,5 @@
-// StageRenderer.swift — Builds geometric placeholder sprites for all 6 stages.
-// Shape helpers are in ShapeFactory.swift. Will be replaced by texture atlases.
+// StageRenderer.swift — Builds geometric pixel-art sprites for all 6 stages.
+// Shape helpers are in ShapeFactory.swift.
 
 import SpriteKit
 

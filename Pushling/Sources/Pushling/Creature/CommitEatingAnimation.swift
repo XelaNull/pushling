@@ -246,8 +246,8 @@ final class CommitEatingAnimation {
 
         // Creature reactions
         if phaseTimer < 0.1 {
-            creature.earLeftController?.setState("alert", duration: 0.1)
-            creature.earRightController?.setState("alert", duration: 0.1)
+            creature.earLeftController?.setState("perk", duration: 0.1)
+            creature.earRightController?.setState("perk", duration: 0.1)
             creature.eyeLeftController?.setState("wide", duration: 0.1)
             creature.eyeRightController?.setState("wide", duration: 0.1)
         }
@@ -266,14 +266,12 @@ final class CommitEatingAnimation {
 
         // Butt wiggle for Critter+
         if phaseTimer >= 0.3 && creature.currentStage >= .critter {
-            let wiggle = sin((phaseTimer - 0.3) * 8 * .pi) * 1.5
-            creature.tailController?.setState(
-                wiggle > 0 ? "left" : "right", duration: 0)
+            creature.tailController?.setState("sway", duration: 0)
         }
 
         if phaseTimer >= 1.0 {
             creature.tailController?.setState("sway", duration: 0.2)
-            creature.mouthController?.setState("open_small", duration: 0)
+            creature.mouthController?.setState("open", duration: 0)
             phase = .feast
             phaseTimer = 0
         }
@@ -313,7 +311,7 @@ final class CommitEatingAnimation {
             charsEatenSinceSwallow += 1
 
             // Chewing animation
-            creature.mouthController?.setState("open_small", duration: 0)
+            creature.mouthController?.setState("open", duration: 0)
             let closeAction = SKAction.sequence([
                 .wait(forDuration: 0.06),
                 .run { [weak creature] in
@@ -321,7 +319,7 @@ final class CommitEatingAnimation {
                 },
                 .wait(forDuration: 0.06),
                 .run { [weak creature] in
-                    creature?.mouthController?.setState("open_small", duration: 0)
+                    creature?.mouthController?.setState("open", duration: 0)
                 }
             ])
             creature.run(closeAction, withKey: "chewing")

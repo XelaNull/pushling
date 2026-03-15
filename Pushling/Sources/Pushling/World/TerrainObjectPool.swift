@@ -127,7 +127,7 @@ extension BiomeObjectPool {
             )
         case .mountains:
             return BiomeObjectPool(
-                primary:   [.rock, .rock],
+                primary:   [.rock, .rock],  // Intentional double-weight for rocks
                 secondary: [.starFragment],
                 rare:      [.ruinPillar, .cardboardBox]
             )

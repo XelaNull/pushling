@@ -53,6 +53,10 @@ final class EyeController: BodyPartController {
         self.isLeftEye = isLeft
         self.baseWidth = width
         self.baseHeight = height
+
+        // Wire the pupil node from ShapeFactory (created as a child of the container)
+        let pupilName = "\(eyeNode.name ?? "eye")_pupil"
+        self.pupilNode = eyeNode.childNode(withName: pupilName) as? SKShapeNode
     }
 
     // MARK: - BodyPartController
@@ -81,7 +85,9 @@ final class EyeController: BodyPartController {
         case "slow_blink":
             startSlowBlink()
         case "look_at":
-            // look_at requires a target — default to slightly off-center
+            // TODO: look_at needs real target coordinates from the caller
+            // (e.g., world position of an object or touch point). Currently
+            // defaults to a fixed off-center offset as a placeholder.
             shiftPupil(dx: isLeftEye ? -0.5 : 0.5)
         case "x_eyes":
             applyXEyes()
@@ -220,10 +226,4 @@ final class EyeController: BodyPartController {
         pupilNode?.position.x = dx
     }
 
-    // MARK: - Pupil Setup
-
-    /// Called by StageRenderer to add a pupil to this eye.
-    func addPupil(_ pupil: SKShapeNode) {
-        self.pupilNode = pupil
-    }
 }

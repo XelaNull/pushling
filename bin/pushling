@@ -97,70 +97,18 @@ cmd_track() {
         fi
     fi
 
-    # Install post-commit hook
+    # Install post-commit hook (copy from canonical hooks/post-commit.sh)
     mkdir -p "$(dirname "$hook_file")"
-    cat > "$hook_file" << 'HOOK_EOF'
-#!/usr/bin/env bash
-# Pushling post-commit hook — captures commit data for creature feeding.
-# Must complete in <100ms. Writes JSON to feed directory, signals daemon.
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local canonical_hook="${script_dir}/../hooks/post-commit.sh"
 
-PUSHLING_FEED="$HOME/.local/share/pushling/feed"
-PUSHLING_SOCKET="/tmp/pushling.sock"
-
-# Ensure feed directory exists
-mkdir -p "$PUSHLING_FEED"
-
-# Gather commit data (fast — all from local git)
-SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-MSG=$(git log -1 --pretty=format:'%s' 2>/dev/null || echo "")
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-FILES=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | wc -l | tr -d ' ')
-ADDED=$(git diff --numstat HEAD~1..HEAD 2>/dev/null | awk '{s+=$1} END {print s+0}')
-REMOVED=$(git diff --numstat HEAD~1..HEAD 2>/dev/null | awk '{s+=$2} END {print s+0}')
-REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-IS_MERGE=false
-IS_REVERT=false
-
-# Check merge/revert
-if git rev-parse HEAD^2 >/dev/null 2>&1; then
-    IS_MERGE=true
-fi
-if echo "$MSG" | grep -qi "^revert"; then
-    IS_REVERT=true
-fi
-
-# Detect languages from changed file extensions
-LANGS=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null \
-    | sed 's/.*\.//' | sort -u | head -10 | tr '\n' ',' | sed 's/,$//')
-
-# Write JSON to feed directory
-FEED_FILE="$PUSHLING_FEED/commit_${SHA:0:8}_$(date +%s).json"
-cat > "$FEED_FILE" << EOF
-{
-  "type": "commit",
-  "sha": "$SHA",
-  "message": $(printf '%s' "$MSG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo "\"$MSG\""),
-  "repo_name": "$REPO",
-  "branch": "$BRANCH",
-  "files_changed": $FILES,
-  "lines_added": ${ADDED:-0},
-  "lines_removed": ${REMOVED:-0},
-  "languages": "$LANGS",
-  "is_merge": $IS_MERGE,
-  "is_revert": $IS_REVERT,
-  "is_force_push": false,
-  "timestamp": "$TIMESTAMP"
-}
-EOF
-
-# Signal daemon (non-blocking, don't fail if daemon is down)
-if [[ -S "$PUSHLING_SOCKET" ]]; then
-    echo '{"command":"process_feed"}' | nc -U -w1 "$PUSHLING_SOCKET" >/dev/null 2>&1 &
-fi
-
-exit 0
-HOOK_EOF
+    if [[ -f "$canonical_hook" ]]; then
+        cp "$canonical_hook" "$hook_file"
+    else
+        log_error "Cannot find hooks/post-commit.sh at: $canonical_hook"
+        exit 1
+    fi
 
     chmod +x "$hook_file"
     log_ok "Post-commit hook installed at: $hook_file"
@@ -381,16 +329,83 @@ cmd_import() {
         exit 0
     fi
 
-    # Stop daemon, import, restart
+    # Stop daemon before modifying the database
     if is_daemon_running; then
         log_info "Stopping daemon..."
         launchctl unload "$PUSHLING_PLIST" 2>/dev/null || true
         sleep 1
     fi
 
-    # Signal daemon to import (or handle directly)
-    log_warn "Import requires daemon support — please restart daemon after placing state"
-    log_ok "Import file validated: $input_file"
+    ensure_data_dir
+
+    # Backup existing database
+    if [[ -f "$PUSHLING_DB" ]]; then
+        local backup_file="${PUSHLING_DB}.pre-import.$(date +%s)"
+        cp "$PUSHLING_DB" "$backup_file"
+        log_info "Backed up current database to: $backup_file"
+    fi
+
+    # Extract state.db from the JSON export if it contains a creature record,
+    # then rebuild the database from the exported data.
+    python3 -c "
+import json, sqlite3, os, sys
+
+data = json.load(open('$input_file'))
+creature = data.get('creature', {})
+if not creature:
+    print('ERROR: No creature data in export file', file=sys.stderr)
+    sys.exit(1)
+
+db_path = '$PUSHLING_DB'
+
+# Remove existing DB to start fresh
+if os.path.exists(db_path):
+    os.remove(db_path)
+# Also remove WAL/SHM files
+for suffix in ['-wal', '-shm']:
+    p = db_path + suffix
+    if os.path.exists(p):
+        os.remove(p)
+
+conn = sqlite3.connect(db_path)
+conn.execute('PRAGMA journal_mode=WAL')
+
+# Create creature table
+cols = ', '.join(f'{k} TEXT' for k in creature.keys())
+conn.execute(f'CREATE TABLE IF NOT EXISTS creature (id INTEGER PRIMARY KEY, {cols})')
+placeholders = ', '.join(['?'] * (len(creature) + 1))
+col_names = 'id, ' + ', '.join(creature.keys())
+conn.execute(f'INSERT INTO creature ({col_names}) VALUES ({placeholders})',
+             [1] + list(str(v) for v in creature.values()))
+
+# Import journal entries if present
+journal = data.get('journal', [])
+if journal:
+    j_cols = list(journal[0].keys())
+    j_col_str = ', '.join(j_cols)
+    j_placeholders = ', '.join(['?'] * len(j_cols))
+    conn.execute(f'CREATE TABLE IF NOT EXISTS journal ({j_col_str})')
+    for entry in journal:
+        conn.execute(f'INSERT INTO journal ({j_col_str}) VALUES ({j_placeholders})',
+                     [str(entry.get(c, '')) for c in j_cols])
+
+conn.commit()
+conn.close()
+print('OK')
+" 2>/dev/null || {
+        log_error "Import failed. Ensure python3 is available."
+        exit 1
+    }
+
+    log_ok "Creature imported from: $input_file"
+
+    # Restart daemon
+    if [[ -f "$PUSHLING_PLIST" ]]; then
+        launchctl load "$PUSHLING_PLIST" 2>/dev/null || true
+        log_ok "Daemon restarted"
+    else
+        log_info "Start the daemon to meet your imported creature"
+    fi
 }
 
 cmd_voice_download() {

@@ -64,7 +64,7 @@ final class PhysicsLayer: BehaviorLayer {
 
     /// The current creature X position — maintained by PhysicsLayer for
     /// boundary enforcement. Set externally when creature state is loaded.
-    var currentX: CGFloat = 542.5
+    var currentX: CGFloat = SceneConstants.sceneWidth / 2
 
     /// The current creature Y position.
     var currentY: CGFloat = SceneConstants.groundY

@@ -1,6 +1,5 @@
 // ShapeFactory.swift — Geometric shape primitives for creature body parts
-// Creates SKShapeNode-based placeholders for ears, eyes, tails, paws, etc.
-// These are geometric approximations — will be replaced by texture atlases.
+// Creates SKShapeNode-based pixel-art shapes for ears, eyes, tails, paws, etc.
 
 import SpriteKit
 
