@@ -123,14 +123,16 @@ final class CommitEatingAnimation {
         guard let creature = creature, let scene = scene else { return }
         let creatureX = creature.position.x
 
-        // Spawn at edge of bar — the side further from creature
+        // Spawn text on the OPPOSITE side from creature, so it floats toward it
         let spawnX: CGFloat
         if creatureX > SceneConstants.sceneWidth / 2 {
-            spawnX = SceneConstants.sceneWidth + 10  // Right edge
-            eatingFromLeft = false  // Creature is to the right, eat from right side
+            // Creature is on the RIGHT — text spawns from LEFT, creature eats from RIGHT end
+            spawnX = -10
+            eatingFromLeft = false  // Eat from the right end (closest to creature)
         } else {
-            spawnX = -10  // Left edge
-            eatingFromLeft = true  // Creature is to the left, eat from left side
+            // Creature is on the LEFT — text spawns from RIGHT, creature eats from LEFT end
+            spawnX = SceneConstants.sceneWidth + 10
+            eatingFromLeft = true  // Eat from the left end (closest to creature)
         }
 
         // Position at creature's height
@@ -206,8 +208,18 @@ final class CommitEatingAnimation {
         }
         textNode.position.x += direction * driftSpeed * CGFloat(deltaTime)
 
-        // Stop when text is right next to creature (within 15pt)
-        if distance < 15 {
+        // Stop when text reaches the creature (within 40pt)
+        // Text node position is its left edge, so account for text width
+        let textWidth = CGFloat(textNode.charNodes.count) * 6  // ~6pt per char
+        let effectiveDistance: CGFloat
+        if eatingFromLeft {
+            // Text approaching from right, creature on left — check left edge of text
+            effectiveDistance = abs(textNode.position.x - creatureX)
+        } else {
+            // Text approaching from left, creature on right — check right edge of text
+            effectiveDistance = abs((textNode.position.x + textWidth) - creatureX)
+        }
+        if effectiveDistance < 40 {
             phase = .notice
             phaseTimer = 0
         }
@@ -240,11 +252,16 @@ final class CommitEatingAnimation {
             creature.eyeRightController?.setState("wide", duration: 0.1)
         }
 
-        // Face the text
+        // Face toward the text (toward where it came from)
         if eatingFromLeft {
-            creature.setFacing(.left)
-        } else {
+            // Eating from left end = text is to creature's right → face right? No.
+            // eatingFromLeft means creature is on LEFT, text came from RIGHT
+            // Creature should face RIGHT toward the text
             creature.setFacing(.right)
+        } else {
+            // Eating from right end = text is to creature's left
+            // Creature should face LEFT toward the text
+            creature.setFacing(.left)
         }
 
         // Butt wiggle for Critter+
