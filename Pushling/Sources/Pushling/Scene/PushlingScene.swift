@@ -55,6 +55,11 @@ final class PushlingScene: SKScene {
     private var idleTimeoutAccumulator: TimeInterval = 0
     private static let idleTimeoutInterval: TimeInterval = 0.5
 
+    // MARK: - Game Coordinator
+
+    /// The master wiring class — connects all subsystems. Set by AppDelegate.
+    weak var gameCoordinator: GameCoordinator?
+
     // MARK: - Debug Overlay
 
     private var debugOverlayNode: SKLabelNode?
@@ -167,6 +172,9 @@ final class PushlingScene: SKScene {
 
         // 6. Diamond indicator — per-frame animation (P4-T4-01)
         diamondIndicator?.update(deltaTime: deltaTime)
+
+        // 6b. GameCoordinator — pump all wired subsystems
+        gameCoordinator?.update(deltaTime: deltaTime)
 
         // 7. Idle timeout gradient check — throttled to every 0.5s (P4-T4-04)
         idleTimeoutAccumulator += deltaTime

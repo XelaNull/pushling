@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var touchBarController: TouchBarController?
     private var stateCoordinator: StateCoordinator?
     private var socketServer: SocketServer?
+    private var gameCoordinator: GameCoordinator?
     private var debugOverlayEnabled = false
 
     /// Debug action handler — created lazily when the debug menu is opened.
@@ -51,11 +52,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 5. Touch Bar: SpriteKit scene with creature
         setupTouchBar()
 
+        // 6. GameCoordinator: wire all 16 subsystems together
+        if let scene = touchBarController?.currentScene,
+           let stateCoord = self.stateCoordinator {
+            let game = GameCoordinator(
+                scene: scene,
+                stateCoordinator: stateCoord,
+                commandRouter: router,
+                eventBuffer: eventBuffer
+            )
+            scene.gameCoordinator = game
+            self.gameCoordinator = game
+            NSLog("[Pushling] GameCoordinator active — all subsystems wired")
+        } else {
+            NSLog("[Pushling] WARNING: No scene available — "
+                  + "GameCoordinator not created")
+        }
+
         NSLog("[Pushling] Daemon started — all systems active")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         NSLog("[Pushling] Shutting down...")
+        gameCoordinator?.shutdown()
         touchBarController?.dismiss()
         socketServer?.stop()
         stateCoordinator?.shutdown()
