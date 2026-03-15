@@ -167,7 +167,7 @@ struct ResolvedCreatureState {
         let hasEars = stage >= .critter
         let hasTail = stage >= .critter
         let hasMouth = stage >= .critter
-        let hasWhiskers = stage >= .beast
+        let hasWhiskers = stage >= .critter
         let hasAura = stage >= .beast
         let hasPaws = stage >= .critter
 

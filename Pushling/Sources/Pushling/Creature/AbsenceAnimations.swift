@@ -279,7 +279,7 @@ enum AbsenceWakeAnimation {
             earRightState: stage >= .critter ? "perk" : nil,
             eyeLeftState: "wide",
             eyeRightState: "wide",
-            whiskerState: stage >= .beast ? "forward" : nil
+            whiskerState: stage >= .critter ? "forward" : nil
         )))
 
         // Stand up and look around
@@ -289,7 +289,7 @@ enum AbsenceWakeAnimation {
             earRightState: stage >= .critter ? "neutral" : nil,
             eyeLeftState: "open",
             eyeRightState: "open",
-            whiskerState: stage >= .beast ? "neutral" : nil
+            whiskerState: stage >= .critter ? "neutral" : nil
         )))
 
         return frames

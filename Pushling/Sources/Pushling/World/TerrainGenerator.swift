@@ -102,7 +102,26 @@ final class TerrainGenerator {
         let chunk = ensureChunk(at: chunkIndex)
         let sampleIndex = Self.sampleIndex(worldX: worldX, chunkIndex: chunkIndex)
         let clampedSample = max(0, min(Self.samplesPerChunk - 1, sampleIndex))
-        return Self.baselineY + chunk.heights[clampedSample]
+
+        // Interpolate between this sample and the next for smooth sub-sample terrain
+        let currentHeight = chunk.heights[clampedSample]
+
+        // Get next sample (may be in the next chunk)
+        let nextHeight: CGFloat
+        if clampedSample < Self.samplesPerChunk - 1 {
+            nextHeight = chunk.heights[clampedSample + 1]
+        } else {
+            // Cross chunk boundary — get first sample of next chunk
+            let nextChunk = ensureChunk(at: chunkIndex + 1)
+            nextHeight = nextChunk.heights[0]
+        }
+
+        // Sub-sample fractional interpolation
+        let exactSample = (worldX - CGFloat(chunkIndex) * Self.chunkWorldWidth) / Self.pointsPerSample
+        let frac = exactSample - floor(exactSample)
+        let interpolated = currentHeight * (1.0 - frac) + nextHeight * frac
+
+        return Self.baselineY + interpolated
     }
 
     /// Returns the terrain chunk containing the given world-X.
@@ -208,6 +227,20 @@ final class TerrainGenerator {
             // Map noise [0, 255] to height [0, maxHeight] with amplitude
             let normalizedNoise = CGFloat(noise) / 255.0
             heights[s] = normalizedNoise * Self.maxHeight * amplitude
+        }
+
+        // Smooth pass: limit max height change between adjacent samples.
+        // This prevents sharp cliffs at biome transitions (e.g., wetlands 0.2
+        // amplitude suddenly jumping to mountains 2.5 amplitude).
+        // Max slope: 1.0pt per sample (= 0.5pt per world-point).
+        let maxSlopePerSample: CGFloat = 1.0
+        for s in 1..<Self.samplesPerChunk {
+            let diff = heights[s] - heights[s - 1]
+            if diff > maxSlopePerSample {
+                heights[s] = heights[s - 1] + maxSlopePerSample
+            } else if diff < -maxSlopePerSample {
+                heights[s] = heights[s - 1] - maxSlopePerSample
+            }
         }
 
         // Determine biome at chunk center

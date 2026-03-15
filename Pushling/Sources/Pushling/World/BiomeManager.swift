@@ -107,7 +107,9 @@ final class BiomeManager {
     static let biomeRegionWidth: CGFloat = 800
 
     /// Width of the gradient transition zone between biomes.
-    static let transitionWidth: CGFloat = 50
+    /// 150pt ensures smooth height transitions even between wetlands (0.2)
+    /// and mountains (2.5) — wider than the original 50pt.
+    static let transitionWidth: CGFloat = 150
 
     /// Half the transition width — used for boundary calculations.
     private static let halfTransition: CGFloat = transitionWidth / 2.0

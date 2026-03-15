@@ -5,7 +5,6 @@ import SpriteKit
 
 // MARK: - Landmark Type
 
-/// The 9 repo landmark types, mapped from repo analysis.
 enum LandmarkType: String, CaseIterable {
     case neonTower    // Web app
     case fortress     // API/backend
@@ -20,7 +19,6 @@ enum LandmarkType: String, CaseIterable {
 
 // MARK: - Repo Type Detection
 
-/// Determines what type of repo a project is, for landmark assignment.
 enum RepoType: String {
     case webApp
     case apiBackend
@@ -50,7 +48,6 @@ enum RepoType: String {
 
 // MARK: - Landmark Data
 
-/// Persistent landmark data — stored in SQLite, rendered in the mid layer.
 struct LandmarkData {
     let repoName: String
     let landmarkType: LandmarkType
@@ -61,32 +58,15 @@ struct LandmarkData {
 // MARK: - LandmarkSystem
 
 /// Manages repo landmarks on the mid-parallax layer.
-/// Landmarks are permanent structures that grow as the developer tracks more repos.
 final class LandmarkSystem {
 
-    // MARK: - Constants
-
-    /// Minimum spacing between landmarks in world-space.
     static let minSpacing: CGFloat = 80
-
-    /// Base Y position for landmarks (sitting on a "horizon line").
     static let baselineY: CGFloat = 6.0
-
-    /// Landmark base color.
     static let landmarkColor = PushlingPalette.ash
 
-    // MARK: - Properties
-
-    /// All registered landmarks.
     private(set) var landmarks: [LandmarkData] = []
-
-    /// Active landmark nodes, keyed by repo name.
     private var landmarkNodes: [String: SKNode] = [:]
-
-    /// The mid layer to add landmarks to.
     private weak var midLayer: SKNode?
-
-    /// Next available world-X for placing a new landmark.
     private var nextWorldX: CGFloat = 100
 
     // MARK: - Initialization
@@ -97,8 +77,6 @@ final class LandmarkSystem {
 
     // MARK: - Landmark Registration
 
-    /// Adds a new repo landmark to the world.
-    /// Position is deterministic from repo name hash + creation order.
     func addLandmark(repoName: String, repoType: RepoType) {
         guard !landmarks.contains(where: { $0.repoName == repoName }) else { return }
 
@@ -121,7 +99,6 @@ final class LandmarkSystem {
         nextWorldX = worldX + Self.minSpacing
     }
 
-    /// Loads landmarks from persisted data (e.g., SQLite on launch).
     func loadLandmarks(_ data: [LandmarkData]) {
         for landmark in data {
             landmarks.append(landmark)
@@ -137,7 +114,6 @@ final class LandmarkSystem {
         }
     }
 
-    /// Returns the landmark nearest to a world-X position, if within range.
     func nearestLandmark(to worldX: CGFloat,
                          maxDistance: CGFloat = 60) -> LandmarkData? {
         return landmarks.min(by: {
@@ -187,22 +163,18 @@ final class LandmarkSystem {
 
     // MARK: - Landmark Shapes
 
-    /// Neon tower — glowing vertical line with antenna + window dots. 6pt tall.
     private func makeNeonTower() -> SKNode {
         let container = SKNode()
-
         let body = SKShapeNode(rectOf: CGSize(width: 2, height: 6))
         body.fillColor = Self.landmarkColor
         body.strokeColor = .clear
         body.position = CGPoint(x: 0, y: 3)
         container.addChild(body)
-
         let antenna = SKShapeNode(rectOf: CGSize(width: 0.5, height: 2))
         antenna.fillColor = PushlingPalette.tide.withAlphaComponent(0.7)
         antenna.strokeColor = .clear
         antenna.position = CGPoint(x: 0, y: 7)
         container.addChild(antenna)
-
         let glow = SKShapeNode(circleOfRadius: 0.5)
         glow.fillColor = PushlingPalette.tide
         glow.strokeColor = .clear
@@ -212,8 +184,6 @@ final class LandmarkSystem {
             SKAction.fadeAlpha(to: 1.0, duration: 0.8)
         ])), withKey: "blink")
         container.addChild(glow)
-
-        // Window dots on the body
         for wy in [2.0, 4.5] as [CGFloat] {
             let win = SKShapeNode(circleOfRadius: 0.4)
             win.fillColor = accent(PushlingPalette.tide)
@@ -226,7 +196,6 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Fortress — blocky castle silhouette + flag. 6pt tall.
     private func makeFortress() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -4, y: 0))
@@ -242,13 +211,11 @@ final class LandmarkSystem {
         path.addLine(to: CGPoint(x: 4, y: 5))
         path.addLine(to: CGPoint(x: 4, y: 0))
         path.closeSubpath()
-
         let container = SKNode()
         let fortress = SKShapeNode(path: path)
         fortress.fillColor = Self.landmarkColor
         fortress.strokeColor = .clear
         container.addChild(fortress)
-
         // Flag on the left tower
         let flag = SKShapeNode(rectOf: CGSize(width: 1.5, height: 1))
         flag.fillColor = accent(PushlingPalette.ember)
@@ -263,7 +230,6 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Obelisk — tall thin pointed shape + hieroglyph. 8pt tall.
     private func makeObelisk() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -1.5, y: 0))
@@ -278,8 +244,7 @@ final class LandmarkSystem {
         obelisk.fillColor = Self.landmarkColor
         obelisk.strokeColor = .clear
         container.addChild(obelisk)
-
-        // Hieroglyph line down the face
+        // Hieroglyph line
         let glyph = SKShapeNode(rectOf: CGSize(width: 0.3, height: 4))
         glyph.fillColor = accent(PushlingPalette.gilt)
         glyph.strokeColor = .clear
@@ -290,7 +255,6 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Crystal — geometric faceted shape + refraction lines. 5pt tall.
     private func makeCrystal() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 0, y: 0))
@@ -307,7 +271,6 @@ final class LandmarkSystem {
         crystal.strokeColor = PushlingPalette.dusk.withAlphaComponent(0.3)
         crystal.lineWidth = 0.5
         container.addChild(crystal)
-
         // Refraction lines
         for rx in [-0.5, 0.5] as [CGFloat] {
             let refr = SKShapeNode(rectOf: CGSize(width: 0.2, height: 2.5))
@@ -318,8 +281,7 @@ final class LandmarkSystem {
             refr.zRotation = rx * 0.2
             container.addChild(refr)
         }
-
-        // Twinkle highlight at top
+        // Twinkle
         let twinkle = SKShapeNode(circleOfRadius: 0.4)
         twinkle.fillColor = accent(PushlingPalette.dusk)
         twinkle.strokeColor = .clear
@@ -333,10 +295,8 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Smoke stack — tower with smoke wisps + warning stripe. 6pt tall.
     private func makeSmokeStack() -> SKNode {
         let container = SKNode()
-
         let tower = SKShapeNode(rectOf: CGSize(width: 2.5, height: 6))
         tower.fillColor = Self.landmarkColor
         tower.strokeColor = .clear
@@ -392,10 +352,8 @@ final class LandmarkSystem {
         container.addChild(smoke)
     }
 
-    /// Observatory — dome with slit + brighter star. 5pt tall.
     private func makeObservatory() -> SKNode {
         let container = SKNode()
-
         let base = SKShapeNode(rectOf: CGSize(width: 5, height: 2))
         base.fillColor = Self.landmarkColor
         base.strokeColor = .clear
@@ -432,7 +390,6 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Scroll tower — curved architecture + scroll lines. 5pt tall.
     private func makeScrollTower() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -2, y: 0))
@@ -461,10 +418,8 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Windmill — spinning blades + window/door. 6pt tall.
     private func makeWindmill() -> SKNode {
         let container = SKNode()
-
         let bodyPath = CGMutablePath()
         bodyPath.move(to: CGPoint(x: -1.5, y: 0))
         bodyPath.addLine(to: CGPoint(x: -1, y: 5))
@@ -515,10 +470,8 @@ final class LandmarkSystem {
         return container
     }
 
-    /// Monolith — tall rectangle + crack line + mossy base. 6pt tall.
     private func makeMonolith() -> SKNode {
         let container = SKNode()
-
         let monolith = SKShapeNode(rectOf: CGSize(width: 2, height: 6))
         monolith.fillColor = Self.landmarkColor
         monolith.strokeColor = .clear
