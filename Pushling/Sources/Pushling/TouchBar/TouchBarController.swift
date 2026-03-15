@@ -117,6 +117,7 @@ final class TouchBarController: NSObject, TouchBarProvider, NSTouchBarDelegate {
         let view = SKView(frame: NSRect(x: 0, y: 0, width: 1085, height: 30))
         view.preferredFramesPerSecond = 60
         view.allowsTransparency = false
+        view.allowedTouchTypes = [.direct]  // Enable Touch Bar touch events
 
         // Debug features — controlled via menu toggle, not always-on
         #if DEBUG

@@ -272,6 +272,60 @@ final class PushlingScene: SKScene {
         handleTouch(at: location)
     }
 
+    // MARK: - Touch Bar Touch Events
+
+    /// Forward Touch Bar touches to the input pipeline.
+    /// Touch Bar delivers NSTouchType.direct touches via these NSResponder methods.
+    override func touchesBegan(with event: NSEvent) {
+        guard let view = self.view else { return }
+        for touch in event.touches(matching: .began, in: view) {
+            let norm = touch.normalizedPosition
+            let scenePoint = CGPoint(x: norm.x * size.width, y: norm.y * size.height)
+            handleTouch(at: scenePoint)
+            gameCoordinator?.touchTracker.touchBegan(
+                id: ObjectIdentifier(touch),
+                normalizedPosition: scenePoint,
+                currentTime: CACurrentMediaTime()
+            )
+        }
+    }
+
+    override func touchesMoved(with event: NSEvent) {
+        guard let view = self.view else { return }
+        for touch in event.touches(matching: .moved, in: view) {
+            let norm = touch.normalizedPosition
+            let scenePoint = CGPoint(x: norm.x * size.width, y: norm.y * size.height)
+            gameCoordinator?.touchTracker.touchMoved(
+                id: ObjectIdentifier(touch),
+                normalizedPosition: scenePoint,
+                currentTime: CACurrentMediaTime()
+            )
+        }
+    }
+
+    override func touchesEnded(with event: NSEvent) {
+        guard let view = self.view else { return }
+        for touch in event.touches(matching: .ended, in: view) {
+            let norm = touch.normalizedPosition
+            let scenePoint = CGPoint(x: norm.x * size.width, y: norm.y * size.height)
+            gameCoordinator?.touchTracker.touchEnded(
+                id: ObjectIdentifier(touch),
+                normalizedPosition: scenePoint,
+                currentTime: CACurrentMediaTime()
+            )
+        }
+    }
+
+    override func touchesCancelled(with event: NSEvent) {
+        guard let view = self.view else { return }
+        for touch in event.touches(matching: .cancelled, in: view) {
+            gameCoordinator?.touchTracker.touchCancelled(
+                id: ObjectIdentifier(touch),
+                currentTime: CACurrentMediaTime()
+            )
+        }
+    }
+
     // MARK: - Creature Walking Simulation
 
     /// Simulates the creature walking back and forth through the world.
