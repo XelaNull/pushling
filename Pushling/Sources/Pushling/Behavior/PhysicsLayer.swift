@@ -172,9 +172,9 @@ final class PhysicsLayer: BehaviorLayer {
             output.walkSpeed = 0
         }
 
-        // Z boundary enforcement (0.0 = foreground, 1.0 = background)
-        if currentZ < 0.0 || currentZ > 1.0 {
-            currentZ = clamp(currentZ, min: 0.0, max: 1.0)
+        // Z boundary enforcement (0.0 = foreground, 0.8 = max background)
+        if currentZ < 0.0 || currentZ > 0.8 {
+            currentZ = clamp(currentZ, min: 0.0, max: 0.8)
             output.positionZ = currentZ
         }
     }

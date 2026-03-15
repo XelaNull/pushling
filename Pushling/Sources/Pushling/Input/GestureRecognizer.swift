@@ -23,6 +23,8 @@ enum GestureType: String {
     case multiFingerTwo
     case multiFingerThree
     case rapidTaps
+    case pinchZoom
+    case twoFingerDrag
 }
 
 // MARK: - Gesture Target
@@ -95,6 +97,18 @@ final class GestureRecognizer: TouchTrackerDelegate {
     /// Currently recognized multi-finger count.
     private var multiFingerCount = 0
 
+    /// Two-finger gesture classification state (pinch / drag / belly rub).
+    private var multiTouchState: MultiTouchState?
+
+    /// Tracked positions for two-finger gestures, keyed by touch ID.
+    private var twoFingerPositions: [ObjectIdentifier: CGPoint] = [:]
+
+    /// Whether a two-finger gesture has been classified and dispatched.
+    private var twoFingerClassified = false
+
+    /// The target for the two-finger gesture (captured at began).
+    private var twoFingerTarget: GestureTarget = .world
+
     /// Whether a drag gesture has been recognized for the current touch.
     private var activeDragTouchId: ObjectIdentifier?
 
@@ -157,15 +171,20 @@ final class GestureRecognizer: TouchTrackerDelegate {
 
         if event.activeTouchCount >= 2 {
             multiFingerCount = 2
-            dispatchGesture(GestureEvent(
-                type: .multiFingerTwo,
-                position: event.state.currentPosition,
-                velocity: event.state.velocity,
-                touchCount: 2,
-                duration: 0,
-                target: targetFor(event.state),
-                timestamp: event.timestamp
-            ))
+            twoFingerClassified = false
+            twoFingerTarget = targetFor(event.state)
+
+            // Track this finger's position
+            twoFingerPositions[event.state.id] = event.state.currentPosition
+
+            // Initialize MultiTouchState when we have 2 positions
+            if twoFingerPositions.count >= 2 {
+                let positions = Array(twoFingerPositions.values)
+                multiTouchState = MultiTouchState.begin(
+                    touch1: positions[0], touch2: positions[1]
+                )
+            }
+
             cancelPendingTap()
             return
         }

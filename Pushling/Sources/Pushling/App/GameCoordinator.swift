@@ -548,6 +548,9 @@ final class GameCoordinator {
         creatureTouchHandler.wireToScene(scene,
                                            behaviorStack: scene.behaviorStack)
 
+        // Wire camera controller to touch handler
+        creatureTouchHandler.cameraController = scene.cameraController
+
         // Contentment changes from touch -> emotional state
         creatureTouchHandler.onContentmentChange = { [weak self] delta in
             guard let self = self else { return }
@@ -558,6 +561,15 @@ final class GameCoordinator {
         creatureTouchHandler.onSatisfactionChange = { [weak self] delta in
             guard let self = self else { return }
             self.emotionalState.boostFromInteraction()
+        }
+
+        // Wire depth terrain query to autonomous layer
+        if let stack = scene.behaviorStack {
+            stack.autonomous.depthTerrainQuery = { [weak self] worldX, depth in
+                self?.scene.worldManager.terrainHeightAtDepth(
+                    worldX: worldX, depth: depth
+                ) ?? TerrainGenerator.baselineY
+            }
         }
 
         NSLog("[Pushling/Coordinator] Input system wired")

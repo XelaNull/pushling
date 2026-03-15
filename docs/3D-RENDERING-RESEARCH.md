@@ -592,14 +592,57 @@ I love this. It is the "do more with what you have" approach. Every enhancement 
 | **Creature Lighting** | Flat colors | Normal-mapped sprites with dynamic light direction | Creature reacts to time-of-day lighting, storm lightning |
 | **Creature Glow** | Simple aura (SKEffectNode) | SDF-based glow via SKShader | Resolution-independent glow, smoother, more ethereal |
 | **Weather** | Particle emitters | Same + ground-plane-aware particles (rain splashes on Mode 7 surface) | Rain and snow interact with the 3D ground |
+| **Clouds** | None | Parallax cloud layer with soft organic shapes drifting across the sky | Living sky, depth cue, weather integration, time-of-day coloring |
+
+### Clouds System
+
+Clouds are a significant visual enhancement that adds life to the sky at minimal performance cost:
+
+**Visual Design:**
+- Soft, organic cloud shapes using `SKShapeNode` with rounded paths or small `SKSpriteNode` textures
+- 2-4 clouds visible at any time, placed on a dedicated cloud layer between mid and far parallax
+- Drift slowly left-to-right at 5-15pt/sec (slower than foreground, faster than far background)
+- Vary in size (15-40pt wide, 4-8pt tall), opacity (0.15-0.40), and shape
+- Use Bone (#F5F0E8) at low alpha against the sky gradient
+
+**Weather Integration:**
+- Clear weather: 0-2 scattered wisps (alpha 0.15)
+- Cloudy weather: 3-5 denser clouds (alpha 0.30-0.40), lower in the sky
+- Rain: dark clouds (Ash color, alpha 0.35) with rain falling from them
+- Storm: thick dark clouds covering most of sky (alpha 0.45), lightning originates from cloud layer
+- Snow: soft white clouds (Bone, alpha 0.25) at mid-height
+- Fog: clouds descend to ground level, merge with fog overlay
+
+**Time-of-Day Coloring:**
+- Dawn/Dusk: clouds tinted Ember/Gilt (golden hour effect)
+- Day: Bone white
+- Night: barely visible Ash silhouettes against the star field
+- Deep night: invisible (no clouds rendered)
+
+**Implementation:**
+- Dedicated `CloudSystem.swift` in `World/`
+- Cloud layer at zPosition between far parallax and mid parallax
+- Pool of 6-8 pre-allocated cloud nodes, recycled as they drift off-screen
+- Shape generation: 3-5 overlapping ellipses at random offsets create organic cloud shapes
+- Per-frame drift + slow vertical sine-wave bob (0.5pt amplitude, 8s period)
+- Weather system triggers cloud density/color/height changes
+- Performance: <0.1ms per frame (6-8 simple nodes, no particles)
+
+**The Impact:**
+Clouds transform the sky from a static gradient into a living environment. They provide:
+1. **Depth cue** — clouds between parallax layers reinforce the 2.5D illusion
+2. **Weather storytelling** — clouds darken before rain, part after storms clear
+3. **Time atmosphere** — golden-hour cloud tinting is emotionally powerful on OLED
+4. **Movement** — even when the creature is still, the world breathes through drifting clouds
 
 ### Implementation Priority
 
 1. **Sprite Stacking for Creature** (Week 1-2) — biggest visual impact, creates the "this looks 3D" moment
 2. **Mode 7 Ground Plane** (Week 2) — adds genuine perspective to the world
-3. **Atmospheric Depth** (Week 3) — blur + desaturation on distant parallax layers
-4. **Normal-mapped Creature Lighting** (Week 3-4) — creature reacts to world lighting
-5. **SDF Glow Effects** (Week 4) — ethereal creature aura, evolution effects
+3. **Cloud System** (Week 2-3) — living sky, weather integration, depth perception
+4. **Atmospheric Depth** (Week 3) — blur + desaturation on distant parallax layers
+5. **Normal-mapped Creature Lighting** (Week 3-4) — creature reacts to world lighting
+6. **SDF Glow Effects** (Week 4) — ethereal creature aura, evolution effects
 
 ### What This Achieves
 

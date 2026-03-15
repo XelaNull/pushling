@@ -68,8 +68,17 @@ final class AutonomousLayer: BehaviorLayer {
     private var stateDuration: TimeInterval = 3.0
     private var facing: Direction = .right
     private(set) var currentX: CGFloat = SceneConstants.sceneWidth / 2
-    private var currentZ: CGFloat = 0.0
+    var currentZ: CGFloat = 0.0
     private var currentWalkSpeed: CGFloat = 0
+
+    // MARK: - Depth Wandering (AutonomousLayer+DepthWandering.swift)
+
+    /// Target Z position for smooth depth transitions.
+    var depthTargetZ: CGFloat = 0.0
+
+    /// Closure to query terrain height at a given (worldX, depth).
+    /// Set by GameCoordinator to wire to WorldManager.terrainHeightAtDepth.
+    var depthTerrainQuery: ((CGFloat, CGFloat) -> CGFloat)?
     private var pendingDirectionChange: Bool = false
     private var walkCyclePhase: Double = 0
     private var blinkTimer: TimeInterval = 0
@@ -182,6 +191,12 @@ final class AutonomousLayer: BehaviorLayer {
             base: Double(filtered), jitterFactor: randomJitter(range: 1.0),
             personality: personality))
 
+        // Apply depth speed scaling (further away = slower)
+        currentWalkSpeed *= AutonomousLayer.depthSpeedMultiplier(z: currentZ)
+
+        // Smooth depth transition toward target
+        updateDepthWalk(deltaTime: deltaTime)
+
         // Integrate position
         currentX += currentWalkSpeed * (facing == .right ? 1 : -1) * CGFloat(deltaTime)
         output.positionX = currentX
@@ -219,9 +234,9 @@ final class AutonomousLayer: BehaviorLayer {
                 pendingDirectionChange = true
             }
 
-            // Occasional depth change during walking (10% chance)
-            if randomChance(0.1) {
-                currentZ = CGFloat(randomRange(0.0, 0.3))
+            // Depth wandering: 20% chance of selecting a new Z target
+            if randomChance(0.2) {
+                depthTargetZ = selectTargetZ()
             }
 
             transitionTo(.idle)

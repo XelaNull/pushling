@@ -22,6 +22,9 @@ final class PushlingScene: SKScene {
     /// visual events, and ruin inscriptions.
     let worldManager = WorldManager()
 
+    /// Camera controller for pan/zoom (touch-driven).
+    let cameraController = CameraController()
+
     // MARK: - Creature
 
     /// The Pushling creature — composite SKNode with all body parts.
@@ -226,14 +229,24 @@ final class PushlingScene: SKScene {
     }
 
     /// World — parallax scrolling, terrain generation/recycling, biomes,
-    /// visual effects, creature-dependent visuals.
+    /// visual effects, creature-dependent visuals, camera pan/zoom.
     private func updateWorld(deltaTime: TimeInterval) {
-        // Update world system with current camera position
-        worldManager.update(deltaTime: deltaTime, trackedX: creatureWorldX)
+        // Update camera controller (decay pan offset, track creature)
+        cameraController.update(deltaTime: deltaTime,
+                                 creatureWorldX: creatureWorldX)
+
+        // Update world system with effective camera position (base + pan)
+        let effectiveX = cameraController.effectiveWorldX
+        worldManager.update(deltaTime: deltaTime, trackedX: effectiveX,
+                            zoom: cameraController.zoomLevel)
 
         // Position the creature on the terrain surface
         if let creature = creatureNode {
-            let terrainY = worldManager.terrainHeightAt(worldX: creatureWorldX)
+            // Use depth-aware terrain query: creature follows terrain at its Z depth
+            let z = creaturePositionZ
+            let terrainY = worldManager.terrainHeightAtDepth(
+                worldX: creatureWorldX, depth: z
+            )
             let config = StageConfiguration.all[creature.currentStage]!
             let creatureY = terrainY + config.size.height / 2
             creature.position = CGPoint(
@@ -252,7 +265,6 @@ final class PushlingScene: SKScene {
 
             // Apply depth perspective (Phase 0B)
             // positionZ: 0.0 = foreground (full size), 1.0 = background (0.5x size)
-            let z = creaturePositionZ
             let depthScale = 1.0 - z * 0.5          // 1.0 at z=0, 0.5 at z=1
             let depthYOffset = z * 6.0               // Shift up 0-6pt (further = higher)
 

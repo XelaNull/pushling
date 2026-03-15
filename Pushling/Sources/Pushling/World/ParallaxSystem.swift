@@ -44,6 +44,9 @@ final class ParallaxSystem {
     /// Current camera world-X position. Set each frame from creature/test node.
     private(set) var cameraWorldX: CGFloat = 0
 
+    /// Current zoom level (1.0 = normal, 2.0 = max zoom).
+    private(set) var zoomLevel: CGFloat = 1.0
+
     /// The scene this system is attached to.
     private weak var scene: SKScene?
 
@@ -78,26 +81,42 @@ final class ParallaxSystem {
 
     // MARK: - Update
 
-    /// Updates all layer positions based on the camera's world-X.
+    /// Updates all layer positions based on the camera's world-X and zoom level.
     /// Call once per frame from the scene's update loop.
     ///
     /// The camera conceptually looks at `worldX`. Each layer shifts
     /// by `-(worldX * scrollFactor)` to create parallax depth.
     /// The fore layer moves 1:1 with the camera (objects scroll past).
     /// The far layer barely moves (distant objects).
+    /// Zoom scales layer positions around the scene center.
     ///
-    /// - Parameter worldX: The world-space X position to center on.
-    func update(cameraWorldX worldX: CGFloat) {
+    /// - Parameters:
+    ///   - worldX: The world-space X position to center on.
+    ///   - zoom: Zoom level (1.0 = normal, 2.0 = double magnification).
+    func update(cameraWorldX worldX: CGFloat, zoom: CGFloat = 1.0) {
         cameraWorldX = worldX
+        zoomLevel = zoom
 
         // Half the scene width — camera centers on this point
         let halfWidth = Self.sceneWidth / 2.0
 
         for config in Self.layerConfigs {
             guard let layerNode = layers[config.name] else { continue }
-            // Each layer's position = scene center offset - (worldX * scrollFactor)
-            // This makes the fore layer track 1:1 and far layer barely move.
-            layerNode.position.x = halfWidth - (worldX * config.scrollFactor)
+
+            // Base position: scene center offset - (worldX * scrollFactor)
+            let baseX = halfWidth - (worldX * config.scrollFactor)
+
+            if zoom == 1.0 {
+                // No zoom — simple parallax
+                layerNode.position.x = baseX
+                layerNode.setScale(1.0)
+            } else {
+                // Zoom: scale layer around the scene center point.
+                // Position adjustment keeps the center point stationary.
+                layerNode.setScale(zoom)
+                layerNode.position.x = halfWidth + (baseX - halfWidth) * zoom
+                layerNode.position.y = halfWidth * (zoom - 1.0) * (Self.sceneHeight / Self.sceneWidth)
+            }
         }
     }
 
@@ -126,7 +145,8 @@ final class ParallaxSystem {
         // wx <= sceneWidth - (halfWidth - worldX*factor) = halfWidth + worldX*factor
 
         let effectiveX = cameraWorldX * config.scrollFactor
-        let halfWidth = Self.sceneWidth / 2.0
+        // When zoomed in, the visible range shrinks (we see less world)
+        let halfWidth = (Self.sceneWidth / 2.0) / max(zoomLevel, 1.0)
         let minX = effectiveX - halfWidth
         let maxX = effectiveX + halfWidth
         return minX...maxX

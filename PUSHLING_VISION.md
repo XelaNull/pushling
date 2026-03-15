@@ -326,7 +326,9 @@ On OLED, saturated colors against true black create a "neon floating in void" ef
 
 **Sky**: Real-time gradient driven by wall clock. 8 time periods (deep night -> dawn -> morning -> day -> golden hour -> dusk -> evening -> late night) with 10-minute transitions. Moon shows actual phase. 15-25 stars twinkle at night.
 
-**Weather**: State machine checked every 5 minutes. Clear (60%), Cloudy (20%), Rain (12%), Storm (5%), Snow (3%). Rain renders as individual 1x2pt droplets at 100-140pts/sec with splash particles on terrain impact. Lightning cracks full 1085pt width with screen shake. The cat reacts to weather: hunches in rain, catches snowflakes, ears flatten in thunder.
+**Weather**: State machine checked every 5 minutes. Clear (55%), Cloudy (18%), Rain (12%), Storm (5%), Snow (3%), Fog (7%). Rain renders as individual 1x2pt droplets at 100-140pts/sec with splash particles on terrain impact. Lightning cracks full 1085pt width with screen shake. The cat reacts to weather: hunches in rain, catches snowflakes, ears flatten in thunder.
+
+**Clouds**: 2-4 soft organic shapes drifting across the sky on a dedicated parallax layer. Pool of 6-8 cloud nodes (overlapping ellipses), Bone color at low alpha. Clear weather: 0-2 wisps. Cloudy: 3-5 dense clouds. Rain/storm: dark Ash clouds with rain originating from them. Dawn/dusk: clouds tinted Ember/Gilt for golden-hour glow. Night: barely visible Ash silhouettes. Drift at 5-15pt/sec with gentle vertical bob. Even when the creature is still, the world breathes through drifting clouds.
 
 **Terrain**: Procedural from integer noise. Five biomes (plains, forest, desert, wetlands, mountains) with 50-unit gradient transitions. 8-14 objects visible at any time (grass tufts, flowers, trees, mushrooms, rocks, water puddles, star fragments, ruin pillars, yarn balls, cardboard boxes).
 

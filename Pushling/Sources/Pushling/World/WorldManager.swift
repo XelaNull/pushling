@@ -277,15 +277,17 @@ final class WorldManager {
     /// - Parameters:
     ///   - deltaTime: Time since last frame.
     ///   - trackedX: World-X position to center the camera on
-    ///     (typically creature position).
-    func update(deltaTime: TimeInterval, trackedX: CGFloat) {
+    ///     (typically creature position or effective camera position).
+    ///   - zoom: Current zoom level (1.0 = normal, 2.0 = max zoom).
+    func update(deltaTime: TimeInterval, trackedX: CGFloat,
+                zoom: CGFloat = 1.0) {
         guard isSetUp else { return }
 
         cameraWorldX = trackedX
         frameCounter += 1
 
-        // Update parallax layer positions (< 0.1ms)
-        parallax.update(cameraWorldX: trackedX)
+        // Update parallax layer positions with zoom (< 0.1ms)
+        parallax.update(cameraWorldX: trackedX, zoom: zoom)
 
         // Update terrain recycler — generate/recycle chunks (< 0.2ms)
         terrainRecycler?.update(cameraWorldX: trackedX)

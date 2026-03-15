@@ -47,6 +47,12 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
     /// Whether the creature is sleeping.
     var isSleeping = false
 
+    /// Camera controller for pan/zoom (set during wiring).
+    var cameraController: CameraController?
+
+    /// Last drag position for computing deltas.
+    private var lastDragPosition: CGPoint?
+
     /// Creature world-X position.
     var creatureWorldX: CGFloat = 542.5
 
@@ -133,6 +139,10 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
             handleTwoFinger(event)
         case .multiFingerThree:
             handleThreeFinger(event)
+        case .pinchZoom:
+            handlePinchZoom(event)
+        case .twoFingerDrag:
+            handleTwoFingerDrag(event)
         }
     }
 
@@ -215,20 +225,28 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
     // MARK: - Triple Tap
 
     private func handleTripleTap(_ event: GestureEvent) {
-        guard case .creature = event.target else { return }
+        switch event.target {
+        case .creature:
+            // Stage-specific easter egg
+            let secret: String
+            switch creatureStage {
+            case .spore:   secret = "pulse"
+            case .drop:    secret = "belly_expose"
+            case .critter: secret = "zoomies"
+            case .beast:   secret = "map_reveal"
+            case .sage:    secret = "prophecy"
+            case .apex:    secret = "reality_glitch"
+            }
+            NSLog("[Pushling/Touch] Triple-tap creature -> %@", secret)
 
-        // Stage-specific easter egg
-        let secret: String
-        switch creatureStage {
-        case .spore:   secret = "pulse"
-        case .drop:    secret = "belly_expose"
-        case .critter: secret = "zoomies"
-        case .beast:   secret = "map_reveal"
-        case .sage:    secret = "prophecy"
-        case .apex:    secret = "reality_glitch"
+        case .world:
+            // Triple-tap on empty space → animated recenter + reset zoom
+            cameraController?.recenter()
+            NSLog("[Pushling/Touch] Triple-tap world -> camera recenter")
+
+        case .object, .commitText:
+            break
         }
-
-        NSLog("[Pushling/Touch] Triple-tap creature -> %@", secret)
     }
 
     // MARK: - Long Press
@@ -275,6 +293,21 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
         // Hand-feeding active — move commit text
         if handFeeding.isHolding {
             handFeeding.dragTo(event.position)
+            return
+        }
+
+        // Camera pan: drag on empty space pans the view
+        if case .world = event.target {
+            if let lastPos = lastDragPosition {
+                let deltaX = event.position.x - lastPos.x
+                cameraController?.pan(deltaX: deltaX)
+            }
+            lastDragPosition = event.position
+
+            // Also emit finger trail if unlocked
+            if milestoneTracker.isUnlocked(.fingerTrail) {
+                emitFingerTrailParticle(at: event.position)
+            }
             return
         }
 
@@ -375,6 +408,23 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
         // Display mode cycling (handled by scene)
     }
 
+    // MARK: - Pinch Zoom
+
+    private func handlePinchZoom(_ event: GestureEvent) {
+        // Convert velocity-based delta to zoom change
+        // Positive velocity.dy = fingers spreading = zoom in
+        let zoomDelta = event.velocity.dy * 0.002
+        cameraController?.zoom(delta: CGFloat(zoomDelta),
+                                centerWorldX: CGFloat(event.position.x))
+    }
+
+    // MARK: - Two-Finger Drag
+
+    private func handleTwoFingerDrag(_ event: GestureEvent) {
+        // Two-finger drag pans the camera (same as single-finger on empty space)
+        cameraController?.pan(deltaX: event.velocity.dx / 60.0)
+    }
+
     // MARK: - Belly Rub
 
     private func handleBellyRub() {
@@ -410,6 +460,9 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
 
     /// Called when a touch ends (for finalizing drags, drops, etc).
     func handleTouchEnded(at position: CGPoint, currentTime: TimeInterval) {
+        // Reset drag tracking for camera pan
+        lastDragPosition = nil
+
         // End laser pointer
         if laserPointer.isActive {
             laserPointer.deactivate()

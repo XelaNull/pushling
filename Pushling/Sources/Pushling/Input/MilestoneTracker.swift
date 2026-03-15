@@ -127,6 +127,7 @@ final class MilestoneTracker {
         case .flick:           stats.flicks += 1
         case .rapidTaps:       stats.rapidTaps += 1
         case .multiFingerTwo, .multiFingerThree: break  // Counted via sub-gesture
+        case .pinchZoom, .twoFingerDrag: break  // Camera controls, not milestones
         }
 
         updateDailyStreak()
