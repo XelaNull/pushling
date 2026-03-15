@@ -25,3 +25,6 @@ dist/
 
 # Pushling runtime
 /tmp/pushling.*
+*.o
+*.d
+*.swiftdeps
