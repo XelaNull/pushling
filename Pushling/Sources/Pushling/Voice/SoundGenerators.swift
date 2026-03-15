@@ -122,10 +122,10 @@ extension SoundSystem {
         return out
     }
 
-    /// Wind: filtered white noise with slow LFO on cutoff (3s loop).
+    /// Wind: filtered white noise with dual LFO on cutoff (12s loop).
     func generateWind() -> [Float] {
         let sr = Self.sampleRate
-        let duration = 3.0
+        let duration = 12.0
         let count = Int(sr * duration)
         var out = [Float](repeating: 0, count: count)
 
@@ -138,9 +138,10 @@ extension SoundSystem {
             noiseState = noiseState &* 1103515245 &+ 12345
             let noise = Float(noiseState) / Float(UInt32.max) * 2.0 - 1.0
 
-            // LFO modulates filter cutoff: 200-800 Hz, period = 3s
-            let lfoPhase = 2.0 * .pi * t / duration
-            let cutoffHz = 200.0 + 600.0 * (0.5 + 0.5 * sin(lfoPhase))
+            // Dual LFO at incommensurate periods for natural feel
+            let lfo1 = 0.5 + 0.5 * sin(2.0 * .pi * t / 5.7)
+            let lfo2 = 0.5 + 0.5 * sin(2.0 * .pi * t / 8.3)
+            let cutoffHz = 150.0 + 500.0 * lfo1 + 200.0 * lfo2
             let alpha = Float(cutoffHz / (cutoffHz + sr))
 
             lpState = lpState + alpha * (noise - lpState)
@@ -150,14 +151,16 @@ extension SoundSystem {
             out[i] *= volMod
         }
 
-        crossFadeEnds(&out, fadeFrames: Int(sr * 0.1))
+        crossFadeEnds(&out, fadeFrames: Int(sr * 0.5))
         return out
     }
 
-    /// Rain: pink noise with random high-freq droplet pings (4s loop).
+    /// Rain: pink noise with random high-freq droplet pings (15s loop).
+    /// Long loop duration prevents audible repetition. Slow LFO modulates
+    /// intensity for natural ebb and flow. Cross-fade is 0.5s for seamless loop.
     func generateRain() -> [Float] {
         let sr = Self.sampleRate
-        let duration = 4.0
+        let duration = 15.0  // Long loop — 4s was too obvious
         let count = Int(sr * duration)
         var out = [Float](repeating: 0, count: count)
 
@@ -175,48 +178,52 @@ extension SoundSystem {
             b2 = 0.96900 * b2 + white * 0.1538520
             let pink = (b0 + b1 + b2 + white * 0.5362) * 0.15
 
-            let alpha: Float = 0.3
-            lpState = lpState + alpha * (pink - lpState)
+            // Slow LFO modulates rain intensity (natural ebb/flow)
+            let t = Double(i) / sr
+            let lfo = Float(0.7 + 0.3 * sin(2.0 * .pi * t / 7.3))  // 7.3s period
+
+            let alpha: Float = 0.25
+            lpState = lpState + alpha * (pink * lfo - lpState)
             out[i] = lpState
         }
 
-        // Add random droplet pings
+        // Add random droplet pings — varied spacing
         var dropRng: UInt32 = 22222
-        let avgDropInterval = Int(sr * 0.08)
+        let avgDropInterval = Int(sr * 0.12)  // Slightly sparser
 
-        var nextDrop = 0
+        var nextDrop = Int(sr * 0.3)  // Start after 0.3s
         while nextDrop < count {
             dropRng = dropRng &* 1103515245 &+ 12345
-            let interval = avgDropInterval / 2
+            let interval = avgDropInterval / 3
                 + Int(dropRng % UInt32(avgDropInterval))
             nextDrop += interval
 
             guard nextDrop < count else { break }
 
             dropRng = dropRng &* 1103515245 &+ 12345
-            let dropFreq = 2000.0 + Double(dropRng % 4000)
+            let dropFreq = 1500.0 + Double(dropRng % 5000)  // Wider freq range
             dropRng = dropRng &* 1103515245 &+ 12345
-            let dropAmp = Float(0.05 + 0.1 * Double(dropRng % 100) / 100.0)
-            let dropLen = Int(sr * 0.008)
+            let dropAmp = Float(0.03 + 0.08 * Double(dropRng % 100) / 100.0)
+            let dropLen = Int(sr * 0.012)  // Slightly longer drops
 
             for j in 0..<dropLen {
                 let idx = nextDrop + j
                 guard idx < count else { break }
                 let dt = Double(j) / sr
-                let decay = Float(exp(-dt * 600.0))
+                let decay = Float(exp(-dt * 400.0))  // Slower decay
                 out[idx] += dropAmp * sin(Float(2.0 * .pi * dropFreq * dt))
                     * decay
             }
         }
 
-        crossFadeEnds(&out, fadeFrames: Int(sr * 0.15))
+        crossFadeEnds(&out, fadeFrames: Int(sr * 0.5))  // 0.5s crossfade
         return out
     }
 
-    /// Crickets: periodic high-frequency chirps with random timing (3s loop).
+    /// Crickets: periodic high-frequency chirps with random timing (10s loop).
     func generateCrickets() -> [Float] {
         let sr = Self.sampleRate
-        let duration = 3.0
+        let duration = 10.0
         let count = Int(sr * duration)
         var out = [Float](repeating: 0, count: count)
 

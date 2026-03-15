@@ -232,14 +232,42 @@ final class SoundSystem {
             lock.unlock()
             return
         }
-
-        player.stop()
-        eng.detach(player)
-        activePlayers.removeValue(forKey: type)
-        playingTypes.remove(type)
         lock.unlock()
 
-        NSLog("[Pushling/Sound] Stopped: %@", type.rawValue)
+        // Fade out over 2 seconds for looping sounds, instant for one-shots
+        if type.isLooping {
+            let fadeDuration = 2.0
+            let steps = 40  // 40 volume steps over 2 seconds
+            let interval = fadeDuration / Double(steps)
+            let startVolume = player.volume
+
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                for step in 1...steps {
+                    let fraction = Float(step) / Float(steps)
+                    let vol = startVolume * (1.0 - fraction)
+                    DispatchQueue.main.async { player.volume = vol }
+                    Thread.sleep(forTimeInterval: interval)
+                }
+                // Now actually stop and detach
+                DispatchQueue.main.async {
+                    player.stop()
+                    self?.lock.lock()
+                    if let eng = self?.engine { eng.detach(player) }
+                    self?.activePlayers.removeValue(forKey: type)
+                    self?.playingTypes.remove(type)
+                    self?.lock.unlock()
+                    NSLog("[Pushling/Sound] Faded out: %@", type.rawValue)
+                }
+            }
+        } else {
+            player.stop()
+            lock.lock()
+            eng.detach(player)
+            activePlayers.removeValue(forKey: type)
+            playingTypes.remove(type)
+            lock.unlock()
+            NSLog("[Pushling/Sound] Stopped: %@", type.rawValue)
+        }
     }
 
     private func onOneShotComplete(_ type: SoundType) {
