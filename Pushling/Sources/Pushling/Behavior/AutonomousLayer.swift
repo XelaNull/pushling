@@ -18,6 +18,8 @@ enum AutonomousState {
     case behavior(name: String)
     /// Performing a taught behavior (from TaughtBehaviorEngine).
     case taughtBehavior(name: String)
+    /// Interacting with a placed world object (AttractionScorer + ObjectInteractionEngine).
+    case objectInteracting(objectID: String)
     /// Low-energy rest state (loaf, sit, sleep).
     case resting
 }
@@ -48,6 +50,14 @@ final class AutonomousLayer: BehaviorLayer {
     var taughtDefinitions: (() -> [String: ChoreographyDefinition])?
     var onTaughtBehaviorCompleted: ((String, ChoreographyDefinition,
                                      TimeInterval) -> Void)?
+
+    // MARK: - Object Interaction Dependencies (set by GameCoordinator)
+
+    /// Query placed world objects: returns (id, interactionType, x position).
+    var objectQuery: (() -> [(id: String, type: String, x: CGFloat)])?
+    var attractionScorer: AttractionScorer?
+    var objectInteractionEngine: ObjectInteractionEngine?
+    var onObjectInteractionCompleted: ((String, String, Double) -> Void)?
 
     // MARK: - Internal State
 
@@ -131,17 +141,25 @@ final class AutonomousLayer: BehaviorLayer {
             updateTaughtBehavior(name: name, deltaTime: deltaTime,
                                  currentTime: currentTime, output: &output)
 
+        case .objectInteracting(let objectID):
+            updateObjectInteraction(objectID: objectID,
+                                     deltaTime: deltaTime,
+                                     output: &output)
+
         case .resting:
             updateResting(deltaTime: deltaTime, output: &output)
         }
 
-        // Global check: energy-based resting (don't interrupt taught behaviors)
+        // Global check: energy-based resting (don't interrupt taught behaviors
+        // or object interactions)
         if case .resting = state {
             if emotions.energy > 40 {
                 transitionTo(.idle)
             }
         } else if case .taughtBehavior = state {
             // Let taught behaviors finish — don't interrupt for rest
+        } else if case .objectInteracting = state {
+            // Let object interactions finish — don't interrupt for rest
         } else if emotions.energy < 20 {
             transitionTo(.resting)
         }
@@ -151,26 +169,24 @@ final class AutonomousLayer: BehaviorLayer {
 
     private func updateWalking(deltaTime: TimeInterval,
                                output: inout LayerOutput) {
-        // Calculate personality-modulated walk speed
+        // Walk speed via PersonalityFilter (personality + emotion + jitter)
         let baseSpeed = stage.baseWalkSpeed
-        let energyMod = 0.6 + personality.energy * 0.8  // [0.6, 1.4]
-        let emotionMod = 0.5 + emotions.energy / 100.0 * 0.5  // [0.5, 1.0]
-        let jitter = 1.0 + randomJitter(range: 0.1)  // +/-10%
-        currentWalkSpeed = baseSpeed * CGFloat(energyMod * emotionMod * jitter)
+        let filtered = PersonalityFilter.modulatedWalkSpeed(
+            base: baseSpeed, personality: personality,
+            emotionalEnergy: emotions.energy)
+        currentWalkSpeed = CGFloat(PersonalityFilter.applyJitter(
+            base: Double(filtered), jitterFactor: randomJitter(range: 1.0),
+            personality: personality))
 
-        // Integrate speed into position
-        let direction: CGFloat = facing == .right ? 1.0 : -1.0
-        currentX += currentWalkSpeed * direction * CGFloat(deltaTime)
-
+        // Integrate position
+        currentX += currentWalkSpeed * (facing == .right ? 1 : -1) * CGFloat(deltaTime)
         output.positionX = currentX
         output.walkSpeed = currentWalkSpeed
         output.bodyState = "stand"
 
-        // Walk cycle animation for paws
-        let cycleSpeed = Double(currentWalkSpeed) / Double(baseSpeed > 0 ? baseSpeed : 1)
-        walkCyclePhase += deltaTime * cycleSpeed * 2.0  // 2.0 = base cycle rate
-
-        // Diagonal gait: FL+BR, then FR+BL
+        // Walk cycle: diagonal gait (FL+BR, then FR+BL)
+        let cycleSpeed = Double(currentWalkSpeed) / Double(max(baseSpeed, 1))
+        walkCyclePhase += deltaTime * cycleSpeed * 2.0
         let phase = walkCyclePhase.truncatingRemainder(dividingBy: 1.0)
         if phase < 0.5 {
             output.pawStates = ["fl": "walk", "br": "walk", "fr": "ground", "bl": "ground"]
@@ -191,9 +207,11 @@ final class AutonomousLayer: BehaviorLayer {
 
         // Check for state transition
         if stateTimer >= stateDuration {
-            // 15% chance to change direction on walk -> idle
-            let shouldChangeDirection = randomChance(0.15)
-            if shouldChangeDirection {
+            // Direction change probability modulated by personality focus
+            let dirProb = PersonalityFilter.directionChangeProbability(
+                base: 0.15, personality: personality
+            )
+            if randomChance(dirProb) {
                 pendingDirectionChange = true
             }
             transitionTo(.idle)
@@ -225,6 +243,12 @@ final class AutonomousLayer: BehaviorLayer {
 
         // Check for state transition
         if stateTimer >= stateDuration {
+            // Check if a placed object is attractive enough to approach
+            if let objectTarget = selectObjectInteraction() {
+                startObjectInteraction(objectTarget)
+                return
+            }
+
             // Check if a taught behavior should play
             if let selected = selectTaughtBehavior() {
                 startTaughtBehavior(selected)
@@ -354,31 +378,18 @@ final class AutonomousLayer: BehaviorLayer {
         if case .taughtBehavior = state, output.tailState != nil { return }
         if case .resting = state { return }
 
-        // Personality modulation
-        let amplitudeMod = 0.7 + personality.energy * 0.6  // [0.7, 1.3]
-        let periodMod = 0.7 + (1.0 - personality.energy) * 0.6  // [0.7, 1.3]
-
-        // Discipline affects consistency
-        let jitterRange = 0.02 + (1.0 - personality.discipline) * 0.13
-        let periodJitter = 1.0 + randomJitter(range: jitterRange)
-
-        let amplitude = Self.tailSwayBaseAmplitude * amplitudeMod
-        let period = Self.tailSwayBasePeriod * periodMod * periodJitter
+        // Personality-modulated tail sway via PersonalityFilter
+        let amplitude = PersonalityFilter.tailSwayAmplitude(
+            base: Self.tailSwayBaseAmplitude, personality: personality)
+        let period = PersonalityFilter.applyJitter(
+            base: PersonalityFilter.tailSwayPeriod(
+                base: Self.tailSwayBasePeriod, personality: personality),
+            jitterFactor: randomJitter(range: 1.0), personality: personality)
 
         tailSwayPhase += deltaTime
-
-        // During walking, phase-shift tail from walk cycle by 0.4
         var phaseOffset: Double = 0
-        if case .walking = state {
-            phaseOffset = walkCyclePhase * 0.4
-        }
-
-        // Calculate angle (used by TailController for actual rotation).
-        // The value is stored in tailSwayPhase for external access.
-        _ = amplitude * sin(2.0 * Double.pi * (tailSwayPhase + phaseOffset) / period)
-
-        // Output the tail state — the actual sine rotation is computed
-        // per-frame by the TailController based on its own parameters.
+        if case .walking = state { phaseOffset = walkCyclePhase * 0.4 }
+        _ = amplitude * sin(2.0 * .pi * (tailSwayPhase + phaseOffset) / period)
         output.tailState = output.tailState ?? "sway"
     }
 
@@ -394,58 +405,48 @@ final class AutonomousLayer: BehaviorLayer {
     private func regenerateStateDuration() {
         switch state {
         case .walking:
-            // 3-12s, personality-influenced
-            let focusMod = 0.8 + personality.focus * 0.4  // [0.8, 1.2]
-            let energyMod = 1.5 - personality.energy * 1.0  // [0.5, 1.5]
+            // 3-12s base, modulated by PersonalityFilter
             let base = randomRange(3.0, 12.0)
-            stateDuration = base * focusMod * energyMod
+            stateDuration = PersonalityFilter.walkDuration(
+                base: base, personality: personality
+            )
             applyDisciplineJitter(&stateDuration)
 
         case .idle:
-            // 2-8s, personality-influenced
-            // Hyper creatures = less idle time
-            let energyMod = 0.5 + personality.energy * 0.5  // inverted: [0.5, 1.0]
+            // 2-8s base, modulated by PersonalityFilter
             let base = randomRange(2.0, 8.0)
-            stateDuration = base * (1.5 - energyMod)  // Hyper -> shorter idle
+            stateDuration = PersonalityFilter.idleDuration(
+                base: base, personality: personality,
+                emergent: .none
+            )
             applyDisciplineJitter(&stateDuration)
 
         case .behavior:
-            // Duration comes from the behavior definition
-            if let def = activeBehavior?.definition {
-                stateDuration = def.duration
-            } else {
-                stateDuration = 3.0
-            }
+            stateDuration = activeBehavior?.definition.duration ?? 3.0
 
-        case .taughtBehavior:
-            // Duration controlled by TaughtBehaviorEngine
-            stateDuration = .infinity
-
-        case .resting:
-            // Rest until energy recovers above 40
-            stateDuration = .infinity
+        case .taughtBehavior, .objectInteracting, .resting:
+            stateDuration = .infinity  // External systems control duration
         }
 
         // Ensure minimum sane duration
         stateDuration = max(stateDuration, 0.5)
     }
 
-    /// Applies discipline-based jitter to a timing value.
+    /// Applies discipline-based jitter to a timing value via PersonalityFilter.
     private func applyDisciplineJitter(_ value: inout TimeInterval) {
-        // Chaotic (0.0) = +/-20% jitter, Disciplined (1.0) = +/-3% jitter
-        let jitterPercent = 0.03 + (1.0 - personality.discipline) * 0.17
-        let jitter = 1.0 + randomJitter(range: jitterPercent)
-        value *= jitter
+        let jitterFactor = randomJitter(range: 1.0)  // raw [-1, 1]
+        value = PersonalityFilter.applyJitter(
+            base: value, jitterFactor: jitterFactor,
+            personality: personality
+        )
     }
 
     // MARK: - Blink Interval
 
     private func regenerateBlinkInterval() {
-        // Personality-influenced blink interval
-        // High energy: 2.5-5.0s, Low energy: 4.0-9.0s
-        let minInterval = lerp(4.0, 2.5, personality.energy)
-        let maxInterval = lerp(9.0, 5.0, personality.energy)
-        nextBlinkInterval = randomRange(minInterval, maxInterval)
+        // Personality-influenced blink interval via PersonalityFilter
+        let range = PersonalityFilter.blinkInterval(personality: personality)
+        nextBlinkInterval = randomRange(range.lowerBound, range.upperBound)
     }
 
     // MARK: - External Events

@@ -115,6 +115,25 @@ struct LayerOutput {
 
     /// A completely empty output — the layer defers everything.
     static let empty = LayerOutput()
+
+    /// Merges non-nil properties from another LayerOutput into this one.
+    /// The source's non-nil values override any existing values.
+    mutating func merge(from src: LayerOutput) {
+        if let v = src.positionX { positionX = v }
+        if let v = src.positionY { positionY = v }
+        if let v = src.facing { facing = v }
+        if let v = src.walkSpeed { walkSpeed = v }
+        if let v = src.bodyState { bodyState = v }
+        if let v = src.earLeftState { earLeftState = v }
+        if let v = src.earRightState { earRightState = v }
+        if let v = src.eyeLeftState { eyeLeftState = v }
+        if let v = src.eyeRightState { eyeRightState = v }
+        if let v = src.tailState { tailState = v }
+        if let v = src.mouthState { mouthState = v }
+        if let v = src.whiskerState { whiskerState = v }
+        if let v = src.auraState { auraState = v }
+        if let v = src.pawStates { pawStates = v }
+    }
 }
 
 // MARK: - Resolved Creature State

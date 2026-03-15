@@ -97,26 +97,4 @@ extension AutonomousLayer {
     }
 }
 
-// MARK: - LayerOutput Merge Helper
-
-extension LayerOutput {
-
-    /// Merges non-nil values from another LayerOutput into this one.
-    /// Source values take precedence where non-nil.
-    mutating func merge(from src: LayerOutput) {
-        positionX = src.positionX ?? positionX
-        positionY = src.positionY ?? positionY
-        facing = src.facing ?? facing
-        walkSpeed = src.walkSpeed ?? walkSpeed
-        bodyState = src.bodyState ?? bodyState
-        earLeftState = src.earLeftState ?? earLeftState
-        earRightState = src.earRightState ?? earRightState
-        eyeLeftState = src.eyeLeftState ?? eyeLeftState
-        eyeRightState = src.eyeRightState ?? eyeRightState
-        tailState = src.tailState ?? tailState
-        mouthState = src.mouthState ?? mouthState
-        whiskerState = src.whiskerState ?? whiskerState
-        auraState = src.auraState ?? auraState
-        pawStates = src.pawStates ?? pawStates
-    }
-}
+// LayerOutput.merge(from:) is defined in LayerTypes.swift

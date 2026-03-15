@@ -26,6 +26,12 @@ final class SessionLifecycleReactions {
     /// Callback for journal logging. Invoked with session summary data.
     var onJournalEntry: ((_ type: String, _ data: [String: Any]) -> Void)?
 
+    /// Provides absence information for wake animations.
+    /// Returns (AbsenceCategory, seconds elapsed, GrowthStage).
+    var absenceProvider: (() -> (category: AbsenceCategory,
+                                  seconds: TimeInterval,
+                                  stage: GrowthStage))?
+
     // MARK: - State
 
     /// Tracks whether we've sent the first-command reaction.
@@ -99,23 +105,47 @@ final class SessionLifecycleReactions {
         // 2. Materialize the diamond
         diamond?.materialize()
 
-        // 3. Creature reaction: ears perk, eyes brighten, tail wag
+        // 3. Absence-aware wake animation
         let t = CACurrentMediaTime()
-        let greetingReflex = ReflexDefinition(
-            name: "session_greeting",
-            duration: 2.0,
-            fadeoutFraction: 0.25,
-            output: {
-                var o = LayerOutput()
-                o.earLeftState = "perk"
-                o.earRightState = "perk"
-                o.eyeLeftState = "bright"
-                o.eyeRightState = "bright"
-                o.tailState = "wag"
-                return o
-            }()
-        )
-        reflexLayer?.trigger(greetingReflex, at: t)
+        if let absence = absenceProvider?() {
+            // Generate graduated wake keyframes based on absence duration
+            let keyframes = AbsenceWakeAnimation.keyframes(
+                for: absence.category, stage: absence.stage
+            )
+            // Inject each keyframe as a timed reflex
+            for (index, keyframe) in keyframes.enumerated() {
+                let reflex = ReflexDefinition(
+                    name: "wake_\(index)",
+                    duration: keyframeDuration(at: index, in: keyframes),
+                    fadeoutFraction: 0.2,
+                    output: keyframe.output
+                )
+                reflexLayer?.trigger(reflex, at: t + keyframe.time)
+            }
+            NSLog("[Pushling/Reactions] Session started — %@ wake "
+                  + "animation (%d keyframes, absent %.0fs)",
+                  absence.category.journalDescription,
+                  keyframes.count, absence.seconds)
+        } else {
+            // Fallback: simple greeting reflex (no absence data)
+            let greetingReflex = ReflexDefinition(
+                name: "session_greeting",
+                duration: 2.0,
+                fadeoutFraction: 0.25,
+                output: {
+                    var o = LayerOutput()
+                    o.earLeftState = "perk"
+                    o.earRightState = "perk"
+                    o.eyeLeftState = "bright"
+                    o.eyeRightState = "bright"
+                    o.tailState = "wag"
+                    return o
+                }()
+            )
+            reflexLayer?.trigger(greetingReflex, at: t)
+            NSLog("[Pushling/Reactions] Session started — "
+                  + "default greeting (no absence data)")
+        }
 
         // 4. AI-directed layer enters warm standby (ready for commands)
         // (The AI layer activates on first actual command, not on connect)
@@ -124,12 +154,23 @@ final class SessionLifecycleReactions {
         startLongSessionTimer()
 
         // 6. Journal entry
+        let absenceDesc = absenceProvider?().category.journalDescription
+            ?? "greeting"
         onJournalEntry?("session_start", [
             "session_id": sessionId,
-            "timestamp": ISO8601DateFormatter().string(from: Date())
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "wake_type": absenceDesc
         ])
+    }
 
-        NSLog("[Pushling/Reactions] Session started — greeting animation triggered")
+    /// Calculates duration for a keyframe based on the gap to the next one.
+    private func keyframeDuration(at index: Int,
+                                   in keyframes: [AnimationKeyframe]) -> TimeInterval {
+        if index + 1 < keyframes.count {
+            return keyframes[index + 1].time - keyframes[index].time
+        }
+        // Last keyframe: hold for 1 second
+        return 1.0
     }
 
     // MARK: - Session End (P4-T4-03)

@@ -101,6 +101,9 @@ final class BlendController {
     /// Whether the AI layer was active last frame.
     private var wasAIActive: Bool = false
 
+    /// Personality snapshot for tempo scaling via PersonalityFilter.
+    var personality: PersonalitySnapshot = .neutral
+
     // MARK: - Expression Change Sub-Timing
 
     /// Per-body-part sub-timing for expression crossfades.
@@ -415,35 +418,30 @@ final class BlendController {
         return target
     }
 
-    /// Returns the blend duration for a property based on the active transition.
+    /// Returns the blend duration for a property, scaled by personality tempo.
+    /// Hyper creatures transition faster, calm creatures slower.
     private func blendDuration(for key: String,
                                 transitionType: BlendTransitionType?) -> TimeInterval {
+        let tempo = PersonalityFilter.animationTempo(personality: personality)
+        let tempoScale = tempo > 0 ? 1.0 / tempo : 1.0
+        let exprDuration = Self.expressionSubTiming[key] ?? 0.3
+
         guard let type = transitionType else {
-            // Default: expression change timing
-            return Self.expressionSubTiming[key] ?? 0.3
+            return exprDuration * tempoScale
         }
 
         switch type {
         case .reflexInterrupt:
-            // Cascading snap with per-part delay
-            if let timing = Self.reflexSubTiming[key] {
-                return timing.duration
-            }
-            return 0.05
-
+            // Reflexes: not tempo-scaled (must be consistently fast)
+            return Self.reflexSubTiming[key]?.duration ?? 0.05
         case .expressionChange:
-            return Self.expressionSubTiming[key] ?? 0.3
-
+            return exprDuration * tempoScale
         case .directionReversal:
-            // Direction reversal is handled by its own state machine
-            return 0
-
+            return 0  // Handled by its own state machine
         case .aiTakeover:
-            return 0.3
-
+            return 0.3 * tempoScale
         case .aiRelease:
-            // Gradual release — longer durations
-            return Self.expressionSubTiming[key].map { $0 * 3.0 } ?? 1.0
+            return (exprDuration * 3.0) * tempoScale
         }
     }
 

@@ -66,7 +66,52 @@ extension CommandRouter {
             ?? .moderate
         let cooldown = req.params["cooldown_s"] as? Double ?? 60.0
         let variant = req.params["variant"] as? String
+        let force = req.params["force"] as? Bool ?? false
         let id = UUID().uuidString
+
+        // --- Personality alignment check (Orphan #1: CreatureRejection) ---
+        let category = req.params["category"] as? String ?? "playful"
+        let energy = Self.estimateBehaviorEnergy(behavior)
+        let rejection = gc.creatureRejection.checkAlignment(
+            behaviorCategory: category,
+            behaviorEnergy: energy,
+            personality: gc.personality.toSnapshot(),
+            reinforcementCount: 0
+        )
+
+        if rejection.hasConflict && !force {
+            let conflictMsg: String
+            switch rejection.conflict {
+            case .energyTooHigh:
+                conflictMsg = "This is a high-energy behavior, "
+                    + "but the creature is quite calm."
+            case .energyTooLow:
+                conflictMsg = "This is a low-energy behavior, "
+                    + "but the creature is very energetic."
+            case .disciplineMismatch:
+                conflictMsg = "This requires discipline, "
+                    + "but the creature is chaotic."
+            case .verbosityMismatch:
+                conflictMsg = "This is a chatty behavior, "
+                    + "but the creature is stoic."
+            case .none:
+                conflictMsg = ""
+            }
+
+            return .success([
+                "created": false, "name": name,
+                "personality_conflict": true,
+                "conflict_type": rejection.conflict.rawValue,
+                "reluctance_level": rejection.reluctanceLevel,
+                "note": "\(conflictMsg) The creature resists this habit. "
+                    + "Add '\"force\": true' to set it anyway — "
+                    + "the creature will perform it reluctantly at first "
+                    + "but may accept it after reinforcement."
+            ])
+        }
+
+        let startStrength = rejection.hasConflict
+            ? rejection.startingStrength : 0.5
 
         let habit = HabitDefinition(
             id: id, name: name, trigger: trigger,
@@ -74,8 +119,9 @@ extension CommandRouter {
             frequency: freq, variation: variation,
             energyCost: 0.1, stageMin: gc.creatureStage,
             priority: req.params["priority"] as? Int ?? 5,
-            strength: 0.5, reinforcementCount: 0,
-            personalityConflict: false, lastFiredAt: nil,
+            strength: startStrength, reinforcementCount: 0,
+            personalityConflict: rejection.hasConflict,
+            lastFiredAt: nil,
             cooldownSeconds: cooldown
         )
 
@@ -99,23 +145,40 @@ extension CommandRouter {
                 """
                 INSERT INTO habits (name, trigger_json, action_json, frequency,
                     variation, strength, cooldown_s, created_at)
-                VALUES (?, ?, ?, ?, ?, 0.5, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [name, triggerJSON, actionJSON,
-                            freq.rawValue, variation.rawValue, cooldown, now]
+                            freq.rawValue, variation.rawValue,
+                            startStrength, cooldown, now]
             )
         } catch {
             NSLog("[Pushling/Nurture] Failed to persist habit: %@", "\(error)")
         }
 
-        journalLog(gc, type: "nurture", summary: "Habit set: '\(name)' -> \(behavior)")
+        let conflictNote = rejection.hasConflict
+            ? " (personality conflict: \(rejection.conflict.rawValue), "
+              + "starting reluctantly at \(String(format: "%.1f", startStrength)))"
+            : ""
+        journalLog(gc, type: "nurture",
+                   summary: "Habit set: '\(name)' -> \(behavior)\(conflictNote)")
 
-        return .success([
+        var result: [String: Any] = [
             "created": true, "name": name,
             "behavior": behavior, "frequency": freq.rawValue,
-            "strength": 0.5, "trigger_type": triggerDict["type"] as? String ?? "unknown",
-            "note": "Habit '\(name)' is now active. It will fire based on trigger conditions."
-        ])
+            "strength": startStrength,
+            "trigger_type": triggerDict["type"] as? String ?? "unknown",
+            "note": "Habit '\(name)' is now active. It will fire based "
+                + "on trigger conditions."
+        ]
+        if rejection.hasConflict {
+            result["personality_conflict"] = true
+            result["conflict_type"] = rejection.conflict.rawValue
+            result["reluctance_level"] = rejection.reluctanceLevel
+            result["note"] = "Habit '\(name)' set despite personality conflict "
+                + "(\(rejection.conflict.rawValue)). The creature will perform "
+                + "reluctantly at first. Reinforce to help it accept."
+        }
+        return .success(result)
     }
 }
 
@@ -546,90 +609,5 @@ extension CommandRouter {
     }
 }
 
-// MARK: - Trigger Parsing Helpers
-
-extension CommandRouter {
-
-    /// Parses a trigger dictionary from IPC params into a TriggerDefinition.
-    static func parseTrigger(_ dict: [String: Any]) -> TriggerDefinition? {
-        guard let type = dict["type"] as? String else { return nil }
-
-        switch type {
-        case "after_event":
-            let event = dict["event"] as? String ?? "commit"
-            return .afterEvent(event: event)
-
-        case "on_idle":
-            let seconds = dict["min_idle_s"] as? Double ?? 120.0
-            return .onIdle(minIdleSeconds: seconds)
-
-        case "at_time":
-            let hour = dict["hour"] as? Int ?? 9
-            let minute = dict["minute"] as? Int ?? 0
-            let window = dict["window_minutes"] as? Int ?? 30
-            return .atTime(hour: hour, minute: minute, windowMinutes: window)
-
-        case "on_emotion":
-            guard let axis = dict["axis"] as? String,
-                  let direction = dict["direction"] as? String,
-                  let threshold = dict["threshold"] as? Double else { return nil }
-            return .onEmotion(axis: axis, direction: direction, threshold: threshold)
-
-        case "on_weather":
-            let weather = dict["weather"] as? String ?? "rain"
-            return .onWeather(weather: weather)
-
-        case "on_wake":
-            return .onWake
-
-        case "on_session":
-            let event = dict["event"] as? String ?? "start"
-            return .onSession(event: event)
-
-        case "on_touch":
-            let touchType = dict["touch_type"] as? String ?? "any"
-            return .onTouch(type: touchType)
-
-        case "periodic":
-            let interval = dict["interval_minutes"] as? Int ?? 30
-            let jitter = dict["jitter_minutes"] as? Int ?? 5
-            return .periodic(intervalMinutes: interval, jitterMinutes: jitter)
-
-        case "on_streak":
-            let days = dict["min_days"] as? Int ?? 3
-            return .onStreak(minDays: days)
-
-        default:
-            return nil
-        }
-    }
-
-    /// Serializes a trigger dictionary to JSON string.
-    static func serializeTriggerJSON(_ dict: [String: Any]) -> String {
-        return dictToJSON(dict)
-    }
-
-    /// Generic dictionary-to-JSON helper.
-    static func dictToJSON(_ value: Any) -> String {
-        guard let data = try? JSONSerialization.data(
-            withJSONObject: value, options: []),
-              let str = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return str
-    }
-}
-
-// MARK: - PreferenceResponse Description
-
-extension PreferenceResponse: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .strongAvoid:    return "strong_avoid"
-        case .mildAvoid:      return "mild_avoid"
-        case .neutral:        return "neutral"
-        case .mildApproach:   return "mild_approach"
-        case .strongApproach: return "strong_approach"
-        }
-    }
-}
+// Trigger parsing, JSON helpers, energy estimation, and PreferenceResponse
+// conformance are in NurtureHelpers.swift

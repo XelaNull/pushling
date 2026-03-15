@@ -70,6 +70,14 @@ final class CreatureNode: SKNode {
         }
     }
 
+    /// Full personality snapshot for PersonalityFilter calls.
+    /// Updated by GameCoordinator when personality changes.
+    var personalitySnapshot: PersonalitySnapshot = .neutral {
+        didSet {
+            tailController?.personalitySnapshot = personalitySnapshot
+        }
+    }
+
     // MARK: - Tail Sway
 
     /// Whether the tail sway is active (suppressed during certain states).
@@ -231,13 +239,11 @@ final class CreatureNode: SKNode {
 
     private func scheduleNextBlink() {
         blinkTimer = 0
-        // Base: 3-7s, modified by personality energy
-        // High energy: 2.5-5.0s, low energy: 4.0-9.0s
-        let minInterval = 3.0 - Double(personalityEnergy) * 0.5  // 2.5-3.0
-        let maxInterval = 7.0 - Double(personalityEnergy) * 2.0  // 5.0-7.0
-        nextBlinkAt = Double.random(
-            in: max(minInterval, 2.5)...max(maxInterval, minInterval + 1.0)
+        // Blink interval modulated by PersonalityFilter
+        let range = PersonalityFilter.blinkInterval(
+            personality: personalitySnapshot
         )
+        nextBlinkAt = Double.random(in: range)
     }
 
     /// Reset blink timer (call after eye expression changes).
@@ -388,6 +394,7 @@ final class CreatureNode: SKNode {
         if config.hasTail, let tail = nodes.tail {
             let tc = TailController(tailNode: tail)
             tc.personalityEnergy = personalityEnergy
+            tc.personalitySnapshot = personalitySnapshot
             tc.setState("sway", duration: 0)
             tailController = tc
         }

@@ -80,6 +80,7 @@ final class BehaviorStack {
     var personality: PersonalitySnapshot = .neutral {
         didSet {
             autonomous.personality = personality
+            blendController.personality = personality
         }
     }
 
@@ -119,6 +120,7 @@ final class BehaviorStack {
         autonomous.stage = stage
         autonomous.personality = personality
         autonomous.emotions = emotions
+        blendController.personality = personality
 
         NSLog("[Pushling/Behavior] BehaviorStack initialized — stage: %@",
               String(describing: stage))

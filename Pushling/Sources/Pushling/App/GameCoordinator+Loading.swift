@@ -467,22 +467,61 @@ extension GameCoordinator {
     }
 
     /// Execute a habit behavior through the behavior stack.
+    /// Applies OrganicVariationEngine (Orphan #2) for timing jitter,
+    /// mood modulation, energy scaling, and probabilistic skipping.
     func executeHabitBehavior(_ habit: HabitDefinition) {
-        NSLog("[Pushling/Coordinator] Executing habit '%@' -> %@",
-              habit.name, habit.behavior)
+        // Generate organic variation seed
+        let seed = organicVariationEngine.generateSeed(
+            frequency: habit.frequency,
+            variation: habit.variation,
+            personality: personality.toSnapshot(),
+            emotions: emotionalState.toSnapshot()
+        )
+
+        // Probabilistic skip — even "always" habits skip occasionally
+        if seed.shouldSkip {
+            NSLog("[Pushling/Coordinator] Habit '%@' skipped (organic variation)",
+                  habit.name)
+            return
+        }
+
+        NSLog("[Pushling/Coordinator] Executing habit '%@' -> %@ "
+              + "(jitter: %.2f, moodSpeed: %.2f, energySpeed: %.2f)",
+              habit.name, habit.behavior,
+              seed.timingJitter, seed.moodSpeedMod, seed.energySpeedMod)
 
         // Inject as an AI-directed command for the behavior stack
         if let stack = scene.behaviorStack {
             var output = LayerOutput()
             output.bodyState = habit.behavior
+
+            // Apply variation to walk speed if the behavior involves movement
+            let baseSpeed = Double(creatureStage.baseWalkSpeed)
+            let variedSpeed = organicVariationEngine.applySpeed(baseSpeed,
+                                                                 seed: seed)
+            output.walkSpeed = CGFloat(variedSpeed)
+
+            // Vary hold duration by timing jitter
+            let baseDuration: TimeInterval = 3.0
+            let variedDuration = organicVariationEngine.applyTiming(
+                baseDuration, seed: seed
+            )
+
             let command = AICommand(
                 id: "habit_\(habit.id)",
                 type: .perform,
                 output: output,
-                holdDuration: 3.0,
+                holdDuration: variedDuration,
                 enqueuedAt: CACurrentMediaTime()
             )
             stack.enqueueAICommand(command)
+
+            // Post-behavior expression from mood modulation
+            if let expr = organicVariationEngine.postBehaviorExpression(
+                seed: seed
+            ) {
+                NSLog("[Pushling/Coordinator] Post-habit expression: %@", expr)
+            }
         }
 
         // Journal

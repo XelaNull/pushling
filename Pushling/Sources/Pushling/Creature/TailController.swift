@@ -26,6 +26,9 @@ final class TailController: BodyPartController {
     /// Personality energy axis (0-1) — affects sway speed and amplitude.
     var personalityEnergy: CGFloat = 0.5
 
+    /// Full personality snapshot for PersonalityFilter modulation.
+    var personalitySnapshot: PersonalitySnapshot = .neutral
+
     /// Base rotation (before sway is applied).
     private var baseRotation: CGFloat = 0
 
@@ -125,11 +128,14 @@ final class TailController: BodyPartController {
 
     /// Gentle sine-wave rotation — per-frame math, never an SKAction.
     private func updateSway(deltaTime: TimeInterval, fast: Bool) {
-        let energyMod = 0.7 + Double(personalityEnergy) * 0.6
-        let amplitude = Double(swayAmplitude) * (fast ? 1.5 : 1.0)
-            * energyMod
-        let period = swayPeriod * (fast ? 0.5 : 1.0)
-            / energyMod
+        let filteredAmplitude = PersonalityFilter.tailSwayAmplitude(
+            base: Double(swayAmplitude), personality: personalitySnapshot
+        )
+        let filteredPeriod = PersonalityFilter.tailSwayPeriod(
+            base: swayPeriod, personality: personalitySnapshot
+        )
+        let amplitude = filteredAmplitude * (fast ? 1.5 : 1.0)
+        let period = filteredPeriod * (fast ? 0.5 : 1.0)
 
         let angle = sin(2.0 * .pi * swayTime / period)
             * amplitude

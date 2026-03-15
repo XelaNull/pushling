@@ -52,6 +52,15 @@ final class GameCoordinator {
     let routineEngine: RoutineEngine
     let nurtureDecayManager: NurtureDecayManager
 
+    // MARK: - Orphan Subsystems (wired into existing pipelines)
+
+    let creatureRejection: CreatureRejection
+    let organicVariationEngine: OrganicVariationEngine
+    let surpriseVariantSystem: SurpriseVariantSystem
+    let attractionScorer: AttractionScorer
+    let objectInteractionEngine: ObjectInteractionEngine
+    let lateNightLantern: LateNightLantern
+
     // MARK: - Hatching State
     // internal setter to allow GameCoordinator+Hatching.swift to write
 
@@ -139,6 +148,14 @@ final class GameCoordinator {
         self.routineEngine = RoutineEngine()
         self.nurtureDecayManager = NurtureDecayManager()
 
+        // --- P. Orphan Subsystems ---
+        self.creatureRejection = CreatureRejection()
+        self.organicVariationEngine = OrganicVariationEngine()
+        self.surpriseVariantSystem = SurpriseVariantSystem()
+        self.attractionScorer = AttractionScorer()
+        self.objectInteractionEngine = ObjectInteractionEngine()
+        self.lateNightLantern = LateNightLantern()
+
         // --- Hatching State ---
         self.isHatched = Self.loadHatched(from: db)
 
@@ -222,6 +239,15 @@ final class GameCoordinator {
 
         // 10. Nurture subsystem updates (habits, decay, routines)
         updateNurtureSubsystems(deltaTime: deltaTime)
+
+        // 11. Late-night lantern (solidarity, not judgment)
+        if let creature = scene.creatureNode {
+            let hour = Calendar.current.component(.hour, from: Date())
+            let isDeveloperActive = commandRouter.sessionManager.isSessionActive
+            lateNightLantern.update(deltaTime: deltaTime, hour: hour,
+                                     isDeveloperActive: isDeveloperActive,
+                                     creatureNode: creature)
+        }
     }
 
     // MARK: - Shutdown
@@ -250,6 +276,9 @@ final class GameCoordinator {
             stack.emotions = emotionalState.toSnapshot()
             stack.stage = creatureStage
         }
+
+        // Set personality snapshot on creature node for PersonalityFilter
+        scene.creatureNode?.personalitySnapshot = personality.toSnapshot()
 
         // Configure creature node for correct stage (Gap 2: from DB, not hardcoded)
         scene.creatureNode?.configureForStage(creatureStage)
@@ -418,6 +447,20 @@ final class GameCoordinator {
     private func wireSessionManager() {
         scene.wireSessionManager(commandRouter.sessionManager)
 
+        // Wire absence provider for wake animations
+        scene.sessionReactions?.absenceProvider = { [weak self] in
+            guard let self = self else {
+                return (.brief, 0, .critter)
+            }
+            let db = self.stateCoordinator.database
+            let rows = (try? db.query(
+                "SELECT last_session_at FROM creature WHERE id = 1"
+            )) ?? []
+            let lastStr = rows.first?["last_session_at"] as? String
+            let absence = AbsenceTracker.calculate(lastActivityStr: lastStr)
+            return (absence.category, absence.seconds, self.creatureStage)
+        }
+
         // Wire routine/habit triggers to session lifecycle events
         let sm = commandRouter.sessionManager
         let previousHandler = sm.onSessionEvent
@@ -445,15 +488,42 @@ final class GameCoordinator {
             let _ = self?.speechCoordinator.speak(request)
         }
 
-        // Wire scheduler to player
+        // Wire scheduler to player (with SurpriseVariantSystem — Orphan #3)
         surpriseScheduler.onSurpriseFire = {
             [weak self] definition, animation, variant in
-            self?.surprisePlayer.play(
+            guard let self = self else { return }
+
+            // Check SurpriseVariantSystem for context-aware variants
+            let context = self.buildSurpriseContext()
+            let taughtNames = Array(self.taughtDefinitions.keys)
+            let sigBehaviors = self.masteryTracker
+                .behaviors(atOrAbove: .signature)
+                .map(\.behaviorName)
+            let prefs = self.preferenceEngine.allPreferences
+                .map { (subject: $0.subject, valence: $0.valence) }
+            let companion = self.scene.worldManager.companionSystem
+                .companionInfo?.type.rawValue
+
+            let resolvedVariant = variant
+                ?? self.surpriseVariantSystem.checkVariant(
+                    surpriseId: definition.id,
+                    context: context,
+                    taughtBehaviors: taughtNames,
+                    signatureBehaviors: sigBehaviors,
+                    activePreferences: prefs,
+                    companionType: companion
+                )
+
+            self.surprisePlayer.play(
                 surpriseId: definition.id,
                 name: definition.name,
                 animation: animation,
                 sceneTime: CACurrentMediaTime()
             )
+
+            if let v = resolvedVariant {
+                NSLog("[Pushling/Surprise] Variant applied: %@", v)
+            }
         }
 
         NSLog("[Pushling/Coordinator] Surprise system wired — "

@@ -100,6 +100,26 @@ extension GameCoordinator {
                     currentTime: currentTime
                 )
             }
+
+            // 3b. Wire object interaction (Orphans #4 + #5)
+            stack.autonomous.objectQuery = { [weak self] in
+                guard let self = self else { return [] }
+                return self.scene.worldManager.objectRenderer.activeObjects.map {
+                    (id: $0.id, type: $0.definition.interaction,
+                     x: $0.definition.positionX)
+                }
+            }
+            stack.autonomous.attractionScorer = attractionScorer
+            stack.autonomous.objectInteractionEngine = objectInteractionEngine
+            stack.autonomous.onObjectInteractionCompleted = {
+                [weak self] objectID, interactionName, satisfaction in
+                guard let self = self else { return }
+                self.attractionScorer.recordInteraction(objectID: objectID)
+                self.emotionalState.boostFromInteraction()
+                NSLog("[Pushling/Objects] Autonomous interaction '%@' "
+                      + "with '%@' complete (sat +%.0f)",
+                      interactionName, objectID, satisfaction)
+            }
         }
 
         // 4. Wire breeding success -> store hybrid in DB + register
