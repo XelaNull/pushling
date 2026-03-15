@@ -76,6 +76,15 @@ final class WorldManager {
     /// Ruin inscription system (P3-T3-11).
     let ruinInscriptions = RuinInscriptionSystem()
 
+    // MARK: - Sky & Weather Subsystems
+
+    /// Real-time sky gradient, moon, and star field (P3-T2-01/02/03).
+    let skySystem = SkySystem()
+
+    /// Weather state machine and renderer coordination (P3-T2-04).
+    /// Owns RainRenderer, SnowRenderer, StormSystem, FogRenderer internally.
+    let weatherSystem = WeatherSystem()
+
     // MARK: - State
 
     /// Current world-space X position of the tracked entity (creature/camera).
@@ -165,11 +174,46 @@ final class WorldManager {
             ruinInscriptions.configureForStage(config.creatureStage)
         }
 
+        // 15. Setup sky system — gradient behind everything, stars + moon on far layer
+        //     SkySystem owns gradientNode, starField, and moonNode.
+        //     We add them to appropriate layers rather than using addToScene
+        //     so each element lands on the correct parallax depth.
+        scene.addChild(skySystem.gradientNode)  // Scene background (behind all layers)
+        if let farLayer = parallax.farLayer {
+            farLayer.addChild(skySystem.starField)
+            farLayer.addChild(skySystem.moonNode)
+        }
+
+        // 16. Setup weather system — renderers on correct parallax layers
+        //     WeatherSystem owns all renderers but we attach nodes to layers manually
+        //     so rain/snow are foreground, fog is mid-layer, storm is scene-level.
+        weatherSystem.skySystem = skySystem  // Wire sky darkening
+
+        if let foreLayer = parallax.foreLayer {
+            weatherSystem.rainRenderer.addToScene(parent: foreLayer)
+            weatherSystem.snowRenderer.addToScene(parent: foreLayer)
+        }
+        if let midLayer = parallax.midLayer {
+            weatherSystem.fogRenderer.addToScene(parent: midLayer)
+        }
+        weatherSystem.stormSystem.addToScene(parent: scene)  // Scene-level for full-width lightning
+        weatherSystem.stormSystem.sceneNode = scene           // Screen shake reference
+
+        // Wire terrain height callbacks so rain/snow splash at terrain surface
+        weatherSystem.rainRenderer.terrainHeightAt = { [weak self] worldX in
+            self?.terrainHeightAt(worldX: worldX) ?? 4.0
+        }
+        weatherSystem.snowRenderer.terrainHeightAt = { [weak self] worldX in
+            self?.terrainHeightAt(worldX: worldX) ?? 4.0
+        }
+
         isSetUp = true
         NSLog("[Pushling/World] World system initialized — seed %llu, "
-              + "specialty %@, %d landmarks, stage %@",
+              + "specialty %@, %d landmarks, stage %@, sky %@, weather %@",
               config.seed, config.specialty, config.landmarks.count,
-              "\(config.creatureStage)")
+              "\(config.creatureStage)",
+              skySystem.currentPeriod.rawValue,
+              weatherSystem.currentState.rawValue)
     }
 
     // MARK: - Frame Update
@@ -192,6 +236,14 @@ final class WorldManager {
 
         // Update terrain recycler — generate/recycle chunks (< 0.2ms)
         terrainRecycler?.update(cameraWorldX: trackedX)
+
+        // Update sky gradient, star twinkle, moon visibility (< 0.1ms per frame,
+        // full sky recalc every ~1s)
+        skySystem.update(deltaTime: deltaTime)
+
+        // Update weather state machine and active renderers (< 0.2ms)
+        // WeatherSystem handles rain/snow/storm/fog renderer updates internally
+        weatherSystem.update(deltaTime: deltaTime)
 
         // Update visual event animations
         visualEvents.update(deltaTime: deltaTime)
@@ -301,9 +353,40 @@ final class WorldManager {
         let hungerNode = hungerDesaturation.nodeCount
         let eventNodes = visualEvents.nodeCount
         let inscriptionNodes = ruinInscriptions.nodeCount
+        // Sky: gradient(1) + starField(1 container) + moon(1 container) = 3
+        // Weather: rain container(1) + snow container(1) + storm container(1) + fog container(1) = 4
+        let skyNodes = 3
+        let weatherNodes = 4
         return parallaxNodes + terrainNodes + landmarkNodes + tintNode
             + reflectionNodes + ghostNodes + hungerNode + eventNodes
-            + inscriptionNodes
+            + inscriptionNodes + skyNodes + weatherNodes
+    }
+
+    // MARK: - Weather Queries
+
+    /// Current weather state (for MCP pushling_sense / debug overlay).
+    var currentWeather: WeatherState {
+        return weatherSystem.currentState
+    }
+
+    /// Detailed weather description (for MCP state queries).
+    var weatherDescription: [String: Any] {
+        return weatherSystem.weatherDescription
+    }
+
+    /// Current sky time period (for MCP state queries).
+    var currentTimePeriod: TimePeriod {
+        return skySystem.currentPeriod
+    }
+
+    /// Whether the moon is full (for surprise system hooks).
+    var isFullMoon: Bool {
+        return skySystem.moonNode.isFullMoon
+    }
+
+    /// Moon phase name (for MCP state queries).
+    var moonPhaseName: String {
+        return skySystem.moonNode.phaseName
     }
 
     // MARK: - Specialty Updates
@@ -355,11 +438,13 @@ final class WorldManager {
     // MARK: - Debug: Weather Override
 
     /// Force a weather state for debug/testing purposes.
-    /// When the WeatherSystem is fully wired, this will delegate to it.
-    /// For now, it creates a transient WeatherSystem and activates the state.
+    /// Delegates to the live WeatherSystem — activates/deactivates the correct
+    /// renderers and transitions smoothly over 30-60s.
     func debugForceWeather(_ state: WeatherState) {
-        // TODO: Wire to persistent WeatherSystem once integrated
-        NSLog("[Pushling/World] Debug weather override: %@", state.rawValue)
+        let previous = weatherSystem.currentState
+        weatherSystem.forceWeather(state, duration: 300)  // 5 min override
+        NSLog("[Pushling/World] Debug weather override: %@ -> %@ (5 min)",
+              previous.rawValue, state.rawValue)
     }
 
     /// Adds a repo landmark with a known type (e.g., loaded from SQLite).
