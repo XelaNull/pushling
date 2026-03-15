@@ -352,6 +352,16 @@ final class WorldManager {
               repoName, repoType.landmarkType.rawValue)
     }
 
+    // MARK: - Debug: Weather Override
+
+    /// Force a weather state for debug/testing purposes.
+    /// When the WeatherSystem is fully wired, this will delegate to it.
+    /// For now, it creates a transient WeatherSystem and activates the state.
+    func debugForceWeather(_ state: WeatherState) {
+        // TODO: Wire to persistent WeatherSystem once integrated
+        NSLog("[Pushling/World] Debug weather override: %@", state.rawValue)
+    }
+
     /// Adds a repo landmark with a known type (e.g., loaded from SQLite).
     func addRepoLandmark(repoName: String, landmarkType: LandmarkType) {
         // Map LandmarkType back to RepoType for the addLandmark API

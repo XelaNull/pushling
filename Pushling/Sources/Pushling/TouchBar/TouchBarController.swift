@@ -36,6 +36,11 @@ final class TouchBarController: NSObject, TouchBarProvider, NSTouchBarDelegate {
         return dfr.isLoaded
     }
 
+    /// Exposes the current PushlingScene for debug/external access.
+    var currentScene: PushlingScene? {
+        return scene
+    }
+
     // MARK: - TouchBarProvider
 
     func present() {

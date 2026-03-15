@@ -1,5 +1,6 @@
 // AppDelegate.swift — Pushling menu-bar daemon
 // Creates an NSStatusItem, manages app lifecycle, no dock icon, no windows.
+// Debug submenu provides testing actions for all creature subsystems.
 
 import AppKit
 import SpriteKit
@@ -13,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateCoordinator: StateCoordinator?
     private var socketServer: SocketServer?
     private var debugOverlayEnabled = false
+
+    /// Debug action handler — created lazily when the debug menu is opened.
+    private var debugActions: DebugActions?
 
     // MARK: - App Lifecycle
 
@@ -101,6 +105,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugItem.target = self
         menu.addItem(debugItem)
 
+        // Debug submenu
+        let debugSubmenu = buildDebugSubmenu()
+        let debugSubmenuItem = NSMenuItem(
+            title: "Debug",
+            action: nil,
+            keyEquivalent: ""
+        )
+        debugSubmenuItem.submenu = debugSubmenu
+        menu.addItem(debugSubmenuItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let launchAgentItem = NSMenuItem(
@@ -125,6 +139,131 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Update launch agent menu item state on menu open
         menu.delegate = self
+    }
+
+    // MARK: - Debug Submenu
+
+    private func buildDebugSubmenu() -> NSMenu {
+        let menu = NSMenu(title: "Debug")
+
+        // --- Feed Commits ---
+        let feedHeader = NSMenuItem(title: "Feed Commits", action: nil, keyEquivalent: "")
+        feedHeader.isEnabled = false
+        menu.addItem(feedHeader)
+
+        addMenuItem(to: menu, title: "Feed Small Commit (10 lines)",
+                    action: #selector(debugFeedSmallCommit))
+        addMenuItem(to: menu, title: "Feed Large Commit (200 lines)",
+                    action: #selector(debugFeedLargeCommit))
+        addMenuItem(to: menu, title: "Feed Test Commit",
+                    action: #selector(debugFeedTestCommit))
+        addMenuItem(to: menu, title: "Feed 10 Commits",
+                    action: #selector(debugFeed10Commits))
+        addMenuItem(to: menu, title: "Feed 50 Commits",
+                    action: #selector(debugFeed50Commits))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Change Stage ---
+        let stageHeader = NSMenuItem(title: "Change Stage", action: nil, keyEquivalent: "")
+        stageHeader.isEnabled = false
+        menu.addItem(stageHeader)
+
+        addMenuItem(to: menu, title: "Set Stage: Spore",
+                    action: #selector(debugSetSpore))
+        addMenuItem(to: menu, title: "Set Stage: Drop",
+                    action: #selector(debugSetDrop))
+        addMenuItem(to: menu, title: "Set Stage: Critter",
+                    action: #selector(debugSetCritter))
+        addMenuItem(to: menu, title: "Set Stage: Beast",
+                    action: #selector(debugSetBeast))
+        addMenuItem(to: menu, title: "Set Stage: Sage",
+                    action: #selector(debugSetSage))
+        addMenuItem(to: menu, title: "Set Stage: Apex",
+                    action: #selector(debugSetApex))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Evolution ---
+        let evolveHeader = NSMenuItem(title: "Evolution", action: nil, keyEquivalent: "")
+        evolveHeader.isEnabled = false
+        menu.addItem(evolveHeader)
+
+        addMenuItem(to: menu, title: "Evolve Now",
+                    action: #selector(debugEvolveNow))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Speech ---
+        let speechHeader = NSMenuItem(title: "Test Speech", action: nil, keyEquivalent: "")
+        speechHeader.isEnabled = false
+        menu.addItem(speechHeader)
+
+        addMenuItem(to: menu, title: "Say Hello",
+                    action: #selector(debugSayHello))
+        addMenuItem(to: menu, title: "Say Long Message",
+                    action: #selector(debugSayLong))
+        addMenuItem(to: menu, title: "Test First Word",
+                    action: #selector(debugTestFirstWord))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Weather ---
+        let weatherHeader = NSMenuItem(title: "Test Weather", action: nil, keyEquivalent: "")
+        weatherHeader.isEnabled = false
+        menu.addItem(weatherHeader)
+
+        addMenuItem(to: menu, title: "Set Clear",
+                    action: #selector(debugWeatherClear))
+        addMenuItem(to: menu, title: "Set Rain",
+                    action: #selector(debugWeatherRain))
+        addMenuItem(to: menu, title: "Set Storm",
+                    action: #selector(debugWeatherStorm))
+        addMenuItem(to: menu, title: "Set Snow",
+                    action: #selector(debugWeatherSnow))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Interactions ---
+        let interactionHeader = NSMenuItem(
+            title: "Test Interactions", action: nil, keyEquivalent: ""
+        )
+        interactionHeader.isEnabled = false
+        menu.addItem(interactionHeader)
+
+        addMenuItem(to: menu, title: "Test Cat Behavior",
+                    action: #selector(debugTestCatBehavior))
+
+        menu.addItem(NSMenuItem.separator())
+
+        // --- Info ---
+        let infoHeader = NSMenuItem(title: "Info", action: nil, keyEquivalent: "")
+        infoHeader.isEnabled = false
+        menu.addItem(infoHeader)
+
+        addMenuItem(to: menu, title: "Show Stats (Console)",
+                    action: #selector(debugShowStats))
+
+        return menu
+    }
+
+    /// Helper to add a menu item with a target.
+    private func addMenuItem(to menu: NSMenu, title: String,
+                             action: Selector) {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+    }
+
+    /// Lazily creates or returns the debug actions handler.
+    private func ensureDebugActions() -> DebugActions {
+        if let existing = debugActions {
+            existing.updateScene(touchBarController?.currentScene)
+            return existing
+        }
+        let actions = DebugActions(scene: touchBarController?.currentScene)
+        debugActions = actions
+        return actions
     }
 
     // MARK: - Touch Bar
@@ -171,6 +310,104 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Clean shutdown: dismiss Touch Bar, then terminate
         touchBarController?.dismiss()
         NSApp.terminate(nil)
+    }
+
+    // MARK: - Debug Actions: Feed Commits
+
+    @objc private func debugFeedSmallCommit() {
+        ensureDebugActions().feedSmallCommit()
+    }
+
+    @objc private func debugFeedLargeCommit() {
+        ensureDebugActions().feedLargeCommit()
+    }
+
+    @objc private func debugFeedTestCommit() {
+        ensureDebugActions().feedTestCommit()
+    }
+
+    @objc private func debugFeed10Commits() {
+        ensureDebugActions().feedBatchCommits(count: 10)
+    }
+
+    @objc private func debugFeed50Commits() {
+        ensureDebugActions().feedBatchCommits(count: 50)
+    }
+
+    // MARK: - Debug Actions: Stage
+
+    @objc private func debugSetSpore() {
+        ensureDebugActions().setStage(.spore)
+    }
+
+    @objc private func debugSetDrop() {
+        ensureDebugActions().setStage(.drop)
+    }
+
+    @objc private func debugSetCritter() {
+        ensureDebugActions().setStage(.critter)
+    }
+
+    @objc private func debugSetBeast() {
+        ensureDebugActions().setStage(.beast)
+    }
+
+    @objc private func debugSetSage() {
+        ensureDebugActions().setStage(.sage)
+    }
+
+    @objc private func debugSetApex() {
+        ensureDebugActions().setStage(.apex)
+    }
+
+    // MARK: - Debug Actions: Evolution
+
+    @objc private func debugEvolveNow() {
+        ensureDebugActions().evolveNow()
+    }
+
+    // MARK: - Debug Actions: Speech
+
+    @objc private func debugSayHello() {
+        ensureDebugActions().sayHello()
+    }
+
+    @objc private func debugSayLong() {
+        ensureDebugActions().sayLongMessage()
+    }
+
+    @objc private func debugTestFirstWord() {
+        ensureDebugActions().testFirstWord()
+    }
+
+    // MARK: - Debug Actions: Weather
+
+    @objc private func debugWeatherClear() {
+        ensureDebugActions().setWeather(.clear)
+    }
+
+    @objc private func debugWeatherRain() {
+        ensureDebugActions().setWeather(.rain)
+    }
+
+    @objc private func debugWeatherStorm() {
+        ensureDebugActions().setWeather(.storm)
+    }
+
+    @objc private func debugWeatherSnow() {
+        ensureDebugActions().setWeather(.snow)
+    }
+
+    // MARK: - Debug Actions: Interactions
+
+    @objc private func debugTestCatBehavior() {
+        ensureDebugActions().testCatBehavior()
+    }
+
+    // MARK: - Debug Actions: Info
+
+    @objc private func debugShowStats() {
+        ensureDebugActions().showStats()
     }
 }
 

@@ -12,7 +12,7 @@ final class PushlingScene: SKScene {
 
     // MARK: - Frame Budget Monitor
 
-    private let frameBudgetMonitor = FrameBudgetMonitor()
+    let frameBudgetMonitor = FrameBudgetMonitor()
     private var lastUpdateTime: TimeInterval = 0
 
     // MARK: - World System
@@ -156,6 +156,14 @@ final class PushlingScene: SKScene {
 
         // 5. UI — evolution progress bar pulse (P3-T3-07)
         evolutionProgressBar.update(deltaTime: deltaTime)
+
+        // 5b. Debug eating animation — runs per-frame when active
+        if debugEatingAnimation.isEating {
+            debugEatingAnimation.update(deltaTime: deltaTime)
+        }
+
+        // 5c. Debug speech coordinator — update active bubbles
+        debugSpeechCoordinator.update(deltaTime: deltaTime)
 
         // 6. Diamond indicator — per-frame animation (P4-T4-01)
         diamondIndicator?.update(deltaTime: deltaTime)
@@ -488,4 +496,28 @@ final class PushlingScene: SKScene {
     private func countAllNodes(in node: SKNode) -> Int {
         return 1 + node.children.reduce(0) { $0 + countAllNodes(in: $1) }
     }
+
+    // MARK: - Debug Subsystems (stored properties for extension)
+
+    /// Commit eating animation — lazily created, configured on first use.
+    private(set) lazy var debugEatingAnimation: CommitEatingAnimation = {
+        let a = CommitEatingAnimation()
+        if let c = creatureNode { a.configure(creature: c, scene: self) }
+        return a
+    }()
+
+    /// Speech coordinator — lazily created, configured on first use.
+    private(set) lazy var debugSpeechCoordinator: SpeechCoordinator = {
+        let s = SpeechCoordinator()
+        if let c = creatureNode {
+            s.configure(creature: c, stage: c.currentStage,
+                        personality: .neutral, creatureName: "Pushling",
+                        speechCache: nil, narrationOverlay: nil)
+        }
+        return s
+    }()
+
+    /// XP tracking for debug batch feeds.
+    var debugXP: Int = 45
+    var debugXPToNext: Int = 100
 }
