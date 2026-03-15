@@ -635,14 +635,93 @@ Clouds transform the sky from a static gradient into a living environment. They 
 3. **Time atmosphere** — golden-hour cloud tinting is emotionally powerful on OLED
 4. **Movement** — even when the creature is still, the world breathes through drifting clouds
 
+### Cat Visual Enhancement
+
+The creature currently renders as geometric SKShapeNode primitives — circles, triangles, lines. This is the "programmer art" placeholder style. To make the cat look like a *cat*, several targeted improvements are needed:
+
+**Current State (Geometric Shapes):**
+- Body: rounded rectangle or ellipse
+- Ears: two triangles
+- Eyes: two small circles with dot pupils
+- Tail: a curved line
+- Whiskers: thin lines
+- Paws: small rectangles
+
+**Target State (Recognizable Cat-Spirit):**
+
+| Body Part | Current | Enhanced | Technique |
+|-----------|---------|----------|-----------|
+| **Body** | Single ellipse | Organic body curve with slight belly, shoulder bump | CGPath with quadratic Bézier curves instead of basic ellipse |
+| **Head** | Circle on body | Slightly wider-than-tall oval with chin taper, cheek bulge | Custom CGPath with breed-appropriate proportions |
+| **Ears** | Plain triangles | Inner ear detail (second smaller triangle in Ember/pink), slight outward tilt, rounded tips | Nested paths with fill color difference |
+| **Eyes** | Dots | Almond-shaped with visible iris (colored ring), pupil that dilates/contracts with light, catch-light (tiny Bone dot at 10 o'clock) | Layered ellipses: outer shape + iris ring + pupil circle + catch-light dot |
+| **Nose** | None | Tiny inverted triangle between eyes, Ember pink | Small path, 1-2pt |
+| **Mouth** | Line | Curved "cat smile" (the :3 shape) — two gentle curves from nose down-and-out | Two short quadratic curves |
+| **Whiskers** | Straight lines | Slight curve, 3 per side at different angles, subtle twitch animation | Quadratic Bézier paths with per-whisker rotation offsets |
+| **Tail** | Straight/curved line | Thicker at base, tapers to tip, natural S-curve with personality-influenced curl | CGPath with variable stroke width via custom drawing, or multiple overlapping segments |
+| **Paws** | Rectangles | Rounded "bean" shapes with toe pad suggestion (tiny circles at tips) | Rounded rect with 2-3 toe-pad circles at 0.5pt |
+| **Fur texture** | Flat fill | Subtle fur direction lines via very faint parallel strokes on the body, visible only at Beast+ stages | Thin Ash lines at 5% alpha overlaid on body, direction follows body curve |
+| **Belly** | Same as body | Slightly lighter shade underneath (Bone at higher alpha) | Second body-shaped path offset down by 1pt, lighter fill |
+
+**Stage-Specific Cat Refinement:**
+
+| Stage | Cat Detail Level |
+|-------|-----------------|
+| **Spore** | Glowing orb — no cat features. Just light. |
+| **Drop** | Teardrop with two dots for eyes. The barest hint of cat: slightly pointed top (proto-ears). |
+| **Critter** | First recognizable cat. Small ears, visible eyes with pupils, stub tail, tiny paws. Simple shapes but clearly feline. The "kitten" stage. |
+| **Beast** | Full cat. Almond eyes with iris/pupil/catch-light, defined ears with inner detail, whiskers, nose triangle, proper tail with S-curve, visible paws with toe pads. Personality-influenced proportions (stocky vs lean). |
+| **Sage** | Refined cat with luminous details. Fur texture visible, longer whiskers, third-eye marking (faint Gilt dot on forehead), tail tip glows faintly. Wisdom lines (subtle marks near eyes). |
+| **Apex** | Transcendent cat-spirit. Semi-ethereal — parts dissolve to particles. Multiple tails. Star crown. Eyes glow. Body outline occasionally shimmers. The cat form is recognizable but clearly supernatural. |
+
+**Color & Personality Visual Expression:**
+
+The cat's appearance should visually reflect personality axes:
+
+| Axis | Low | High |
+|------|-----|------|
+| **Energy** | Sleepy half-lidded eyes, relaxed ear angle, low tail | Wide eyes, perked ears, high tail, alert posture |
+| **Verbosity** | Closed mouth, small head relative to body | Slightly open mouth, larger head/eye ratio |
+| **Focus** | Scattered gaze (eyes slightly different directions), ears rotating | Locked gaze (both eyes forward), ears pointed forward |
+| **Discipline** | Slightly messy fur texture, asymmetric whiskers | Clean lines, symmetric features, precise ear angles |
+| **Specialty** | Body hue shifts toward specialty color | Faint colored aura matches specialty |
+
+**Animation Refinements for Cat Feel:**
+
+Beyond static appearance, cats *move* in specific ways:
+
+| Animation | Current | Enhanced |
+|-----------|---------|----------|
+| **Walk cycle** | Uniform paw movement | Diagonal gait (FL+BR, then FR+BL), slight body sway, tail counter-balance |
+| **Idle breathing** | Y-scale oscillation | Belly expansion (scale body height slightly), ear micro-adjustments, whisker flutter |
+| **Turning** | Instant flip | Head turns first (0.1s), body follows (0.2s), tail drags behind (0.3s) — cats lead with the head |
+| **Sitting** | Instant state change | Rear lowers first, front paws adjust, tail wraps to side, settle wiggle |
+| **Jumping** | Arc | Crouch (compress), spring (rear extends first), flight (body stretches), land (front paws first, rear follows, slight bounce) |
+| **Landing** | Instant | Front paws absorb, body compresses 10%, spring back up, dust particles |
+| **Grooming** | Single frame | Paw-to-face lick motion (paw rises, head tilts into paw, tongue blep, paw lowers) |
+| **Sleeping** | Curled position | Breathing visible (belly rise/fall), occasional ear twitch, dream-kick (rear paw twitches), tail-tip curl tightens |
+
+**Implementation Approach:**
+
+Replace the geometric shapes in `StageRenderer.swift` and `ShapeFactory.swift` with hand-crafted CGPath curves. No texture atlas needed — the pixel-art-on-OLED aesthetic works with filled paths. The key is:
+
+1. Use **quadratic/cubic Bézier curves** instead of basic shapes for organic silhouettes
+2. Add **layered detail nodes** (iris, pupil, catch-light, inner ear, nose, toe pads)
+3. Implement **per-segment body animation** (head turns before body, tail follows after)
+4. Keep the **composite node architecture** — each body part is still an independent SKNode
+5. Total node count stays under budget: ~25-30 nodes per creature (currently ~15-20)
+
 ### Implementation Priority
 
-1. **Sprite Stacking for Creature** (Week 1-2) — biggest visual impact, creates the "this looks 3D" moment
-2. **Mode 7 Ground Plane** (Week 2) — adds genuine perspective to the world
-3. **Cloud System** (Week 2-3) — living sky, weather integration, depth perception
-4. **Atmospheric Depth** (Week 3) — blur + desaturation on distant parallax layers
-5. **Normal-mapped Creature Lighting** (Week 3-4) — creature reacts to world lighting
-6. **SDF Glow Effects** (Week 4) — ethereal creature aura, evolution effects
+1. **Cat Shape Overhaul** (Week 1) — replace geometric primitives with Bézier cat silhouettes. The single biggest visual improvement. The creature goes from "programmer art circles" to "that's a cat."
+2. **Sprite Stacking for Creature** (Week 1-2) — biggest visual impact, creates the "this looks 3D" moment
+3. **Eye Detail System** (Week 2) — almond shape, iris, pupil dilation, catch-light. Eyes are where people look first.
+4. **Mode 7 Ground Plane** (Week 2) — adds genuine perspective to the world
+5. **Cloud System** (Week 2-3) — living sky, weather integration, depth perception
+6. **Turn/Movement Animation Refinement** (Week 3) — head leads, body follows, tail drags. Makes the cat feel like a real animal.
+7. **Atmospheric Depth** (Week 3) — blur + desaturation on distant parallax layers
+8. **Normal-mapped Creature Lighting** (Week 3-4) — creature reacts to world lighting
+9. **SDF Glow Effects** (Week 4) — ethereal creature aura, evolution effects
 
 ### What This Achieves
 

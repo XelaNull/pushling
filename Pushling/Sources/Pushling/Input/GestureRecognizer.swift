@@ -200,7 +200,48 @@ final class GestureRecognizer: TouchTrackerDelegate {
     private func handleTouchMoved(_ event: TouchEvent) {
         let state = event.state
 
-        // Skip multi-finger moves for now (handled via began)
+        // Two-finger gesture classification
+        if multiFingerCount == 2 {
+            // Update tracked position for this finger
+            twoFingerPositions[state.id] = state.currentPosition
+
+            // Update MultiTouchState with both positions
+            if twoFingerPositions.count >= 2, var mts = multiTouchState {
+                let positions = Array(twoFingerPositions.values)
+                mts.update(touch1: positions[0], touch2: positions[1])
+                multiTouchState = mts
+
+                // Try to classify if not yet resolved
+                if !twoFingerClassified, let gestureType = mts.classify() {
+                    twoFingerClassified = true
+                    multiTouchState = mts  // Save classified state
+                    dispatchGesture(GestureEvent(
+                        type: gestureType,
+                        position: mts.currentMidpoint,
+                        velocity: state.velocity,
+                        touchCount: 2,
+                        duration: state.duration,
+                        target: twoFingerTarget,
+                        timestamp: event.timestamp
+                    ))
+                } else if twoFingerClassified,
+                          let resolvedType = mts.resolvedType {
+                    // Continue dispatching the classified gesture type
+                    dispatchGesture(GestureEvent(
+                        type: resolvedType,
+                        position: mts.currentMidpoint,
+                        velocity: state.velocity,
+                        touchCount: 2,
+                        duration: state.duration,
+                        target: twoFingerTarget,
+                        timestamp: event.timestamp
+                    ))
+                }
+            }
+            return
+        }
+
+        // Skip 3+ finger moves
         guard multiFingerCount == 0 else { return }
 
         // Check for drag threshold
@@ -258,8 +299,27 @@ final class GestureRecognizer: TouchTrackerDelegate {
 
         // Multi-finger end — reset
         if multiFingerCount > 0 {
+            // Remove this finger from tracking
+            twoFingerPositions.removeValue(forKey: state.id)
+
             if event.activeTouchCount == 0 {
+                // All fingers lifted — if two-finger was never classified,
+                // dispatch as belly rub (original multiFingerTwo behavior)
+                if multiFingerCount == 2 && !twoFingerClassified {
+                    dispatchGesture(GestureEvent(
+                        type: .multiFingerTwo,
+                        position: state.currentPosition,
+                        velocity: state.velocity,
+                        touchCount: 2,
+                        duration: state.duration,
+                        target: twoFingerTarget,
+                        timestamp: event.timestamp
+                    ))
+                }
                 multiFingerCount = 0
+                multiTouchState = nil
+                twoFingerPositions.removeAll()
+                twoFingerClassified = false
             }
             return
         }
@@ -312,6 +372,9 @@ final class GestureRecognizer: TouchTrackerDelegate {
     private func handleTouchCancelled(_ event: TouchEvent) {
         activeDragTouchId = nil
         multiFingerCount = 0
+        multiTouchState = nil
+        twoFingerPositions.removeAll()
+        twoFingerClassified = false
         cancelPendingTap()
     }
 

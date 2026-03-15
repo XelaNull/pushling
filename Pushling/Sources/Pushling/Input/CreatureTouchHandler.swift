@@ -410,19 +410,28 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
 
     // MARK: - Pinch Zoom
 
+    /// Previous pinch midpoint for computing deltas.
+    private var lastPinchMidpoint: CGPoint?
+
     private func handlePinchZoom(_ event: GestureEvent) {
-        // Convert velocity-based delta to zoom change
-        // Positive velocity.dy = fingers spreading = zoom in
-        let zoomDelta = event.velocity.dy * 0.002
-        cameraController?.zoom(delta: CGFloat(zoomDelta),
-                                centerWorldX: CGFloat(event.position.x))
+        // The velocity carries the finger movement info.
+        // Use the horizontal spread of the velocity as zoom signal.
+        // GestureRecognizer dispatches pinchZoom continuously during the gesture,
+        // so we use a small per-frame increment based on velocity magnitude.
+        let speed = event.velocity.magnitude
+        let direction: CGFloat = event.velocity.dx > 0 ? 1.0 : -1.0
+        let zoomDelta = direction * speed * 0.0005
+        cameraController?.zoom(delta: zoomDelta,
+                                centerWorldX: event.position.x)
+        lastPinchMidpoint = event.position
     }
 
     // MARK: - Two-Finger Drag
 
     private func handleTwoFingerDrag(_ event: GestureEvent) {
-        // Two-finger drag pans the camera (same as single-finger on empty space)
-        cameraController?.pan(deltaX: event.velocity.dx / 60.0)
+        // Use the midpoint velocity to pan the camera
+        let deltaX = event.velocity.dx / 60.0
+        cameraController?.pan(deltaX: deltaX)
     }
 
     // MARK: - Belly Rub
