@@ -28,7 +28,10 @@ enum MigrationManager {
                   migrate: migrateV2),
         Migration(version: 3,
                   description: "Add touch_stats, game_scores, game_unlocks tables (P6)",
-                  migrate: migrateV3)
+                  migrate: migrateV3),
+        Migration(version: 4,
+                  description: "Add wear_rate column to world_objects",
+                  migrate: migrateV4)
     ]
 
     /// Runs all pending migrations on the given database.
@@ -256,6 +259,15 @@ enum MigrationManager {
         )
 
         NSLog("[Pushling/Migration] v3: Created touch_stats, game_scores, game_unlocks tables")
+    }
+
+    // MARK: - Migration V4: Per-Object Wear Rate
+
+    private static func migrateV4(db: DatabaseManager) throws {
+        try db.executeRaw(
+            "ALTER TABLE world_objects ADD COLUMN wear_rate REAL NOT NULL DEFAULT 0.01"
+        )
+        NSLog("[Pushling/Migration] v4: Added wear_rate column to world_objects")
     }
 
     // MARK: - Creature Name Generator

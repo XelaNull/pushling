@@ -53,11 +53,13 @@ final class AutonomousLayer: BehaviorLayer {
 
     // MARK: - Object Interaction Dependencies (set by GameCoordinator)
 
-    /// Query placed world objects: returns (id, interactionType, x position).
-    var objectQuery: (() -> [(id: String, type: String, x: CGFloat)])?
+    /// Query placed world objects: returns (id, interactionType, x position, physics).
+    var objectQuery: (() -> [(id: String, type: String, x: CGFloat,
+                              physics: ObjectPhysics?)])?
     var attractionScorer: AttractionScorer?
     var objectInteractionEngine: ObjectInteractionEngine?
-    var onObjectInteractionCompleted: ((String, String, Double) -> Void)?
+    /// Callback: (objectID, interactionName, satisfaction, consumed)
+    var onObjectInteractionCompleted: ((String, String, Double, Bool) -> Void)?
 
     // MARK: - Internal State
 
@@ -66,6 +68,7 @@ final class AutonomousLayer: BehaviorLayer {
     private var stateDuration: TimeInterval = 3.0
     private var facing: Direction = .right
     private(set) var currentX: CGFloat = SceneConstants.sceneWidth / 2
+    private var currentZ: CGFloat = 0.0
     private var currentWalkSpeed: CGFloat = 0
     private var pendingDirectionChange: Bool = false
     private var walkCyclePhase: Double = 0
@@ -113,6 +116,7 @@ final class AutonomousLayer: BehaviorLayer {
             output.positionX = currentX
         }
         output.facing = facing
+        output.positionZ = currentZ
 
         return output
     }
@@ -214,6 +218,12 @@ final class AutonomousLayer: BehaviorLayer {
             if randomChance(dirProb) {
                 pendingDirectionChange = true
             }
+
+            // Occasional depth change during walking (10% chance)
+            if randomChance(0.1) {
+                currentZ = CGFloat(randomRange(0.0, 0.3))
+            }
+
             transitionTo(.idle)
         }
     }
@@ -233,6 +243,11 @@ final class AutonomousLayer: BehaviorLayer {
         }
         if stage >= .beast {
             output.whiskerState = "neutral"
+        }
+
+        // High curiosity: drift toward foreground (approach camera)
+        if emotions.curiosity > 70, currentZ > 0.02 {
+            currentZ = max(currentZ - CGFloat(deltaTime * 0.15), 0.0)
         }
 
         // Handle pending direction change (will be blended by BlendController)
@@ -309,6 +324,8 @@ final class AutonomousLayer: BehaviorLayer {
                                output: inout LayerOutput) {
         output.walkSpeed = 0
         output.bodyState = "sleep_curl"
+        // Retreat slightly into background when resting
+        currentZ = 0.15
         output.eyeLeftState = "closed"
         output.eyeRightState = "closed"
         output.tailState = "wrap"

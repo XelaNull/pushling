@@ -89,6 +89,9 @@ final class BlendController {
         x: SceneConstants.sceneWidth / 2, y: SceneConstants.groundY
     )
 
+    /// Current rendered depth position (0.0 = foreground, 1.0 = background).
+    private(set) var currentPositionZ: CGFloat = 0.0
+
     /// Active layer transition type (for determining blend timing).
     private var activeTransition: BlendTransitionType?
 
@@ -172,6 +175,7 @@ final class BlendController {
         var blended = blendedBody
         blended.positionX = currentPosition.x
         blended.positionY = desired.positionY  // Y is from physics, no blend needed
+        blended.positionZ = currentPositionZ
         blended.facing = currentFacing
 
         // Walk speed comes from direction reversal state machine
@@ -322,6 +326,16 @@ final class BlendController {
 
         // Y comes directly from physics (no blend needed)
         currentPosition.y = desired.positionY
+
+        // Z position: lerp toward desired Z at same rate as X corrections
+        let targetZ = desired.positionZ
+        let zDiff = targetZ - currentPositionZ
+        if abs(zDiff) > 0.01 {
+            currentPositionZ = lerp(currentPositionZ, targetZ,
+                                    CGFloat(min(deltaTime / 0.3, 1.0)))
+        } else {
+            currentPositionZ = targetZ
+        }
     }
 
     // MARK: - Property Blends
@@ -488,6 +502,7 @@ final class BlendController {
         currentFacing = facing
         currentWalkSpeed = 0
         currentPosition = position
+        currentPositionZ = 0.0
         activeTransition = nil
         transitionElapsed = 0
         wasReflexActive = false

@@ -40,7 +40,7 @@ struct StageConfiguration {
         .critter: StageConfiguration(
             stage: .critter, size: CGSize(width: 14, height: 16),
             hasEars: true, hasTail: true, hasPaws: true,
-            hasWhiskers: false, hasMouth: true, hasAura: false,
+            hasWhiskers: true, hasMouth: true, hasAura: false,
             hasCoreGlow: true, walkSpeed: 15, runSpeed: 30
         ),
         .beast: StageConfiguration(

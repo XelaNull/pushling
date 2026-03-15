@@ -10,7 +10,7 @@ import Foundation
 enum Schema {
 
     /// Current schema version. Bump this when adding migrations.
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     // MARK: - Valid Enum Values
 
@@ -293,8 +293,8 @@ enum Schema {
                 CHECK (wear >= 0.0 AND wear <= 1.0),
             source TEXT NOT NULL DEFAULT 'system'
                 CHECK (source IN ('system','ai_placed','repo_landmark')),
-            repo_name TEXT,
-            landmark_type TEXT,
+            repo_name TEXT,       -- DEPRECATED: unused. Landmarks use repos table + LandmarkSystem in-memory array.
+            landmark_type TEXT,   -- DEPRECATED: unused. Landmarks use repos table + LandmarkSystem in-memory array.
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             removed_at TEXT

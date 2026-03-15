@@ -35,6 +35,10 @@ final class PushlingScene: SKScene {
     private var creatureWalkSpeed: CGFloat = 20.0  // pts/sec
     private var creatureDirection: CGFloat = 1.0   // 1.0 = right, -1.0 = left
 
+    /// Creature depth position (0.0 = foreground, 1.0 = background).
+    /// Stored per-frame in applyBehaviorOutput, applied in updateWorld.
+    private var creaturePositionZ: CGFloat = 0.0
+
     // MARK: - HUD & UI (P3-T3-06, P3-T3-07)
 
     /// Cinematic HUD overlay — tap to show stats for 3 seconds.
@@ -245,6 +249,23 @@ final class PushlingScene: SKScene {
                 creatureFacing: facing,
                 deltaTime: deltaTime
             )
+
+            // Apply depth perspective (Phase 0B)
+            // positionZ: 0.0 = foreground (full size), 1.0 = background (0.5x size)
+            let z = creaturePositionZ
+            let depthScale = 1.0 - z * 0.5          // 1.0 at z=0, 0.5 at z=1
+            let depthYOffset = z * 6.0               // Shift up 0-6pt (further = higher)
+
+            // xScale: preserve facing sign from setFacing, apply depth scale
+            creature.xScale = depthScale * creature.facing.xScale
+            // yScale: root node scale — breathing is bodyNode.yScale (child), no conflict
+            creature.yScale = depthScale
+            creature.position.y += depthYOffset
+
+            // Dynamic Z-ordering (Phase 0E)
+            // z=0.0 → zPosition 10 (above terrain objects)
+            // z=1.0 → zPosition -5 (behind foreground objects)
+            creature.zPosition = 10.0 - z * 15.0
         }
     }
 
@@ -538,8 +559,9 @@ final class PushlingScene: SKScene {
         guard let creature = creatureNode else { return }
         let state = output.creatureState
 
-        // Update tracked world position and creature facing
+        // Update tracked world position, depth, and creature facing
         creatureWorldX = state.positionX
+        creaturePositionZ = state.positionZ
         creature.setFacing(state.facing)
 
         // Sleep state (modifies CreatureNode's internal breathing)

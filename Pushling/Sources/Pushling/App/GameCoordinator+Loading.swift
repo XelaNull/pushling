@@ -58,6 +58,13 @@ extension GameCoordinator {
         }
         return hatched != 0
     }
+
+    /// Query tracked repo count from SQLite (drives Apex multi-tail).
+    static func loadRepoCount(from db: DatabaseManager) -> Int {
+        return (try? db.queryScalarInt(
+            "SELECT COUNT(*) FROM repos"
+        )) ?? 1
+    }
 }
 
 // MARK: - Mutation System Wiring (Gap 4)
@@ -66,10 +73,55 @@ extension GameCoordinator {
 
     /// Wire mutation system: load earned badges, set callbacks.
     func wireMutations() {
-        mutationSystem.onBadgeEarned = { badge, isFirst in
+        mutationSystem.onBadgeEarned = { [weak self] badge, isFirst in
+            guard let self = self else { return }
             NSLog("[Pushling/Coordinator] Badge earned: %@ (first: %@)",
                   badge.displayName, isFirst ? "yes" : "no")
-            // TODO: Trigger badge ceremony animation
+
+            // 1. Creature reaction: wide eyes, high tail, perked ears (2s hold)
+            if let stack = self.scene.behaviorStack {
+                var output = LayerOutput()
+                output.eyeLeftState = "wide"
+                output.eyeRightState = "wide"
+                output.tailState = "high"
+                output.earLeftState = "perk"
+                output.earRightState = "perk"
+                let command = AICommand(
+                    id: "badge_\(badge.rawValue)",
+                    type: .perform,
+                    output: output,
+                    holdDuration: 2.0,
+                    enqueuedAt: CACurrentMediaTime()
+                )
+                stack.enqueueAICommand(command)
+            }
+
+            // 2. Visual event: bloom on first earn
+            if isFirst {
+                self.scene.worldManager.triggerVisualEvent(.bloom)
+            }
+
+            // 3. Speech: announce badge name if Critter+
+            if self.creatureStage >= .critter {
+                let _ = self.speechCoordinator.speak(SpeechRequest(
+                    text: badge.displayName,
+                    style: .exclaim,
+                    source: .autonomous
+                ))
+            }
+
+            // 4. Journal: record badge
+            let db = self.stateCoordinator.database
+            let formatter = ISO8601DateFormatter()
+            let now = formatter.string(from: Date())
+            db.performWriteAsync({
+                try db.execute(
+                    "INSERT INTO journal (type, summary, timestamp) VALUES (?, ?, ?)",
+                    arguments: ["discovery",
+                                "Earned badge: \(badge.displayName)",
+                                now]
+                )
+            })
         }
 
         // Load earned badges from SQLite milestones table

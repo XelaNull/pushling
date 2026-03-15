@@ -219,4 +219,19 @@ enum ObjectShapeFactory {
             return nil
         }
     }
+
+    // MARK: - Composite Shape Delegation
+
+    /// Attempts to build a composite shape for the given preset and base shape.
+    /// Returns nil if no composite is available (falls back to existing single-shape).
+    /// Delegates to CompositeShapeFactory.
+    static func buildCompositeShape(
+        presetName: String,
+        baseShape: String,
+        size: CGFloat
+    ) -> SKNode? {
+        return CompositeShapeFactory.buildCompositeShape(
+            presetName: presetName, baseShape: baseShape, size: size
+        )
+    }
 }

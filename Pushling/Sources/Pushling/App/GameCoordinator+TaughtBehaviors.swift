@@ -106,19 +106,44 @@ extension GameCoordinator {
                 guard let self = self else { return [] }
                 return self.scene.worldManager.objectRenderer.activeObjects.map {
                     (id: $0.id, type: $0.definition.interaction,
-                     x: $0.definition.positionX)
+                     x: $0.definition.positionX,
+                     physics: Optional($0.definition.physics))
                 }
             }
             stack.autonomous.attractionScorer = attractionScorer
             stack.autonomous.objectInteractionEngine = objectInteractionEngine
             stack.autonomous.onObjectInteractionCompleted = {
-                [weak self] objectID, interactionName, satisfaction in
+                [weak self] objectID, interactionName, satisfaction, consumed in
                 guard let self = self else { return }
                 self.attractionScorer.recordInteraction(objectID: objectID)
                 self.emotionalState.boostFromInteraction()
+
+                // Apply wear using per-object custom rate
+                if let rendered = self.scene.worldManager.objectRenderer
+                    .objects[objectID] {
+                    self.scene.worldManager.objectWearSystem
+                        .applyInteractionWear(
+                            objectID: objectID,
+                            interactionType: interactionName,
+                            customRate: rendered.definition.wearRate
+                        )
+                    // Sync wear value back to renderer
+                    let newWear = self.scene.worldManager.objectWearSystem
+                        .wearValue(for: objectID)
+                    self.scene.worldManager.objectRenderer
+                        .setWear(objectID: objectID, value: newWear)
+                }
+
+                // Remove consumed objects from scene and DB
+                if consumed {
+                    self.scene.worldManager
+                        .removeObjectByRendererID(objectID)
+                }
+
                 NSLog("[Pushling/Objects] Autonomous interaction '%@' "
-                      + "with '%@' complete (sat +%.0f)",
-                      interactionName, objectID, satisfaction)
+                      + "with '%@' complete (sat +%.0f%@)",
+                      interactionName, objectID, satisfaction,
+                      consumed ? ", consumed" : "")
             }
         }
 

@@ -65,8 +65,8 @@ final class RainRenderer {
     /// Maximum concurrent splash particles.
     private static let maxSplashes = 30
 
-    /// Droplet visual size.
-    private static let dropletSize = CGSize(width: 1, height: 2)
+    /// Droplet visual size (3x4 teardrop).
+    private static let dropletSize = CGSize(width: 3, height: 4)
 
     /// Splash visual size.
     private static let splashSize = CGSize(width: 1, height: 1)
@@ -134,11 +134,8 @@ final class RainRenderer {
     // MARK: - Init
 
     init() {
-        // Create Tide-colored droplet texture
-        dropletTexture = Self.createTexture(
-            size: Self.dropletSize,
-            r: 0x00, g: 0xD4, b: 0xFF, a: 153  // Tide at alpha 0.6
-        )
+        // Create Tide-colored teardrop texture (3x4)
+        dropletTexture = Self.createTeardropTexture()
 
         // Create Tide-colored splash texture
         splashTexture = Self.createTexture(
@@ -184,6 +181,45 @@ final class RainRenderer {
             pixels[i * 4 + 3] = a
         }
         let texture = SKTexture(data: Data(pixels), size: size)
+        texture.filteringMode = .nearest
+        return texture
+    }
+
+    /// Create a 3x4 teardrop-shaped texture (Tide colored).
+    /// Pattern (bottom to top):
+    ///   Row 0: [ _, P, _ ]  — point
+    ///   Row 1: [ _, P, _ ]  — narrow
+    ///   Row 2: [ P, P, P ]  — full width
+    ///   Row 3: [ _, P, _ ]  — top rounded
+    private static func createTeardropTexture() -> SKTexture {
+        let w = 3, h = 4
+        let r: UInt8 = 0x00, g: UInt8 = 0xD4, b: UInt8 = 0xFF
+        let a: UInt8 = 153  // Tide at alpha 0.6
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+
+        // Teardrop mask: 1 = filled, 0 = transparent
+        // Row order: bottom row first (row 0 at bottom)
+        let mask: [[UInt8]] = [
+            [0, 1, 0],  // Row 0 (bottom): point
+            [0, 1, 0],  // Row 1: narrow
+            [1, 1, 1],  // Row 2: full width
+            [0, 1, 0],  // Row 3 (top): rounded
+        ]
+
+        for row in 0..<h {
+            for col in 0..<w {
+                let idx = (row * w + col) * 4
+                if mask[row][col] == 1 {
+                    pixels[idx] = r
+                    pixels[idx + 1] = g
+                    pixels[idx + 2] = b
+                    pixels[idx + 3] = a
+                }
+                // else: stays zeroed (transparent)
+            }
+        }
+
+        let texture = SKTexture(data: Data(pixels), size: CGSize(width: w, height: h))
         texture.filteringMode = .nearest
         return texture
     }
@@ -290,10 +326,13 @@ final class RainRenderer {
                 continue
             }
 
-            // Update sprite position
+            // Update sprite position and wind-aligned rotation
             dropletSprites[i].position = CGPoint(
                 x: droplets[i].positionX,
                 y: droplets[i].positionY
+            )
+            dropletSprites[i].zRotation = atan2(
+                droplets[i].velocityX, -droplets[i].velocityY
             )
         }
     }

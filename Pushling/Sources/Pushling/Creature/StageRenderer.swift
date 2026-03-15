@@ -33,9 +33,11 @@ enum StageRenderer {
     // MARK: - Build Stage
 
     /// Build the complete node hierarchy for a growth stage.
-    /// - Parameter stage: The target growth stage.
+    /// - Parameters:
+    ///   - stage: The target growth stage.
+    ///   - repoCount: Number of tracked repos (drives Apex multi-tail count).
     /// - Returns: All body part nodes configured for this stage.
-    static func build(stage: GrowthStage) -> StageNodes {
+    static func build(stage: GrowthStage, repoCount: Int = 1) -> StageNodes {
         guard let config = StageConfiguration.all[stage] else {
             fatalError("[Pushling] Unknown stage: \(stage)")
         }
@@ -49,7 +51,7 @@ enum StageRenderer {
         case .critter: return buildCritter(w: w, h: h)
         case .beast:   return buildBeast(w: w, h: h)
         case .sage:    return buildSage(w: w, h: h)
-        case .apex:    return buildApex(w: w, h: h)
+        case .apex:    return buildApex(w: w, h: h, repoCount: repoCount)
         }
     }
 
@@ -63,7 +65,7 @@ enum StageRenderer {
         body.name = "body"
         body.zPosition = 10
 
-        // Spore has no features — just eyes as faint inner dots
+        // Spore has minimal features — faint eyes and proto-ear nubs
         let head = SKNode()
         head.name = "head"
         head.zPosition = 20
@@ -77,6 +79,20 @@ enum StageRenderer {
 
         head.addChild(eyeL)
         head.addChild(eyeR)
+
+        // Proto-ear nubs — tiny circles hinting at future ears
+        let protoEarL = makeProtoEar(
+            radius: 0.5,
+            position: CGPoint(x: -1.5, y: w / 2 - 0.5),
+            alpha: 0.15
+        )
+        let protoEarR = makeProtoEar(
+            radius: 0.5,
+            position: CGPoint(x: 1.5, y: w / 2 - 0.5),
+            alpha: 0.15
+        )
+        head.addChild(protoEarL)
+        head.addChild(protoEarR)
 
         let particles = SKNode()
         particles.name = "particles"
@@ -115,6 +131,28 @@ enum StageRenderer {
                                             yOff: 0, name: "eye_right")
         head.addChild(eyeL)
         head.addChild(eyeRN)
+
+        // Proto-ear buds — small triangles emerging above body
+        let protoEarL = makeProtoEar(
+            radius: 1.5,
+            position: CGPoint(x: -w * 0.25, y: h * 0.3),
+            alpha: 0.3
+        )
+        let protoEarR = makeProtoEar(
+            radius: 1.5,
+            position: CGPoint(x: w * 0.25, y: h * 0.3),
+            alpha: 0.3
+        )
+        head.addChild(protoEarL)
+        head.addChild(protoEarR)
+
+        // Proto-tail hint — faint curve at bottom-back
+        let protoTail = makeProtoTail(
+            length: 3.0,
+            position: CGPoint(x: 0, y: -h * 0.3),
+            alpha: 0.2
+        )
+        body.addChild(protoTail)
 
         let particles = SKNode()
         particles.name = "particles"
@@ -180,6 +218,16 @@ enum StageRenderer {
             position: CGPoint(x: 0, y: -w * 0.2))
         head.addChild(mouthNode)
 
+        // Whisker stubs — short 2-whisker set (emerging, not full)
+        let whiskerL = makeWhiskerGroup(
+            position: CGPoint(x: -w * 0.15, y: -w * 0.12),
+            name: "whisker_left", isLeft: true, count: 2, length: 2)
+        let whiskerR = makeWhiskerGroup(
+            position: CGPoint(x: w * 0.15, y: -w * 0.12),
+            name: "whisker_right", isLeft: false, count: 2, length: 2)
+        head.addChild(whiskerL)
+        head.addChild(whiskerR)
+
         let tail = makeTail(length: 5, thickness: 1.5,
                              position: CGPoint(x: -w * 0.4, y: -h * 0.1),
                              name: "tail")
@@ -204,7 +252,7 @@ enum StageRenderer {
             eyeLeft: eyeL, eyeLeftShape: eyeLShape,
             eyeRight: eyeRN, eyeRightShape: eyeRShape,
             mouth: mouthNode, mouthShape: mouthInner,
-            whiskerLeft: nil, whiskerRight: nil,
+            whiskerLeft: whiskerL, whiskerRight: whiskerR,
             tail: tail,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: nil, particles: particles
@@ -315,7 +363,7 @@ enum StageRenderer {
         headShape.name = "head_shape"
         head.addChild(headShape)
 
-        // Third eye mark (faint)
+        // Third eye mark (faint) with alpha pulse
         let thirdEye = SKShapeNode(circleOfRadius: 1.0)
         thirdEye.fillColor = PushlingPalette.dusk
         thirdEye.strokeColor = .clear
@@ -323,6 +371,11 @@ enum StageRenderer {
         thirdEye.position = CGPoint(x: 0, y: w * 0.15)
         thirdEye.name = "third_eye"
         head.addChild(thirdEye)
+
+        thirdEye.run(SKAction.repeatForever(SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.35, duration: 2.0),
+            SKAction.fadeAlpha(to: 0.15, duration: 2.0)
+        ])))
 
         let earL = makeEar(size: CGSize(width: 5, height: 6),
                            position: CGPoint(x: -w * 0.16, y: w * 0.2),
@@ -394,7 +447,8 @@ enum StageRenderer {
 
     // MARK: - Apex (25x28) — Transcendent Spirit
 
-    private static func buildApex(w: CGFloat, h: CGFloat) -> StageNodes {
+    private static func buildApex(w: CGFloat, h: CGFloat,
+                                    repoCount: Int = 1) -> StageNodes {
         let body = makeCatBody(width: w, height: h * 0.5)
         body.name = "body"
         body.zPosition = 10
@@ -412,7 +466,7 @@ enum StageRenderer {
         headShape.name = "head_shape"
         head.addChild(headShape)
 
-        // Crown of tiny stars
+        // Crown of tiny stars with staggered alpha pulse
         for i in 0..<5 {
             let angle = CGFloat(i) / 5.0 * .pi + .pi * 0.2
             let starR: CGFloat = w * 0.25
@@ -424,6 +478,13 @@ enum StageRenderer {
                                      y: sin(angle) * starR + w * 0.1)
             star.name = "crown_star_\(i)"
             head.addChild(star)
+
+            // Each star pulses at a different rate (2-4s)
+            let duration = 2.0 + Double(i) * 0.5
+            star.run(SKAction.repeatForever(SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.3, duration: duration / 2),
+                SKAction.fadeAlpha(to: 0.7, duration: duration / 2)
+            ])))
         }
 
         let earL = makeEar(size: CGSize(width: 5, height: 7),
@@ -456,11 +517,26 @@ enum StageRenderer {
         head.addChild(whiskerL)
         head.addChild(whiskerR)
 
-        // Primary tail — apex can have multiple but start with one
+        // Primary tail — TailController drives this one
         let tail = makeTail(length: 12, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: 0),
                              name: "tail")
         tail.alpha = 0.85
+
+        // Additional tails fanned from the same attach point (repo count driven)
+        let extraTailCount = min(9, max(1, repoCount)) - 1
+        for i in 0..<extraTailCount {
+            let lengthVariation = CGFloat.random(in: -1...1)
+            let extraTail = makeTail(
+                length: 12 + lengthVariation, thickness: 1.8,
+                position: CGPoint(x: -w * 0.45, y: 0),
+                name: "tail_extra_\(i)"
+            )
+            extraTail.alpha = 0.7
+            // Fan upward at 15deg intervals from the primary tail
+            extraTail.zRotation = CGFloat(i + 1) * 0.26
+            body.addChild(extraTail)
+        }
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,

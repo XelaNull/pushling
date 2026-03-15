@@ -81,6 +81,9 @@ struct LayerOutput {
     /// Desired world Y position (absolute). Physics uses this for jumps.
     var positionY: CGFloat?
 
+    /// Desired depth position (0.0 = foreground, 1.0 = background).
+    var positionZ: CGFloat?
+
     /// Desired facing direction.
     var facing: Direction?
 
@@ -104,7 +107,7 @@ struct LayerOutput {
 
     /// Returns true if every property is nil (layer has no opinions).
     var isEmpty: Bool {
-        positionX == nil && positionY == nil && facing == nil
+        positionX == nil && positionY == nil && positionZ == nil && facing == nil
             && walkSpeed == nil && bodyState == nil
             && earLeftState == nil && earRightState == nil
             && eyeLeftState == nil && eyeRightState == nil
@@ -121,6 +124,7 @@ struct LayerOutput {
     mutating func merge(from src: LayerOutput) {
         if let v = src.positionX { positionX = v }
         if let v = src.positionY { positionY = v }
+        if let v = src.positionZ { positionZ = v }
         if let v = src.facing { facing = v }
         if let v = src.walkSpeed { walkSpeed = v }
         if let v = src.bodyState { bodyState = v }
@@ -143,6 +147,7 @@ struct LayerOutput {
 struct ResolvedCreatureState {
     var positionX: CGFloat
     var positionY: CGFloat
+    var positionZ: CGFloat
     var facing: Direction
     var walkSpeed: CGFloat
 
@@ -169,6 +174,7 @@ struct ResolvedCreatureState {
         return ResolvedCreatureState(
             positionX: 542.5,   // Center of 1085pt bar
             positionY: 3.0,     // Ground level (~3pt from bottom)
+            positionZ: 0.0,     // Foreground (full size)
             facing: facing,
             walkSpeed: 0,
             bodyState: "stand",

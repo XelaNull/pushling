@@ -40,6 +40,7 @@ struct ActiveObjectInteraction {
     let template: InteractionTemplate
     let objectID: String
     let objectX: CGFloat
+    let physics: ObjectPhysics?
     var elapsed: TimeInterval = 0
     var phase: InteractionPhase = .approach
 
@@ -156,6 +157,9 @@ final class ObjectInteractionEngine {
     /// Currently active interaction, if any.
     private(set) var activeInteraction: ActiveObjectInteraction?
 
+    /// The most recently completed interaction (for post-completion queries).
+    private(set) var lastCompletedInteraction: ActiveObjectInteraction?
+
     /// Cooldown timestamp: no interactions within 5 minutes of last.
     private var lastInteractionTime: TimeInterval = -300
 
@@ -171,7 +175,8 @@ final class ObjectInteractionEngine {
         objectID: String,
         objectX: CGFloat,
         creatureX: CGFloat,
-        currentTime: TimeInterval
+        currentTime: TimeInterval,
+        physics: ObjectPhysics? = nil
     ) -> Bool {
         // Cooldown check
         guard currentTime - lastInteractionTime >= Self.interactionCooldown else {
@@ -186,10 +191,31 @@ final class ObjectInteractionEngine {
             return false
         }
 
+        // Physics compatibility check
+        if let physics = physics {
+            switch templateName {
+            case "pushing" where !physics.pushable:
+                NSLog("[Pushling/Objects] Rejected '%@' — object not pushable",
+                      templateName)
+                return false
+            case "carrying" where !physics.carryable:
+                NSLog("[Pushling/Objects] Rejected '%@' — object not carryable",
+                      templateName)
+                return false
+            case "batting_toy" where !physics.rollable && !physics.pushable:
+                NSLog("[Pushling/Objects] Rejected '%@' — object not rollable/pushable",
+                      templateName)
+                return false
+            default:
+                break
+            }
+        }
+
         activeInteraction = ActiveObjectInteraction(
             template: template,
             objectID: objectID,
-            objectX: objectX
+            objectX: objectX,
+            physics: physics
         )
 
         NSLog("[Pushling/Objects] Started interaction '%@' with object '%@'",
@@ -212,8 +238,16 @@ final class ObjectInteractionEngine {
         // Speed modulation by personality
         let speedMod = 0.7 + personality.energy * 0.6
 
+        // Weight modulation: heavy objects take longer, light objects are quicker
+        let weightMod: Double
+        switch interaction.physics?.weight {
+        case "heavy": weightMod = 1.4
+        case "light": weightMod = 0.75
+        default:      weightMod = 1.0
+        }
+
         // Check completion
-        let adjustedDuration = interaction.template.durationRange.lowerBound / speedMod
+        let adjustedDuration = interaction.template.durationRange.lowerBound * weightMod / speedMod
         if interaction.elapsed >= adjustedDuration {
             completeInteraction()
             return nil
@@ -490,10 +524,12 @@ final class ObjectInteractionEngine {
     /// Completes the current interaction.
     private func completeInteraction() {
         guard let interaction = activeInteraction else { return }
+        lastCompletedInteraction = interaction
         lastInteractionTime = ProcessInfo.processInfo.systemUptime
         activeInteraction = nil
 
-        NSLog("[Pushling/Objects] Completed interaction '%@' with '%@'",
-              interaction.template.name, interaction.objectID)
+        NSLog("[Pushling/Objects] Completed interaction '%@' with '%@'%@",
+              interaction.template.name, interaction.objectID,
+              interaction.template.consumesObject ? " (consumed)" : "")
     }
 }

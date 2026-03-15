@@ -25,6 +25,9 @@ final class EyeController: BodyPartController {
     /// Pupil node for look_at targeting.
     private var pupilNode: SKShapeNode?
 
+    /// Target position for look_at state (relative pupil offset, clamped to maxRange).
+    private var lookTarget: CGPoint = .zero
+
     /// Original eye size for scaling states.
     private let baseWidth: CGFloat
     private let baseHeight: CGFloat
@@ -85,10 +88,7 @@ final class EyeController: BodyPartController {
         case "slow_blink":
             startSlowBlink()
         case "look_at":
-            // TODO: look_at needs real target coordinates from the caller
-            // (e.g., world position of an object or touch point). Currently
-            // defaults to a fixed off-center offset as a placeholder.
-            shiftPupil(dx: isLeftEye ? -0.5 : 0.5)
+            shiftPupil(dx: lookTarget.x, dy: lookTarget.y)
         case "x_eyes":
             applyXEyes()
         default:
@@ -222,8 +222,30 @@ final class EyeController: BodyPartController {
         shapeNode.xScale = 0.8
     }
 
-    private func shiftPupil(dx: CGFloat) {
+    private func shiftPupil(dx: CGFloat, dy: CGFloat = 0) {
         pupilNode?.position.x = dx
+        pupilNode?.position.y = dy
+    }
+
+    /// Sets a look target from a world position.
+    /// Calculates direction from eye to target, normalizes, and scales to max pupil range.
+    /// - Parameters:
+    ///   - worldPosition: The world-space position to look toward.
+    ///   - eyeWorldPosition: The eye's world-space position.
+    ///   - maxRange: Maximum pupil offset in points (default 0.5).
+    func setLookTarget(worldPosition: CGPoint,
+                       eyeWorldPosition: CGPoint,
+                       maxRange: CGFloat = 0.5) {
+        let dx = worldPosition.x - eyeWorldPosition.x
+        let dy = worldPosition.y - eyeWorldPosition.y
+        let length = sqrt(dx * dx + dy * dy)
+        guard length > 0.01 else {
+            lookTarget = .zero
+            return
+        }
+        let nx = dx / length
+        let ny = dy / length
+        lookTarget = CGPoint(x: nx * maxRange, y: ny * maxRange)
     }
 
 }

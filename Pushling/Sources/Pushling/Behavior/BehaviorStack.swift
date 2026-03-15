@@ -172,6 +172,7 @@ final class BehaviorStack {
 
         // 5. Feed blended position back to physics for boundary tracking
         physics.updatePosition(x: blended.positionX)
+        physics.updatePositionZ(blended.positionZ)
 
         // 5b. Sync clamped position back to autonomous layer so it doesn't
         //     accumulate past boundaries
@@ -226,6 +227,11 @@ final class BehaviorStack {
                 physics.positionY, reflexes.positionY,
                 ai.positionY, autonomous.positionY,
                 default: defaults.positionY
+            ),
+            positionZ: resolve(
+                physics.positionZ, reflexes.positionZ,
+                ai.positionZ, autonomous.positionZ,
+                default: defaults.positionZ
             ),
             facing: resolve(
                 physics.facing, reflexes.facing,
@@ -376,6 +382,7 @@ final class BehaviorStack {
         )
         physics.currentX = position.x
         physics.currentY = position.y
+        physics.currentZ = 0.0
         autonomous.syncPosition(position.x)
         blendController.reset(position: position, facing: facing)
         reflexes.clearAll()

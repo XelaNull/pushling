@@ -189,4 +189,40 @@ extension StageRenderer {
             br: CGPoint(x: -backX + 3.0, y: groundY)
         )
     }
+
+    // MARK: - Proto Features (Spore/Drop Hints)
+
+    /// Make a proto-ear nub for Spore/Drop stages.
+    static func makeProtoEar(radius: CGFloat, position: CGPoint,
+                              alpha: CGFloat) -> SKShapeNode {
+        let ear = SKShapeNode(circleOfRadius: radius)
+        ear.fillColor = PushlingPalette.bone
+        ear.strokeColor = .clear
+        ear.alpha = alpha
+        ear.position = position
+        ear.name = "proto_ear"
+        ear.zPosition = 25
+        return ear
+    }
+
+    /// Make a proto-tail hint for Drop stage.
+    static func makeProtoTail(length: CGFloat, position: CGPoint,
+                               alpha: CGFloat) -> SKShapeNode {
+        let path = CGMutablePath()
+        path.move(to: .zero)
+        path.addQuadCurve(
+            to: CGPoint(x: -length * 0.5, y: -length * 0.7),
+            control: CGPoint(x: -length * 0.6, y: 0)
+        )
+        let tail = SKShapeNode(path: path)
+        tail.strokeColor = PushlingPalette.bone
+        tail.lineWidth = 1.0
+        tail.lineCap = .round
+        tail.fillColor = .clear
+        tail.alpha = alpha
+        tail.position = position
+        tail.name = "proto_tail"
+        tail.zPosition = 8
+        return tail
+    }
 }

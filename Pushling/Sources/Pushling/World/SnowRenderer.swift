@@ -19,13 +19,19 @@ private struct Snowflake {
     var lateralFrequency: CGFloat = 0 // Hz of lateral oscillation
     var lateralAmplitude: CGFloat = 0 // Max horizontal drift (pts/sec)
     var baseAlpha: CGFloat = 0.5      // Individual flake alpha
+    var size: CGFloat = 1.0           // Size class: 1.0, 1.5, or 2.0
     var isActive: Bool = false
+
+    /// Size classes for visual variation.
+    private static let sizeClasses: [CGFloat] = [1.0, 1.5, 2.0]
 
     /// Reset for reuse.
     mutating func spawn(sceneWidth: CGFloat, sceneHeight: CGFloat) {
         positionX = CGFloat.random(in: 0...sceneWidth)
         positionY = sceneHeight + CGFloat.random(in: 0...8)  // Start above top
-        velocityY = -CGFloat.random(in: 20...40)             // 20-40 pts/sec
+        size = Self.sizeClasses.randomElement()!
+        let baseVelocity = -CGFloat.random(in: 20...40)      // 20-40 pts/sec
+        velocityY = size > 1.5 ? baseVelocity * 0.8 : baseVelocity  // Larger = slower
         lateralPhase = CGFloat.random(in: 0...(2 * .pi))
         lateralFrequency = CGFloat.random(in: 0.3...0.8)     // Gentle oscillation
         lateralAmplitude = CGFloat.random(in: 5...10)         // ±10pts/sec max
@@ -102,15 +108,18 @@ final class SnowRenderer {
     /// Terrain height query callback.
     var terrainHeightAt: ((CGFloat) -> CGFloat)?
 
-    // MARK: - Shared Texture
+    // MARK: - Shared Textures (3 sizes)
 
-    private let flakeTexture: SKTexture
+    private let flakeTextures: [CGFloat: SKTexture]
 
     // MARK: - Init
 
     init() {
-        // Create Bone-colored flake texture
-        flakeTexture = Self.createFlakeTexture()
+        // Create Bone-colored flake textures at 3 size classes
+        let smallTexture = Self.createFlakeTexture(pixelSize: 1)
+        let medTexture = Self.createFlakeTexture(pixelSize: 2)
+        let largeTexture = Self.createFlakeTexture(pixelSize: 3)
+        flakeTextures = [1.0: smallTexture, 1.5: medTexture, 2.0: largeTexture]
 
         // Create accumulation bar (initially hidden)
         accumulationNode = SKShapeNode(
@@ -122,9 +131,9 @@ final class SnowRenderer {
         accumulationNode.zPosition = 5  // Just above terrain
         accumulationNode.alpha = 0
 
-        // Pre-allocate flake pool
+        // Pre-allocate flake pool (using small texture as default)
         for _ in 0..<Self.maxFlakes {
-            let sprite = SKSpriteNode(texture: flakeTexture, size: Self.flakeSize)
+            let sprite = SKSpriteNode(texture: smallTexture, size: Self.flakeSize)
             sprite.anchorPoint = CGPoint(x: 0.5, y: 0.5)
             sprite.isHidden = true
             containerNode.addChild(sprite)
@@ -139,10 +148,20 @@ final class SnowRenderer {
 
     // MARK: - Texture Creation
 
-    private static func createFlakeTexture() -> SKTexture {
+    private static func createFlakeTexture(pixelSize: Int = 1) -> SKTexture {
         // Bone at full alpha — individual sprite alpha controls visibility
-        var pixels: [UInt8] = [0xF5, 0xF0, 0xE8, 0xFF]
-        let texture = SKTexture(data: Data(pixels), size: CGSize(width: 1, height: 1))
+        let count = pixelSize * pixelSize
+        var pixels = [UInt8](repeating: 0, count: count * 4)
+        for i in 0..<count {
+            pixels[i * 4] = 0xF5
+            pixels[i * 4 + 1] = 0xF0
+            pixels[i * 4 + 2] = 0xE8
+            pixels[i * 4 + 3] = 0xFF
+        }
+        let texture = SKTexture(
+            data: Data(pixels),
+            size: CGSize(width: pixelSize, height: pixelSize)
+        )
         texture.filteringMode = .nearest
         return texture
     }
@@ -202,6 +221,15 @@ final class SnowRenderer {
         for i in 0..<flakes.count {
             if !flakes[i].isActive {
                 flakes[i].spawn(sceneWidth: Self.sceneWidth, sceneHeight: Self.sceneHeight)
+
+                // Set texture and size based on flake's size class
+                let flakeSize = flakes[i].size
+                if let tex = flakeTextures[flakeSize] {
+                    flakeSprites[i].texture = tex
+                    let pixelSize = CGFloat(flakeSize == 1.0 ? 1 : (flakeSize == 1.5 ? 2 : 3))
+                    flakeSprites[i].size = CGSize(width: pixelSize, height: pixelSize)
+                }
+
                 flakeSprites[i].isHidden = false
                 flakeSprites[i].alpha = flakes[i].baseAlpha
                 flakeSprites[i].position = CGPoint(

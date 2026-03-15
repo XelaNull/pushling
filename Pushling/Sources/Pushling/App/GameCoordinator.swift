@@ -284,6 +284,10 @@ final class GameCoordinator {
         // Set personality snapshot on creature node for PersonalityFilter
         scene.creatureNode?.personalitySnapshot = personality.toSnapshot()
 
+        // Set repo count for Apex multi-tail before stage configure
+        let repoCount = Self.loadRepoCount(from: stateCoordinator.database)
+        scene.creatureNode?.repoCount = repoCount
+
         scene.creatureNode?.configureForStage(creatureStage)
 
         // Update world visual complexity for the real stage (Gap 6)

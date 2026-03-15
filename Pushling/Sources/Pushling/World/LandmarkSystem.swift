@@ -1,13 +1,5 @@
-// LandmarkSystem.swift — Repo landmark system for the mid-parallax layer
-// 9 landmark types: neon tower, fortress, obelisk, crystal, smoke stack,
-// observatory, scroll tower, windmill, monolith.
-// Each is a small SKNode composition (4-8pt tall) in Ash silhouette.
-// Landmarks are permanent — they persist in the mid layer as the creature walks.
-//
-// The windmill has animated spinning blades (1 revolution per 4s).
-// The smoke stack uses a minimal particle effect (3-5 particles/sec).
-//
-// Repo analysis heuristics live in RepoAnalyzer.swift (extension on this class).
+// LandmarkSystem.swift — 9 repo landmark types on the mid-parallax layer.
+// Each is an SKNode composition (4-8pt tall) with atmospheric accent details.
 
 import SpriteKit
 
@@ -186,9 +178,16 @@ final class LandmarkSystem {
         return node
     }
 
+    // MARK: - Landmark Accent Helper
+
+    /// Returns an atmospheric mid-layer accent color for landmark details.
+    private func accent(_ color: SKColor) -> SKColor {
+        PushlingPalette.atmosphericColor(color, depth: 0.4)
+    }
+
     // MARK: - Landmark Shapes
 
-    /// Neon tower — glowing vertical line with antenna. 6pt tall.
+    /// Neon tower — glowing vertical line with antenna + window dots. 6pt tall.
     private func makeNeonTower() -> SKNode {
         let container = SKNode()
 
@@ -214,10 +213,20 @@ final class LandmarkSystem {
         ])), withKey: "blink")
         container.addChild(glow)
 
+        // Window dots on the body
+        for wy in [2.0, 4.5] as [CGFloat] {
+            let win = SKShapeNode(circleOfRadius: 0.4)
+            win.fillColor = accent(PushlingPalette.tide)
+            win.strokeColor = .clear
+            win.alpha = 0.4
+            win.position = CGPoint(x: 0, y: wy)
+            container.addChild(win)
+        }
+
         return container
     }
 
-    /// Fortress — blocky castle silhouette. 6pt tall.
+    /// Fortress — blocky castle silhouette + flag. 6pt tall.
     private func makeFortress() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -4, y: 0))
@@ -234,13 +243,27 @@ final class LandmarkSystem {
         path.addLine(to: CGPoint(x: 4, y: 0))
         path.closeSubpath()
 
+        let container = SKNode()
         let fortress = SKShapeNode(path: path)
         fortress.fillColor = Self.landmarkColor
         fortress.strokeColor = .clear
-        return fortress
+        container.addChild(fortress)
+
+        // Flag on the left tower
+        let flag = SKShapeNode(rectOf: CGSize(width: 1.5, height: 1))
+        flag.fillColor = accent(PushlingPalette.ember)
+        flag.strokeColor = .clear
+        flag.position = CGPoint(x: -3, y: 7.5)
+        flag.run(SKAction.repeatForever(SKAction.sequence([
+            SKAction.rotate(toAngle: 0.1, duration: 1.0),
+            SKAction.rotate(toAngle: -0.05, duration: 1.2)
+        ])), withKey: "sway")
+        container.addChild(flag)
+
+        return container
     }
 
-    /// Obelisk — tall thin pointed shape. 8pt tall.
+    /// Obelisk — tall thin pointed shape + hieroglyph. 8pt tall.
     private func makeObelisk() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -1.5, y: 0))
@@ -250,13 +273,24 @@ final class LandmarkSystem {
         path.addLine(to: CGPoint(x: 1.5, y: 0))
         path.closeSubpath()
 
+        let container = SKNode()
         let obelisk = SKShapeNode(path: path)
         obelisk.fillColor = Self.landmarkColor
         obelisk.strokeColor = .clear
-        return obelisk
+        container.addChild(obelisk)
+
+        // Hieroglyph line down the face
+        let glyph = SKShapeNode(rectOf: CGSize(width: 0.3, height: 4))
+        glyph.fillColor = accent(PushlingPalette.gilt)
+        glyph.strokeColor = .clear
+        glyph.alpha = 0.2
+        glyph.position = CGPoint(x: 0, y: 3.5)
+        container.addChild(glyph)
+
+        return container
     }
 
-    /// Crystal — geometric faceted shape. 5pt tall.
+    /// Crystal — geometric faceted shape + refraction lines. 5pt tall.
     private func makeCrystal() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: 0, y: 0))
@@ -266,15 +300,40 @@ final class LandmarkSystem {
         path.addLine(to: CGPoint(x: 2, y: 2))
         path.closeSubpath()
 
+        let container = SKNode()
         let crystal = SKShapeNode(path: path)
         crystal.fillColor = PushlingPalette.lerp(
             from: Self.landmarkColor, to: PushlingPalette.dusk, t: 0.3)
         crystal.strokeColor = PushlingPalette.dusk.withAlphaComponent(0.3)
         crystal.lineWidth = 0.5
-        return crystal
+        container.addChild(crystal)
+
+        // Refraction lines
+        for rx in [-0.5, 0.5] as [CGFloat] {
+            let refr = SKShapeNode(rectOf: CGSize(width: 0.2, height: 2.5))
+            refr.fillColor = accent(PushlingPalette.dusk)
+            refr.strokeColor = .clear
+            refr.alpha = 0.3
+            refr.position = CGPoint(x: rx, y: 2.8)
+            refr.zRotation = rx * 0.2
+            container.addChild(refr)
+        }
+
+        // Twinkle highlight at top
+        let twinkle = SKShapeNode(circleOfRadius: 0.4)
+        twinkle.fillColor = accent(PushlingPalette.dusk)
+        twinkle.strokeColor = .clear
+        twinkle.position = CGPoint(x: 0, y: 4.8)
+        twinkle.run(SKAction.repeatForever(SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.15, duration: 0.9),
+            SKAction.fadeAlpha(to: 0.6, duration: 0.9)
+        ])), withKey: "twinkle")
+        container.addChild(twinkle)
+
+        return container
     }
 
-    /// Smoke stack — tower with particle smoke wisps. 6pt tall.
+    /// Smoke stack — tower with smoke wisps + warning stripe. 6pt tall.
     private func makeSmokeStack() -> SKNode {
         let container = SKNode()
 
@@ -289,6 +348,14 @@ final class LandmarkSystem {
         cap.strokeColor = .clear
         cap.position = CGPoint(x: 0, y: 6.5)
         container.addChild(cap)
+
+        // Warning stripe on tower body
+        let stripe = SKShapeNode(rectOf: CGSize(width: 2.5, height: 0.6))
+        stripe.fillColor = accent(PushlingPalette.ember)
+        stripe.strokeColor = .clear
+        stripe.alpha = 0.3
+        stripe.position = CGPoint(x: 0, y: 4)
+        container.addChild(stripe)
 
         addSmokeParticle(to: container, delay: 0)
         addSmokeParticle(to: container, delay: 1.3)
@@ -325,7 +392,7 @@ final class LandmarkSystem {
         container.addChild(smoke)
     }
 
-    /// Observatory — dome shape with tiny star. 5pt tall.
+    /// Observatory — dome with slit + brighter star. 5pt tall.
     private func makeObservatory() -> SKNode {
         let container = SKNode()
 
@@ -344,20 +411,28 @@ final class LandmarkSystem {
         dome.strokeColor = .clear
         container.addChild(dome)
 
-        let star = SKShapeNode(circleOfRadius: 0.5)
+        // Slit line in the dome
+        let slit = SKShapeNode(rectOf: CGSize(width: 0.3, height: 2))
+        slit.fillColor = accent(PushlingPalette.bone)
+        slit.strokeColor = .clear
+        slit.alpha = 0.3
+        slit.position = CGPoint(x: 0, y: 3.2)
+        container.addChild(slit)
+
+        let star = SKShapeNode(circleOfRadius: 0.6)
         star.fillColor = PushlingPalette.gilt
         star.strokeColor = .clear
-        star.position = CGPoint(x: 0, y: 5)
+        star.position = CGPoint(x: 0, y: 5.5)
         star.run(SKAction.repeatForever(SKAction.sequence([
-            SKAction.fadeAlpha(to: 0.3, duration: 1.2),
-            SKAction.fadeAlpha(to: 1.0, duration: 1.2)
+            SKAction.fadeAlpha(to: 0.4, duration: 0.8),
+            SKAction.fadeAlpha(to: 1.0, duration: 0.8)
         ])), withKey: "twinkle")
         container.addChild(star)
 
         return container
     }
 
-    /// Scroll tower — curved architecture. 5pt tall.
+    /// Scroll tower — curved architecture + scroll lines. 5pt tall.
     private func makeScrollTower() -> SKNode {
         let path = CGMutablePath()
         path.move(to: CGPoint(x: -2, y: 0))
@@ -367,13 +442,26 @@ final class LandmarkSystem {
         path.addLine(to: CGPoint(x: 2, y: 0))
         path.closeSubpath()
 
+        let container = SKNode()
         let tower = SKShapeNode(path: path)
         tower.fillColor = Self.landmarkColor
         tower.strokeColor = .clear
-        return tower
+        container.addChild(tower)
+
+        // Horizontal scroll-line markings
+        for sy in [1.5, 3.0] as [CGFloat] {
+            let line = SKShapeNode(rectOf: CGSize(width: 2.5, height: 0.2))
+            line.fillColor = accent(PushlingPalette.bone)
+            line.strokeColor = .clear
+            line.alpha = 0.2
+            line.position = CGPoint(x: 0, y: sy)
+            container.addChild(line)
+        }
+
+        return container
     }
 
-    /// Windmill — spinning blades (1 revolution per 4s). 6pt tall.
+    /// Windmill — spinning blades + window/door. 6pt tall.
     private func makeWindmill() -> SKNode {
         let container = SKNode()
 
@@ -408,15 +496,52 @@ final class LandmarkSystem {
             SKAction.rotate(byAngle: .pi * 2, duration: 4.0)
         ), withKey: "spin")
 
+        // Window dot on body
+        let win = SKShapeNode(circleOfRadius: 0.4)
+        win.fillColor = accent(PushlingPalette.gilt)
+        win.strokeColor = .clear
+        win.alpha = 0.4
+        win.position = CGPoint(x: 0, y: 3.5)
+        container.addChild(win)
+
+        // Door rect at base
+        let door = SKShapeNode(rectOf: CGSize(width: 0.8, height: 1.2))
+        door.fillColor = accent(PushlingPalette.gilt)
+        door.strokeColor = .clear
+        door.alpha = 0.4
+        door.position = CGPoint(x: 0, y: 0.8)
+        container.addChild(door)
+
         return container
     }
 
-    /// Monolith — simple tall rectangle. 6pt tall.
+    /// Monolith — tall rectangle + crack line + mossy base. 6pt tall.
     private func makeMonolith() -> SKNode {
+        let container = SKNode()
+
         let monolith = SKShapeNode(rectOf: CGSize(width: 2, height: 6))
         monolith.fillColor = Self.landmarkColor
         monolith.strokeColor = .clear
         monolith.position = CGPoint(x: 0, y: 3)
-        return monolith
+        container.addChild(monolith)
+
+        // Crack line down the face
+        let crack = SKShapeNode(rectOf: CGSize(width: 0.2, height: 3))
+        crack.fillColor = accent(PushlingPalette.bone)
+        crack.strokeColor = .clear
+        crack.alpha = 0.2
+        crack.position = CGPoint(x: 0.3, y: 3.5)
+        crack.zRotation = 0.08
+        container.addChild(crack)
+
+        // Mossy base tint
+        let moss = SKShapeNode(rectOf: CGSize(width: 2.4, height: 1))
+        moss.fillColor = accent(PushlingPalette.moss)
+        moss.strokeColor = .clear
+        moss.alpha = 0.15
+        moss.position = CGPoint(x: 0, y: 0.5)
+        container.addChild(moss)
+
+        return container
     }
 }

@@ -45,6 +45,9 @@ extension CommandRouter {
             output.walkSpeed = speed
             output.facing = clampedX > currentX ? .right : .left
             estimatedDuration = speed > 0 ? Double(distance / speed) : 1.0
+            if let z = req.params["z"] as? CGFloat {
+                output.positionZ = clamp(z, min: 0.0, max: 1.0)
+            }
 
         case "walk":
             let direction = req.params["direction"] as? String ?? "right"
@@ -60,6 +63,9 @@ extension CommandRouter {
             output.walkSpeed = speed
             output.facing = facing
             estimatedDuration = duration
+            if let z = req.params["z"] as? CGFloat {
+                output.positionZ = clamp(z, min: 0.0, max: 1.0)
+            }
 
         case "stop":
             output.positionX = currentX
@@ -178,14 +184,18 @@ extension CommandRouter {
         )
         stack.enqueueAICommand(command)
 
-        return .success([
+        var successData: [String: Any] = [
             "accepted": true,
             "action": action,
             "position_x": Int(output.positionX ?? currentX),
             "facing": (output.facing ?? currentFacing).rawValue,
             "estimated_duration_ms": estimatedDuration > 0
                 ? Int(estimatedDuration * 1000) : -1
-        ])
+        ]
+        if let z = output.positionZ {
+            successData["position_z"] = z
+        }
+        return .success(successData)
     }
 }
 

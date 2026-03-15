@@ -68,8 +68,11 @@ final class TerrainGenerator {
     /// The world seed — deterministic per machine.
     let seed: UInt64
 
-    /// Permutation table for integer noise (256 entries, seeded).
+    /// Permutation table for integer noise (512 entries, doubled and seeded).
     private let perm: [UInt8]
+
+    /// The seed used for hash noise mixing.
+    private let seedValue: UInt64
 
     /// Cached terrain chunks, keyed by chunk index.
     private var chunkCache: [Int: TerrainChunk] = [:]
@@ -83,6 +86,7 @@ final class TerrainGenerator {
     /// - Parameter seed: Deterministic seed (from creature birth hash).
     init(seed: UInt64) {
         self.seed = seed
+        self.seedValue = seed
         self.perm = Self.buildPermutationTable(seed: seed)
     }
 
@@ -218,7 +222,76 @@ final class TerrainGenerator {
         )
     }
 
+    // MARK: - Background Terrain Generation
+
+    /// Generates height samples for a background terrain chunk.
+    /// Uses a different seed offset for decorrelation from the foreground.
+    ///
+    /// - Parameters:
+    ///   - chunkIndex: The chunk index in background-layer sample space.
+    ///   - sampleCount: Number of height samples to generate.
+    ///   - octaves: Noise octaves (far: 1 for smooth, mid: 2 for moderate detail).
+    ///   - amplitudeScale: Height multiplier (far: 1.5 for taller peaks, mid: 1.0).
+    ///   - seedOffset: XOR offset for decorrelation (far: 0xFAR0_FACE, mid: 0xBEEF_MID0).
+    /// - Returns: Array of height values (0 to maxHeight * amplitudeScale).
+    func generateBackgroundHeights(chunkIndex: Int,
+                                    sampleCount: Int,
+                                    octaves: Int,
+                                    amplitudeScale: CGFloat,
+                                    seedOffset: UInt64) -> [CGFloat] {
+        var heights = [CGFloat](repeating: 0, count: sampleCount)
+        let offsetSeed = seed ^ seedOffset
+
+        for s in 0..<sampleCount {
+            let worldSample = chunkIndex * sampleCount + s
+            let noise = Self.integerNoiseStatic(
+                seed: offsetSeed, x: worldSample, octaves: octaves
+            )
+            let normalizedNoise = CGFloat(noise) / 255.0
+            heights[s] = normalizedNoise * Self.maxHeight * amplitudeScale
+        }
+
+        return heights
+    }
+
     // MARK: - Integer Noise
+
+    /// Static multi-octave integer noise using a seed directly.
+    /// Used by background terrain generation with different seed offsets.
+    /// - Returns: Noise value 0-255.
+    static func integerNoiseStatic(seed: UInt64, x: Int, octaves: Int) -> Int {
+        var total: Int = 0
+        var maxValue: Int = 0
+        var amplitude: Int = 128
+        var frequency: Int = 1
+
+        for _ in 0..<octaves {
+            let sample = x / max(1, 16 / frequency)
+            let n = hashNoiseStatic(seed: seed, x: sample)
+            let nextN = hashNoiseStatic(seed: seed, x: sample + 1)
+
+            let frac = (x * frequency) & 15
+            let interpolated = (n * (16 - frac) + nextN * frac) / 16
+
+            total += interpolated * amplitude / 256
+            maxValue += amplitude
+
+            amplitude /= 2
+            frequency *= 2
+        }
+
+        return max(0, min(255, total * 255 / max(1, maxValue)))
+    }
+
+    /// Static hash noise for a given seed and position. Returns 0-255.
+    private static func hashNoiseStatic(seed: UInt64, x: Int) -> Int {
+        var h = UInt64(bitPattern: Int64(x)) &* 6364136223846793005
+        h = h ^ seed
+        h = h &* 2862933555777941757 &+ 3037000493
+        h = h ^ (h >> 27)
+        h = h &* 2685821657736338717
+        return Int((h >> 56) & 0xFF)
+    }
 
     /// Multi-octave integer noise.
     /// Returns a value in [0, 255].
@@ -253,17 +326,24 @@ final class TerrainGenerator {
         return max(0, min(255, total * 255 / max(1, maxValue)))
     }
 
-    /// Single-sample integer hash noise using permutation table.
-    /// Returns 0-255.
+    /// Single-sample integer hash noise. Returns 0-255.
+    /// Uses a combination of seed XOR and bit mixing to avoid periodic boundaries.
+    /// Two adjacent inputs (x and x+1) produce smoothly-unrelated values that
+    /// the interpolation step blends — no seams at any boundary.
     private func hashNoise(_ x: Int) -> Int {
-        // Handle negative indices by wrapping
-        let wrapped = ((x % 256) + 256) % 256
-        return Int(perm[wrapped])
+        // Mix the input with the seed to get a unique hash per seed
+        var h = UInt64(bitPattern: Int64(x)) &* 6364136223846793005
+        h = h ^ seedValue
+        h = h &* 2862933555777941757 &+ 3037000493
+        h = h ^ (h >> 27)
+        h = h &* 2685821657736338717
+        return Int((h >> 56) & 0xFF)  // Top 8 bits → 0-255
     }
 
     // MARK: - Permutation Table
 
-    /// Builds a seeded permutation table (Fisher-Yates shuffle).
+    /// Builds a seeded permutation table (Fisher-Yates shuffle), DOUBLED to 512.
+    /// Doubling ensures perm[255] and perm[256] are continuous (perm[256] == perm[0]).
     private static func buildPermutationTable(seed: UInt64) -> [UInt8] {
         var table = (0..<256).map { UInt8($0) }
         var rng = seed
@@ -274,6 +354,10 @@ final class TerrainGenerator {
             let j = Int(rng >> 33) % (i + 1)
             table.swapAt(i, j)
         }
+
+        // Double the table: perm[256+i] == perm[i]
+        // This eliminates the seam at the 256 boundary
+        table.append(contentsOf: table)
 
         return table
     }

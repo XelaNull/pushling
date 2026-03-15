@@ -69,6 +69,9 @@ final class PhysicsLayer: BehaviorLayer {
     /// The current creature Y position.
     var currentY: CGFloat = SceneConstants.groundY
 
+    /// The current creature Z (depth) position (0.0 = foreground, 1.0 = background).
+    var currentZ: CGFloat = 0.0
+
     // MARK: - BehaviorLayer
 
     func update(deltaTime: TimeInterval, currentTime: TimeInterval) -> LayerOutput {
@@ -168,6 +171,12 @@ final class PhysicsLayer: BehaviorLayer {
             // with the 0.43s reversal), but we do kill walk speed.
             output.walkSpeed = 0
         }
+
+        // Z boundary enforcement (0.0 = foreground, 1.0 = background)
+        if currentZ < 0.0 || currentZ > 1.0 {
+            currentZ = clamp(currentZ, min: 0.0, max: 1.0)
+            output.positionZ = currentZ
+        }
     }
 
     // MARK: - External Position Updates
@@ -176,6 +185,12 @@ final class PhysicsLayer: BehaviorLayer {
     /// The physics layer tracks this for boundary enforcement.
     func updatePosition(x: CGFloat) {
         currentX = x
+    }
+
+    /// Called when the creature's Z (depth) position changes from blending.
+    /// The physics layer tracks this for depth boundary enforcement.
+    func updatePositionZ(_ z: CGFloat) {
+        currentZ = z
     }
 
     /// Returns true if the creature is at or near a boundary.

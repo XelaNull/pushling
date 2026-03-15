@@ -44,6 +44,8 @@ struct RenderedObject {
     let id: String
     let definition: WorldObjectDefinition
     let node: SKNode
+    /// Database row ID for persistence (nil for transient objects).
+    var dbID: Int?
     var wear: Double = 0.0
     var repairCount: Int = 0
     var lastInteractedAt: Date?
@@ -86,7 +88,10 @@ final class WorldObjectRenderer {
     /// All rendered objects keyed by ID.
     private(set) var objects: [String: RenderedObject] = [:]
 
-    /// The parent node for all world objects.
+    /// Layer nodes keyed by layer name ("far", "mid", "fore").
+    private var layerNodes: [String: SKNode] = [:]
+
+    /// Legacy single parent (maps to "fore").
     private weak var parentNode: SKNode?
 
     /// Current camera world-X for LOD calculations.
@@ -97,8 +102,15 @@ final class WorldObjectRenderer {
 
     // MARK: - Setup
 
-    /// Attaches the renderer to a scene layer.
+    /// Attaches the renderer to all 3 parallax layers.
+    func attach(farLayer: SKNode, midLayer: SKNode, foreLayer: SKNode) {
+        layerNodes = ["far": farLayer, "mid": midLayer, "fore": foreLayer]
+        parentNode = foreLayer
+    }
+
+    /// Legacy: attaches to a single layer (maps to "fore").
     func attach(to layer: SKNode) {
+        layerNodes = ["fore": layer]
         parentNode = layer
     }
 
@@ -148,7 +160,23 @@ final class WorldObjectRenderer {
         let node = buildNode(for: definition)
         node.position = CGPoint(x: definition.positionX,
                                  y: SceneConstants.groundY)
-        parentNode?.addChild(node)
+
+        // Route to correct parallax layer
+        let targetLayer = layerNodes[definition.layer]
+            ?? layerNodes["fore"] ?? parentNode
+        targetLayer?.addChild(node)
+
+        // Apply depth scaling and atmospheric perspective for non-fore layers
+        switch definition.layer {
+        case "far":
+            node.setScale(definition.size * 0.5)
+            applyAtmosphericDepth(to: node, depth: 0.85)
+        case "mid":
+            node.setScale(definition.size * 0.75)
+            applyAtmosphericDepth(to: node, depth: 0.4)
+        default:
+            break  // "fore" uses definition.size as-is (applied in buildNode)
+        }
 
         let rendered = RenderedObject(
             id: definition.id,
@@ -167,17 +195,26 @@ final class WorldObjectRenderer {
     // MARK: - Node Building
 
     /// Builds an SKNode for an object definition.
-    /// Shape building, coloring, and effects delegated to ObjectShapeFactory.
+    /// Tries composite shape first; falls back to single shape + coloring.
+    /// Effects are always applied on top.
     private func buildNode(for def: WorldObjectDefinition) -> SKNode {
         let container = SKNode()
         container.name = "worldObject_\(def.id)"
 
-        // Base shape (built by factory)
-        let baseNode = ObjectShapeFactory.buildBaseShape(def.baseShape, size: def.size)
-        ObjectShapeFactory.applyColor(to: baseNode, primary: def.primaryColor,
-                                       secondary: def.secondaryColor,
-                                       pattern: def.colorPattern)
-        container.addChild(baseNode)
+        // Try composite shape first (multi-node design with built-in coloring)
+        if let composite = CompositeShapeFactory.buildCompositeShape(
+            presetName: def.name, baseShape: def.baseShape, size: def.size
+        ) {
+            composite.name = "base"  // For LOD and wear tracking
+            container.addChild(composite)
+        } else {
+            // Fall back to single shape with generic coloring
+            let baseNode = ObjectShapeFactory.buildBaseShape(def.baseShape, size: def.size)
+            ObjectShapeFactory.applyColor(to: baseNode, primary: def.primaryColor,
+                                           secondary: def.secondaryColor,
+                                           pattern: def.colorPattern)
+            container.addChild(baseNode)
+        }
 
         // Effects (built by factory)
         for effect in def.effects {
@@ -198,26 +235,46 @@ final class WorldObjectRenderer {
         effectsTime += deltaTime
 
         for (id, obj) in objects where obj.isActive {
-            let distance = abs(obj.definition.positionX - cameraWorldX)
+            // Skip LOD for far/mid layer objects (parallax compression keeps them visible)
+            let isForeground = obj.definition.layer == "fore"
 
-            // LOD culling
-            if distance > Self.lodReducedDistance {
-                obj.node.isHidden = true
-                continue
-            } else {
-                obj.node.isHidden = false
-            }
+            if isForeground {
+                let distance = abs(obj.definition.positionX - cameraWorldX)
 
-            // Reduced LOD: hide effects
-            let fullLOD = distance <= Self.lodFullDistance
-            for child in obj.node.children {
-                if child.name?.hasPrefix("effect_") == true {
-                    child.isHidden = !fullLOD
+                // LOD culling
+                if distance > Self.lodReducedDistance {
+                    obj.node.isHidden = true
+                    continue
+                } else {
+                    obj.node.isHidden = false
                 }
-            }
 
-            // Animate effects
-            if fullLOD {
+                // Reduced LOD: hide effects and composite detail
+                let fullLOD = distance <= Self.lodFullDistance
+                for child in obj.node.children {
+                    if child.name?.hasPrefix("effect_") == true {
+                        child.isHidden = !fullLOD
+                    }
+                    // For composite bases, hide all but first grandchild at reduced LOD
+                    if !fullLOD, child.name == "base",
+                       child.children.count > 1 {
+                        for (gi, grandchild) in child.children.enumerated() {
+                            grandchild.isHidden = gi > 0
+                        }
+                    } else if fullLOD, child.name == "base" {
+                        for grandchild in child.children {
+                            grandchild.isHidden = false
+                        }
+                    }
+                }
+
+                // Animate effects
+                if fullLOD {
+                    animateEffects(for: obj, deltaTime: deltaTime)
+                }
+            } else {
+                // Non-fore objects: always visible, always animate
+                obj.node.isHidden = false
                 animateEffects(for: obj, deltaTime: deltaTime)
             }
 
@@ -261,23 +318,25 @@ final class WorldObjectRenderer {
     // MARK: - Wear Visuals
 
     /// Applies visual wear to an object based on its wear level.
+    /// Works for both single SKShapeNode bases and composite SKNode containers.
     private func applyWearVisuals(objectID: String) {
         guard let obj = objects[objectID] else { return }
         let wear = obj.wear
 
-        if let baseNode = obj.node.children.first(where: { $0.name == "base" })
-            as? SKShapeNode {
-            if wear > 0.6 {
-                // Weathered: desaturation + slight offset
-                baseNode.alpha = 0.7
-                baseNode.position.x = CGFloat.random(in: -0.3...0.3)
-            } else if wear > 0.3 {
-                // Worn: slight desaturation
-                baseNode.alpha = 0.85
-            } else {
-                baseNode.alpha = 1.0
-                baseNode.position.x = 0
-            }
+        guard let baseNode = obj.node.children.first(where: { $0.name == "base" }) else {
+            return
+        }
+
+        if wear > 0.6 {
+            // Weathered: desaturation + slight offset
+            baseNode.alpha = 0.7
+            baseNode.position.x = CGFloat.random(in: -0.3...0.3)
+        } else if wear > 0.3 {
+            // Worn: slight desaturation
+            baseNode.alpha = 0.85
+        } else {
+            baseNode.alpha = 1.0
+            baseNode.position.x = 0
         }
     }
 
@@ -308,6 +367,40 @@ final class WorldObjectRenderer {
         objects[objectID] = obj
         NSLog("[Pushling/Objects] Repaired '%@' (patch count: %d)",
               obj.definition.name, obj.repairCount)
+    }
+
+    /// Sets the wear value on a rendered object (syncs from ObjectWearSystem).
+    func setWear(objectID: String, value: Double) {
+        guard var obj = objects[objectID] else { return }
+        obj.wear = value
+        objects[objectID] = obj
+    }
+
+    /// Updates a rendered object's metadata (e.g., setting dbID after DB insert).
+    func updateObject(id: String, _ mutator: (inout RenderedObject) -> Void) {
+        guard var obj = objects[id] else { return }
+        mutator(&obj)
+        objects[id] = obj
+    }
+
+    // MARK: - Atmospheric Depth
+
+    /// Applies atmospheric perspective to a node and its SKShapeNode children.
+    /// Adjusts fill/stroke colors using PushlingPalette.atmosphericColor.
+    private func applyAtmosphericDepth(to node: SKNode, depth: CGFloat) {
+        for child in node.children {
+            if let shape = child as? SKShapeNode {
+                shape.fillColor = PushlingPalette.atmosphericColor(
+                    shape.fillColor, depth: depth)
+                if shape.strokeColor != .clear {
+                    shape.strokeColor = PushlingPalette.atmosphericColor(
+                        shape.strokeColor, depth: depth)
+                }
+            }
+            if !child.children.isEmpty {
+                applyAtmosphericDepth(to: child, depth: depth)
+            }
+        }
     }
 
     // MARK: - Queries

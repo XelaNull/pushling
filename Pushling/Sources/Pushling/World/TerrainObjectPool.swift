@@ -216,90 +216,32 @@ enum TerrainObjectNodeFactory {
         return container
     }
 
-    /// Flower — thin stem with a small colored circle on top.
+    /// Flower — stem + 4 petal ellipses + center dot (composite).
     private static func makeFlower(biome: BiomeType) -> SKNode {
-        let container = SKNode()
-        container.name = "obj_flower"
-
-        let stem = SKShapeNode(rectOf: CGSize(width: 1, height: 3))
-        stem.fillColor = PushlingPalette.moss
-        stem.strokeColor = .clear
-        stem.position = CGPoint(x: 0, y: 1.5)
-        container.addChild(stem)
-
-        let petal = SKShapeNode(circleOfRadius: 1)
-        petal.fillColor = biome == .wetlands ? PushlingPalette.tide : PushlingPalette.gilt
-        petal.strokeColor = .clear
-        petal.position = CGPoint(x: 0, y: 3.5)
-        container.addChild(petal)
-
-        return container
+        let node = CompositeShapeFactory.buildFlower(size: 1.0)
+        node.name = "obj_flower"
+        return node
     }
 
-    /// Tree — vertical trunk with a triangular canopy.
+    /// Tree — trunk + 3 overlapping canopy circles (composite).
     private static func makeTree(biome: BiomeType) -> SKNode {
-        let container = SKNode()
-        container.name = "obj_tree"
-
-        // Trunk
-        let trunk = SKShapeNode(rectOf: CGSize(width: 1.5, height: 4))
-        trunk.fillColor = PushlingPalette.ash
-        trunk.strokeColor = .clear
-        trunk.position = CGPoint(x: 0, y: 2)
-        container.addChild(trunk)
-
-        // Canopy — triangle
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: -3, y: 4))
-        path.addLine(to: CGPoint(x: 3, y: 4))
-        path.addLine(to: CGPoint(x: 0, y: 8))
-        path.closeSubpath()
-
-        let canopy = SKShapeNode(path: path)
-        canopy.fillColor = biome == .forest
-            ? PushlingPalette.deepMoss
-            : PushlingPalette.moss
-        canopy.strokeColor = .clear
-        container.addChild(canopy)
-
-        return container
+        let node = CompositeShapeFactory.buildTree(size: 1.0)
+        node.name = "obj_tree"
+        return node
     }
 
-    /// Mushroom — short stem with a rounded cap.
+    /// Mushroom — stem + dome cap + spot dots (composite).
     private static func makeMushroom(biome: BiomeType) -> SKNode {
-        let container = SKNode()
-        container.name = "obj_mushroom"
-
-        let stem = SKShapeNode(rectOf: CGSize(width: 1, height: 2))
-        stem.fillColor = PushlingPalette.bone
-        stem.strokeColor = .clear
-        stem.position = CGPoint(x: 0, y: 1)
-        container.addChild(stem)
-
-        let cap = SKShapeNode(circleOfRadius: 2)
-        cap.fillColor = biome == .forest ? PushlingPalette.ember : PushlingPalette.dusk
-        cap.strokeColor = .clear
-        cap.position = CGPoint(x: 0, y: 3)
-        container.addChild(cap)
-
-        return container
+        let node = CompositeShapeFactory.buildMushroom(size: 1.0)
+        node.name = "obj_mushroom"
+        return node
     }
 
-    /// Rock — small irregular polygon (approximated as pentagon).
+    /// Rock — 2 overlapping polygons + highlight (composite).
     private static func makeRock(biome: BiomeType) -> SKNode {
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: -2, y: 0))
-        path.addLine(to: CGPoint(x: -2.5, y: 1.5))
-        path.addLine(to: CGPoint(x: 0, y: 3))
-        path.addLine(to: CGPoint(x: 2.5, y: 1.5))
-        path.addLine(to: CGPoint(x: 2, y: 0))
-        path.closeSubpath()
-
-        let rock = SKShapeNode(path: path)
-        rock.name = "obj_rock"
-        rock.fillColor = biome == .mountains ? PushlingPalette.bone : PushlingPalette.ash
-        rock.strokeColor = .clear
-        return rock
+        let node = CompositeShapeFactory.buildRock(size: 1.0)
+        node.name = "obj_rock"
+        return node
     }
 
     /// Water puddle — flat oval with subtle blue tint.
@@ -357,47 +299,17 @@ enum TerrainObjectNodeFactory {
         return pillar
     }
 
-    /// Yarn ball — small circle with a trailing thread.
+    /// Yarn ball — circle body + cross-arc strokes + trailing thread (composite).
     private static func makeYarnBall() -> SKNode {
-        let container = SKNode()
-        container.name = "obj_yarnBall"
-
-        let ball = SKShapeNode(circleOfRadius: 2)
-        ball.fillColor = PushlingPalette.ember
-        ball.strokeColor = .clear
-        ball.position = CGPoint(x: 0, y: 2)
-        container.addChild(ball)
-
-        // Thread tail
-        let thread = SKShapeNode(rectOf: CGSize(width: 3, height: 0.5))
-        thread.fillColor = PushlingPalette.ember.withAlphaComponent(0.6)
-        thread.strokeColor = .clear
-        thread.position = CGPoint(x: 2, y: 0.5)
-        thread.zRotation = -0.3
-        container.addChild(thread)
-
-        return container
+        let node = CompositeShapeFactory.buildBall(size: 1.0, includeThread: true)
+        node.name = "obj_yarnBall"
+        return node
     }
 
-    /// Cardboard box — simple rectangle with fold line.
+    /// Cardboard box — body + flap triangles + shadow (composite).
     private static func makeCardboardBox() -> SKNode {
-        let container = SKNode()
-        container.name = "obj_cardboardBox"
-
-        let box = SKShapeNode(rectOf: CGSize(width: 6, height: 5))
-        box.fillColor = PushlingPalette.ash
-        box.strokeColor = PushlingPalette.bone.withAlphaComponent(0.3)
-        box.lineWidth = 0.5
-        box.position = CGPoint(x: 0, y: 2.5)
-        container.addChild(box)
-
-        // Fold line across top
-        let fold = SKShapeNode(rectOf: CGSize(width: 5, height: 0.5))
-        fold.fillColor = PushlingPalette.bone.withAlphaComponent(0.2)
-        fold.strokeColor = .clear
-        fold.position = CGPoint(x: 0, y: 4)
-        container.addChild(fold)
-
-        return container
+        let node = CompositeShapeFactory.buildCardboardBox(size: 1.0)
+        node.name = "obj_cardboardBox"
+        return node
     }
 }

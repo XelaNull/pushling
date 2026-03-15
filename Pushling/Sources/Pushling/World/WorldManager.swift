@@ -150,12 +150,14 @@ final class WorldManager {
         terrainGenerator = TerrainGenerator(seed: config.seed)
         terrainGenerator.biomeManager = biomeManager
 
-        // 4. Create terrain recycler on the foreground layer
+        // 4. Create terrain recycler on all parallax layers
         if let foreLayer = parallax.foreLayer {
             terrainRecycler = TerrainRecycler(
                 terrainGenerator: terrainGenerator,
                 biomeManager: biomeManager,
-                foreLayer: foreLayer
+                foreLayer: foreLayer,
+                midLayer: parallax.midLayer,
+                farLayer: parallax.farLayer
             )
         }
 
@@ -239,9 +241,13 @@ final class WorldManager {
         // 17. Setup ambient sound system
         soundSystem.setup()
 
-        // 18. Setup world object renderer on foreground layer
-        if let foreLayer = parallax.foreLayer {
-            objectRenderer.attach(to: foreLayer)
+        // 18. Setup world object renderer on all parallax layers
+        if let farLayer = parallax.farLayer,
+           let midLayer = parallax.midLayer,
+           let foreLayer = parallax.foreLayer {
+            objectRenderer.attach(farLayer: farLayer,
+                                   midLayer: midLayer,
+                                   foreLayer: foreLayer)
             companionSystem.attach(to: foreLayer)
         }
 

@@ -97,6 +97,19 @@ enum PushlingPalette {
         return lerp(from: color, to: ash, t: amount)
     }
 
+    // MARK: - Atmospheric Perspective
+
+    /// Applies atmospheric perspective: desaturates and reduces alpha for distant elements.
+    /// - Parameters:
+    ///   - color: The base palette color
+    ///   - depth: 0.0 = foreground (no change), 1.0 = max distance (50% desat, 60% alpha)
+    /// - Returns: Atmospheric-adjusted color
+    static func atmosphericColor(_ color: SKColor, depth: CGFloat) -> SKColor {
+        let d = max(0, min(1, depth))
+        let desaturated = desaturate(color, amount: d * 0.5)
+        return withAlpha(desaturated, alpha: 1.0 - d * 0.4)
+    }
+
     // MARK: - Tinting
 
     /// Tints a color toward another palette color.

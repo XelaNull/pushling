@@ -281,6 +281,26 @@ extension VisualEventManager {
                     duration: 1.0
                 )
             ]))
+
+            // Trail child node — moves with firefly, pulses inversely
+            let trail = SKShapeNode(circleOfRadius: 0.4)
+            trail.fillColor = PushlingPalette.withAlpha(
+                PushlingPalette.gilt, alpha: 0.2
+            )
+            trail.strokeColor = .clear
+            trail.position = CGPoint(x: 0, y: -1)
+            trail.name = "firefly_trail_\(i)"
+            trail.alpha = 0
+            fly.addChild(trail)
+
+            // Inverse pulse: offset from main firefly glow
+            trail.run(SKAction.sequence([
+                SKAction.wait(forDuration: delay + 0.5),
+                SKAction.repeatForever(SKAction.sequence([
+                    SKAction.fadeAlpha(to: 0.4, duration: 1.5),
+                    SKAction.fadeAlpha(to: 0.1, duration: 1.5)
+                ]))
+            ]))
         }
     }
 

@@ -78,6 +78,14 @@ final class CreatureNode: SKNode {
         }
     }
 
+    // MARK: - Multi-Tail (Apex)
+
+    /// Additional tail nodes for Apex multi-tail (driven by per-frame sway).
+    private var additionalTailNodes: [SKShapeNode] = []
+
+    /// Number of tracked repos (drives Apex multi-tail count). Set by GameCoordinator.
+    var repoCount: Int = 1
+
     // MARK: - Tail Sway
 
     /// Whether the tail sway is active (suppressed during certain states).
@@ -115,7 +123,7 @@ final class CreatureNode: SKNode {
         clearControllers()
 
         currentStage = stage
-        let nodes = StageRenderer.build(stage: stage)
+        let nodes = StageRenderer.build(stage: stage, repoCount: repoCount)
 
         // Add all nodes to the tree
         addBodyParts(nodes)
@@ -152,6 +160,13 @@ final class CreatureNode: SKNode {
         // === TAIL SWAY ===
         if isTailSwayActive {
             tailController?.update(deltaTime: deltaTime)
+
+            // Animate additional Apex tails with staggered sway
+            for (i, tail) in additionalTailNodes.enumerated() {
+                let phase = breathingTime + Double(i + 1) * 0.4
+                let angle = 0.15 * CGFloat(sin(phase * 2.0 * .pi / 3.0))
+                tail.zRotation = CGFloat(i + 1) * 0.26 + angle
+            }
         }
 
         // === WHISKER MICRO-TWITCHES ===
@@ -353,6 +368,15 @@ final class CreatureNode: SKNode {
 
         if let tail = nodes.tail { addChild(tail); tailNode = tail }
 
+        // Collect additional tail nodes (Apex multi-tail, children of body)
+        additionalTailNodes.removeAll()
+        for child in nodes.body.children {
+            if let shape = child as? SKShapeNode,
+               let name = shape.name, name.hasPrefix("tail_extra_") {
+                additionalTailNodes.append(shape)
+            }
+        }
+
         if let bl = nodes.pawBL { addChild(bl) }
         if let br = nodes.pawBR { addChild(br) }
         if let fl = nodes.pawFL { addChild(fl) }
@@ -467,6 +491,7 @@ final class CreatureNode: SKNode {
         pawFRController = nil
         pawBLController = nil
         pawBRController = nil
+        additionalTailNodes.removeAll()
         bodyNode = nil
         coreGlowNode = nil
         headNode = nil

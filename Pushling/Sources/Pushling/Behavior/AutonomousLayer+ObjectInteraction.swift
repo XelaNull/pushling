@@ -21,9 +21,10 @@ extension AutonomousLayer {
     static let objectWanderThreshold: Double = 0.4
 
     /// Checks placed objects and selects the most attractive one, if any.
-    /// Returns (objectID, interactionType, objectX) or nil.
+    /// Returns (objectID, interactionType, objectX, physics) or nil.
     func selectObjectInteraction()
-        -> (id: String, interaction: String, x: CGFloat)? {
+        -> (id: String, interaction: String, x: CGFloat,
+            physics: ObjectPhysics?)? {
 
         guard let query = objectQuery,
               let scorer = attractionScorer,
@@ -57,15 +58,17 @@ extension AutonomousLayer {
             return nil
         }
 
-        // Return with the selected object's data
+        // Return with the selected object's data including physics
         guard let obj = objects.first(where: { $0.id == chosen.objectID })
         else { return nil }
-        return (id: obj.id, interaction: chosen.interactionName, x: obj.x)
+        return (id: obj.id, interaction: chosen.interactionName,
+                x: obj.x, physics: obj.physics)
     }
 
     /// Begins an object interaction, transitioning to .objectInteracting.
     func startObjectInteraction(
-        _ target: (id: String, interaction: String, x: CGFloat)
+        _ target: (id: String, interaction: String, x: CGFloat,
+                   physics: ObjectPhysics?)
     ) {
         guard let engine = objectInteractionEngine else { return }
 
@@ -74,7 +77,8 @@ extension AutonomousLayer {
             objectID: target.id,
             objectX: target.x,
             creatureX: currentX,
-            currentTime: CACurrentMediaTime()
+            currentTime: CACurrentMediaTime(),
+            physics: target.physics
         )
 
         if started {
@@ -121,14 +125,14 @@ extension AutonomousLayer {
             // Merge interaction output into our output
             output.merge(from: interactionOutput)
         } else {
-            // Interaction complete — notify and return to idle
-            let templateName = engine.activeInteraction?.template.name
-                ?? "unknown"
-            let satisfaction = engine.activeInteraction?.template
-                .satisfactionBoost ?? 5.0
+            // Interaction complete — read from lastCompletedInteraction
+            let completed = engine.lastCompletedInteraction
+            let templateName = completed?.template.name ?? "unknown"
+            let satisfaction = completed?.template.satisfactionBoost ?? 5.0
+            let consumed = completed?.template.consumesObject ?? false
             attractionScorer?.recordInteraction(objectID: objectID)
             onObjectInteractionCompleted?(objectID, templateName,
-                                           satisfaction)
+                                           satisfaction, consumed)
             transitionTo(.idle)
         }
     }

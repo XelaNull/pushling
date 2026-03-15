@@ -1,34 +1,16 @@
-// TerrainRecycler.swift — Terrain chunk and object lifecycle management
-// Manages the visual representation of terrain on the foreground layer.
-// As the creature walks, off-screen terrain is recycled to the leading edge.
-// Target: zero net node creation during steady-state walking.
-//
-// Each "visual chunk" contains:
-//   - An SKShapeNode ground polygon (terrain height profile)
-//   - 0-N terrain object nodes placed on the surface
-//
-// Object pool sizes: ~20 terrain objects, ~10 ground nodes.
+// TerrainRecycler.swift — Terrain chunk lifecycle for fore, mid, and far layers.
+// Recycles off-screen terrain to the leading edge. Zero net node creation at steady-state.
 
 import SpriteKit
 
 // MARK: - Visual Chunk
 
-/// A rendered terrain chunk on the foreground layer.
-/// Contains the ground shape and all terrain objects within it.
+/// A rendered terrain chunk: ground shape + terrain objects.
 final class VisualChunk {
-    /// The terrain chunk data backing this visual.
     var chunkIndex: Int
-
-    /// Container node holding ground + objects.
     let containerNode: SKNode
-
-    /// The ground polygon shape.
     var groundNode: SKShapeNode?
-
-    /// Terrain object nodes in this chunk.
     var objectNodes: [SKNode] = []
-
-    /// Whether this chunk is currently active (has parent).
     var isActive: Bool { containerNode.parent != nil }
 
     init(chunkIndex: Int) {
@@ -37,14 +19,10 @@ final class VisualChunk {
         self.containerNode.name = "chunk_\(chunkIndex)"
     }
 
-    /// Removes all children and resets for reuse.
     func reset() {
         groundNode?.removeFromParent()
         groundNode = nil
-        for obj in objectNodes {
-            obj.removeAllActions()
-            obj.removeFromParent()
-        }
+        for obj in objectNodes { obj.removeAllActions(); obj.removeFromParent() }
         objectNodes.removeAll()
         containerNode.removeAllChildren()
         containerNode.removeFromParent()
@@ -53,74 +31,66 @@ final class VisualChunk {
 
 // MARK: - TerrainRecycler
 
-/// Manages visual terrain chunks — creating, recycling, and maintaining
-/// a constant node count as the camera moves through the world.
+/// Manages visual terrain chunks for all three parallax layers.
 final class TerrainRecycler {
 
     // MARK: - Constants
 
-    /// How far off-screen (in points) before a chunk is recycled.
     static let recycleMargin: CGFloat = 1.5 * ParallaxSystem.sceneWidth
-
-    /// How far ahead of the viewport to pre-generate chunks.
     static let preloadMargin: CGFloat = 300
-
-    /// Minimum spacing between terrain objects (points).
     static let minObjectSpacing: CGFloat = 20
-
-    /// Maximum interactive objects visible at once.
     static let maxInteractiveVisible: Int = 2
-
-    /// Noise offset for object placement (decorrelated from terrain/biome).
     private static let objectNoiseSeed: UInt64 = 0xFACE_B00C_1337_7331
+
+    // Background layer constants
+    private static let farSeedOffset: UInt64 = 0xFA20_FACE
+    private static let midSeedOffset: UInt64 = 0xBEEF_0000
+    private static let farSamplesPerChunk: Int = 128
+    private static let midSamplesPerChunk: Int = 256
+    private static let farPointsPerSample: CGFloat = 4.0
+    private static let midPointsPerSample: CGFloat = 2.0
+    static let farChunkWidth: CGFloat = CGFloat(farSamplesPerChunk) * farPointsPerSample
+    static let midChunkWidth: CGFloat = CGFloat(midSamplesPerChunk) * midPointsPerSample
+    private static let farXOffset: CGFloat = 50.0
+    private static let midXOffset: CGFloat = 25.0
 
     // MARK: - Properties
 
-    /// All active visual chunks, keyed by chunk index.
     private var activeChunks: [Int: VisualChunk] = [:]
-
-    /// Pool of recycled visual chunks ready for reuse.
+    private var activeChunksFar: [Int: VisualChunk] = [:]
+    private var activeChunksMid: [Int: VisualChunk] = [:]
     private var chunkPool: [VisualChunk] = []
-
-    /// Pool of recycled terrain object nodes by type.
     private var objectPool: [TerrainObjectType: [SKNode]] = [:]
-
-    /// Reference to the terrain generator.
     private let terrainGenerator: TerrainGenerator
-
-    /// Reference to the biome manager.
     private let biomeManager: BiomeManager
-
-    /// The foreground layer to add chunks to.
     private weak var foreLayer: SKNode?
-
-    /// Permutation table for object placement noise.
+    private weak var midLayer: SKNode?
+    private weak var farLayer: SKNode?
     private let objectPerm: [UInt8]
-
-    /// Count of currently visible interactive objects.
     private var visibleInteractiveCount: Int = 0
 
     // MARK: - Initialization
 
     init(terrainGenerator: TerrainGenerator,
          biomeManager: BiomeManager,
-         foreLayer: SKNode) {
+         foreLayer: SKNode,
+         midLayer: SKNode? = nil,
+         farLayer: SKNode? = nil) {
         self.terrainGenerator = terrainGenerator
         self.biomeManager = biomeManager
         self.foreLayer = foreLayer
+        self.midLayer = midLayer
+        self.farLayer = farLayer
         self.objectPerm = Self.buildObjectPerm()
     }
 
     // MARK: - Frame Update
 
-    /// Main update method — call once per frame.
-    /// Ensures chunks exist for the visible range and recycles off-screen chunks.
-    ///
-    /// - Parameter cameraWorldX: Current camera center in world-space.
+    /// Updates all terrain layers. Call once per frame.
     func update(cameraWorldX: CGFloat) {
         let halfView = ParallaxSystem.sceneWidth / 2.0
 
-        // Determine which chunks should be active
+        // Determine which foreground chunks should be active
         let minX = cameraWorldX - halfView - Self.preloadMargin
         let maxX = cameraWorldX + halfView + Self.preloadMargin
         let minChunk = TerrainGenerator.chunkIndex(for: minX)
@@ -129,12 +99,15 @@ final class TerrainRecycler {
         // Recycle chunks that are too far away
         recycleDistantChunks(cameraWorldX: cameraWorldX)
 
-        // Create/activate chunks that should be visible
+        // Create/activate foreground chunks
         for i in minChunk...maxChunk {
             if activeChunks[i] == nil {
                 activateChunk(at: i)
             }
         }
+
+        // Update background layers (far and mid)
+        updateBackgroundChunks(cameraWorldX: cameraWorldX)
     }
 
     /// Returns the total number of active nodes (for debug overlay).
@@ -145,12 +118,17 @@ final class TerrainRecycler {
             count += chunk.groundNode != nil ? 1 : 0
             count += chunk.objectNodes.count
         }
+        for chunk in activeChunksFar.values {
+            count += chunk.groundNode != nil ? 1 : 0
+        }
+        for chunk in activeChunksMid.values {
+            count += chunk.groundNode != nil ? 1 : 0
+        }
         return count
     }
 
     // MARK: - Chunk Activation
 
-    /// Activates a chunk at the given index — either from pool or newly created.
     private func activateChunk(at index: Int) {
         let terrainChunk = terrainGenerator.chunkAt(index: index)
 
@@ -190,7 +168,6 @@ final class TerrainRecycler {
 
     // MARK: - Chunk Recycling
 
-    /// Recycles chunks that have scrolled too far off-screen.
     private func recycleDistantChunks(cameraWorldX: CGFloat) {
         let margin = Self.recycleMargin
         let minKeep = cameraWorldX - margin
@@ -230,7 +207,6 @@ final class TerrainRecycler {
 
     // MARK: - Ground Polygon
 
-    /// Builds an SKShapeNode polygon for the terrain chunk's height profile.
     private func buildGroundNode(from chunk: TerrainChunk) -> SKShapeNode {
         let path = CGMutablePath()
         let pps = TerrainGenerator.pointsPerSample
@@ -272,8 +248,7 @@ final class TerrainRecycler {
 
     // MARK: - Object Placement
 
-    /// Places terrain objects within a chunk based on noise-driven positions.
-    /// Returns the created object nodes.
+    /// Places terrain objects within a chunk using noise-driven positions.
     private func placeObjects(in chunk: TerrainChunk) -> [SKNode] {
         var nodes: [SKNode] = []
         let chunkWidth = TerrainGenerator.chunkWorldWidth
@@ -382,13 +357,7 @@ final class TerrainRecycler {
 
     // MARK: - Object Queries (P3-T3-04)
 
-    /// Finds the nearest terrain object of a specific type within a max distance.
-    /// Used by puddle reflection system to find water puddles.
-    /// - Parameters:
-    ///   - type: The terrain object type to search for.
-    ///   - worldX: The reference world-X position.
-    ///   - maxDistance: Maximum search distance in points.
-    /// - Returns: The world-X of the nearest matching object, or nil.
+    /// Finds the nearest terrain object of a type within max distance.
     func nearestObjectOfType(_ type: TerrainObjectType,
                               to worldX: CGFloat,
                               maxDistance: CGFloat) -> CGFloat? {
@@ -411,6 +380,107 @@ final class TerrainRecycler {
         }
 
         return closestX
+    }
+
+    // MARK: - Background Terrain
+
+    private struct BGLayerConfig {
+        let scrollFactor: CGFloat
+        let samples: Int
+        let pps: CGFloat
+        let chunkWidth: CGFloat
+        let octaves: Int
+        let amplitude: CGFloat
+        let seedOffset: UInt64
+        let xOffset: CGFloat
+        let depth: CGFloat
+        let prefix: String
+    }
+
+    private static let farConfig = BGLayerConfig(
+        scrollFactor: 0.15, samples: farSamplesPerChunk,
+        pps: farPointsPerSample, chunkWidth: farChunkWidth,
+        octaves: 1, amplitude: 1.5, seedOffset: farSeedOffset,
+        xOffset: farXOffset, depth: 0.85, prefix: "far"
+    )
+
+    private static let midConfig = BGLayerConfig(
+        scrollFactor: 0.4, samples: midSamplesPerChunk,
+        pps: midPointsPerSample, chunkWidth: midChunkWidth,
+        octaves: 2, amplitude: 1.0, seedOffset: midSeedOffset,
+        xOffset: midXOffset, depth: 0.4, prefix: "mid"
+    )
+
+    private func updateBackgroundChunks(cameraWorldX: CGFloat) {
+        if farLayer != nil {
+            updateBGLayer(cameraWorldX: cameraWorldX, layer: farLayer,
+                          active: &activeChunksFar, config: Self.farConfig)
+        }
+        if midLayer != nil {
+            updateBGLayer(cameraWorldX: cameraWorldX, layer: midLayer,
+                          active: &activeChunksMid, config: Self.midConfig)
+        }
+    }
+
+    private func updateBGLayer(cameraWorldX: CGFloat, layer: SKNode?,
+                                active: inout [Int: VisualChunk],
+                                config: BGLayerConfig) {
+        let effectiveX = cameraWorldX * config.scrollFactor
+        let half = ParallaxSystem.sceneWidth / 2.0
+        let minChunk = Int(floor((effectiveX - half - Self.preloadMargin) / config.chunkWidth))
+        let maxChunk = Int(floor((effectiveX + half + Self.preloadMargin) / config.chunkWidth))
+
+        let margin = Self.recycleMargin
+        let keysToRecycle = active.keys.filter { i in
+            let start = CGFloat(i) * config.chunkWidth
+            return (start + config.chunkWidth) < effectiveX - margin
+                || start > effectiveX + margin
+        }
+        for key in keysToRecycle { active.removeValue(forKey: key)?.reset() }
+
+        for i in minChunk...maxChunk where active[i] == nil {
+            guard let layer = layer else { continue }
+            let heights = terrainGenerator.generateBackgroundHeights(
+                chunkIndex: i, sampleCount: config.samples,
+                octaves: config.octaves, amplitudeScale: config.amplitude,
+                seedOffset: config.seedOffset
+            )
+            let ground = buildBGGround(heights: heights, pps: config.pps, depth: config.depth)
+            let visual = VisualChunk(chunkIndex: i)
+            visual.containerNode.addChild(ground)
+            visual.groundNode = ground
+            visual.containerNode.position = CGPoint(
+                x: CGFloat(i) * config.chunkWidth + config.xOffset, y: 0)
+            visual.containerNode.name = "\(config.prefix)_chunk_\(i)"
+            layer.addChild(visual.containerNode)
+            active[i] = visual
+        }
+    }
+
+    private func buildBGGround(heights: [CGFloat], pps: CGFloat,
+                                depth: CGFloat) -> SKShapeNode {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 0, y: 0))
+        for (i, h) in heights.enumerated() {
+            path.addLine(to: CGPoint(x: CGFloat(i) * pps, y: TerrainGenerator.baselineY + h))
+        }
+        path.addLine(to: CGPoint(x: CGFloat(heights.count) * pps, y: 0))
+        path.closeSubpath()
+
+        let node = SKShapeNode(path: path)
+        let base = PushlingPalette.ash
+        node.fillColor = PushlingPalette.atmosphericColor(base, depth: depth)
+        if depth < 0.5 {
+            node.strokeColor = PushlingPalette.atmosphericColor(base, depth: depth)
+                .withAlphaComponent(0.3)
+            node.lineWidth = 0.5
+        } else {
+            node.strokeColor = .clear
+            node.lineWidth = 0
+        }
+        node.name = "bg_ground"
+        node.zPosition = -1
+        return node
     }
 
     // MARK: - Permutation Table

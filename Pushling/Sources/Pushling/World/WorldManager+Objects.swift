@@ -128,19 +128,21 @@ extension WorldManager {
                     INSERT INTO world_objects
                         (name, base_shape, position_x, layer, size,
                          color_json, effects_json, physics_json,
-                         interaction, wear, source, is_active, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, 1, ?)
+                         interaction, wear, wear_rate, source, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, ?, 1, ?)
                     """,
                     arguments: [
                         name, baseShape, clampedX, layer, clampedSize,
                         colorJson, effectsJson, physicsJson,
-                        interaction, source, nowStr
+                        interaction, wearRate, source, nowStr
                     ]
                 )
                 // Query back the auto-increment ID
                 dbId = (try? db.queryScalarInt(
                     "SELECT MAX(id) FROM world_objects"
                 )) ?? 0
+                // Store dbID on the rendered object for consumption tracking
+                objectRenderer.updateObject(id: definition.id) { $0.dbID = dbId }
             } catch {
                 NSLog("[Pushling/World] Failed to persist object: %@",
                       "\(error)")
@@ -318,6 +320,38 @@ extension WorldManager {
         return true
     }
 
+    // MARK: - Renderer-Keyed Removal (for consumed objects)
+
+    /// Removes an object by its renderer UUID (used when objects are consumed).
+    /// Removes from renderer, marks inactive in DB, and cleans up wear system.
+    func removeObjectByRendererID(_ rendererID: String) {
+        // Remove from renderer
+        guard let removed = objectRenderer.removeObject(id: rendererID) else {
+            return
+        }
+
+        // Remove from wear system
+        objectWearSystem.removeObject(id: rendererID)
+
+        // Mark inactive in DB using stored dbID
+        if let dbID = removed.dbID, let db = database {
+            let formatter = ISO8601DateFormatter()
+            let nowStr = formatter.string(from: Date())
+            do {
+                try db.execute(
+                    "UPDATE world_objects SET is_active = 0, removed_at = ? WHERE id = ?",
+                    arguments: [nowStr, dbID]
+                )
+            } catch {
+                NSLog("[Pushling/World] Failed to mark consumed object in DB: %@",
+                      "\(error)")
+            }
+        }
+
+        NSLog("[Pushling/World] Consumed object '%@' (renderer: %@)",
+              removed.definition.name, rendererID)
+    }
+
     // MARK: - DB Loading
 
     /// Loads persisted world objects from the world_objects table.
@@ -328,12 +362,13 @@ extension WorldManager {
             """
             SELECT id, name, base_shape, position_x, layer, size,
                    color_json, effects_json, physics_json,
-                   interaction, wear, source, created_at
+                   interaction, wear, wear_rate, source, created_at
             FROM world_objects WHERE is_active = 1
             """
         ) else { return }
 
         for row in rows {
+            let dbID = row["id"] as? Int
             let name = row["name"] as? String ?? "object"
             let baseShape = row["base_shape"] as? String ?? "sphere"
             let posX = row["position_x"] as? Double ?? 542.5
@@ -341,6 +376,7 @@ extension WorldManager {
             let size = row["size"] as? Double ?? 1.0
             let interaction = row["interaction"] as? String ?? "examining"
             let wear = row["wear"] as? Double ?? 0.0
+            let wearRate = row["wear_rate"] as? Double ?? 0.01
             let source = row["source"] as? String ?? "system"
 
             // Parse JSON fields
@@ -364,12 +400,13 @@ extension WorldManager {
                 effects: effects,
                 physics: physics,
                 interaction: interaction,
-                wearRate: 0.01,
+                wearRate: wearRate,
                 source: source,
                 isConsumable: false
             )
 
             if let rendered = objectRenderer.createObject(definition) {
+                objectRenderer.updateObject(id: rendered.id) { $0.dbID = dbID }
                 if wear > 0 {
                     objectRenderer.applyWear(objectID: rendered.id,
                                               amount: wear)
