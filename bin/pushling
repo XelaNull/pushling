@@ -415,7 +415,7 @@ cmd_voice_download() {
 
     if [[ -x "$setup_script" ]]; then
         # Pass through any extra arguments (--tier1-only, --status, etc.)
-        exec "$setup_script" "${@:2}"
+        exec "$setup_script" "$@"
     else
         log_error "Voice setup script not found."
         log_info "Expected at: $script_dir/pushling-voice-setup"
@@ -630,7 +630,7 @@ case "${1:-help}" in
         ;;
     voice)
         case "${2:-}" in
-            download) cmd_voice_download "$@" ;;
+            download) shift 2; cmd_voice_download "$@" ;;
             status)   cmd_voice_download --status ;;
             *)        log_error "Unknown voice subcommand: ${2:-}. Try: download, status"; cmd_help ;;
         esac

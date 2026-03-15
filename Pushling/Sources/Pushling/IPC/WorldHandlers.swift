@@ -236,17 +236,53 @@ extension CommandRouter {
 
     // MARK: - Object Create / Place
 
+    // Preset definitions: map preset name to shape, color, effects
+    private static let presets: [String: [String: Any]] = [
+        "ball":           ["base_shape": "sphere", "color": "tide", "name": "Ball", "size": 0.8],
+        "yarn_ball":      ["base_shape": "sphere", "color": "ember", "name": "Yarn Ball", "size": 0.7],
+        "campfire":       ["base_shape": "triangle", "color": "ember", "name": "Campfire", "size": 1.0, "glow": true],
+        "cozy_bed":       ["base_shape": "dome", "color": "dusk", "name": "Cozy Bed", "size": 1.2],
+        "cardboard_box":  ["base_shape": "box", "color": "bone", "name": "Cardboard Box", "size": 1.0],
+        "scratching_post":["base_shape": "pillar", "color": "bone", "name": "Scratching Post", "size": 1.0],
+        "music_box":      ["base_shape": "box", "color": "gilt", "name": "Music Box", "size": 0.7],
+        "little_mirror":  ["base_shape": "disc", "color": "bone", "name": "Mirror", "size": 0.6],
+        "crystal":        ["base_shape": "diamond", "color": "dusk", "name": "Crystal", "size": 0.8, "glow": true],
+        "flower":         ["base_shape": "star_shape", "color": "ember", "name": "Flower", "size": 0.5],
+        "treat":          ["base_shape": "sphere", "color": "gilt", "name": "Treat", "size": 0.4],
+        "fresh_fish":     ["base_shape": "disc", "color": "tide", "name": "Fresh Fish", "size": 0.6],
+        "milk_saucer":    ["base_shape": "disc", "color": "bone", "name": "Milk Saucer", "size": 0.8],
+        "fountain":       ["base_shape": "dome", "color": "tide", "name": "Fountain", "size": 1.0],
+        "lantern":        ["base_shape": "diamond", "color": "gilt", "name": "Lantern", "size": 0.6, "glow": true],
+        "mushroom":       ["base_shape": "dome", "color": "ember", "name": "Mushroom", "size": 0.6],
+        "tree":           ["base_shape": "triangle", "color": "moss", "name": "Tree", "size": 1.5],
+        "rock":           ["base_shape": "dome", "color": "ash", "name": "Rock", "size": 0.8],
+        "flag":           ["base_shape": "pillar", "color": "ember", "name": "Flag", "size": 1.0],
+        "bench":          ["base_shape": "box", "color": "ash", "name": "Bench", "size": 1.0],
+    ]
+
     private func handleWorldCreate(
         _ req: IPCRequest, gc: GameCoordinator
     ) -> IPCResult {
         let wm = gc.scene.worldManager
 
-        let shape = req.params["base_shape"] as? String
-            ?? req.params["shape"] as? String ?? "sphere"
+        // Resolve preset to shape/color/name defaults, then overlay user params
+        var resolvedParams = req.params
+        if let preset = req.params["preset"] as? String,
+           let defaults = Self.presets[preset] {
+            // Preset provides defaults; user params override
+            for (key, value) in defaults {
+                if resolvedParams[key] == nil {
+                    resolvedParams[key] = value
+                }
+            }
+        }
+
+        let shape = resolvedParams["base_shape"] as? String
+            ?? resolvedParams["shape"] as? String ?? "sphere"
 
         var result: (info: ObjectInfo, error: String?)?
         DispatchQueue.main.sync {
-            result = wm.createObject(params: req.params)
+            result = wm.createObject(params: resolvedParams)
         }
 
         guard let created = result else {
