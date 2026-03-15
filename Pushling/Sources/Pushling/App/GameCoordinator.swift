@@ -42,6 +42,17 @@ final class GameCoordinator {
     let voiceIntegration: VoiceIntegration
     let eatingAnimation: CommitEatingAnimation
 
+    // MARK: - Nurture Engines
+
+    let habitEngine: HabitEngine
+    let preferenceEngine: PreferenceEngine
+    let quirkEngine: QuirkEngine
+    let routineEngine: RoutineEngine
+
+    // MARK: - Hatching State
+
+    private(set) var isHatched: Bool = true
+
     // MARK: - Throttle Timers
 
     private var emotionUpdateAccumulator: TimeInterval = 0
@@ -107,7 +118,17 @@ final class GameCoordinator {
         // --- Commit Eating ---
         self.eatingAnimation = CommitEatingAnimation()
 
+        // --- O. Nurture Engines ---
+        self.habitEngine = HabitEngine()
+        self.preferenceEngine = PreferenceEngine()
+        self.quirkEngine = QuirkEngine()
+        self.routineEngine = RoutineEngine()
+
+        // --- Hatching State ---
+        self.isHatched = Self.loadHatched(from: db)
+
         // === Wire everything together ===
+        wireHatching()
         wireEmotionsAndPersonality()
         wireFeedProcessor()
         wireSpeech()
@@ -118,13 +139,16 @@ final class GameCoordinator {
         wireVoice()
         wireCommandRouter()
         wireEatingAnimation()
+        wireNurture()
 
         // Start subsystems
         feedProcessor.start()
 
         NSLog("[Pushling/Coordinator] GameCoordinator initialized — "
-              + "all subsystems wired. Stage: %@, Name: %@, XP: %d",
-              "\(creatureStage)", creatureName, totalXP)
+              + "all subsystems wired. Stage: %@, Name: %@, XP: %d, "
+              + "Hatched: %@",
+              "\(creatureStage)", creatureName, totalXP,
+              isHatched ? "yes" : "no")
     }
 
     // MARK: - Per-Frame Update
@@ -191,6 +215,23 @@ final class GameCoordinator {
         NSLog("[Pushling/Coordinator] GameCoordinator shut down")
     }
 
+    // MARK: - Wiring: Hatching (Gap 1)
+
+    private func wireHatching() {
+        if !isHatched {
+            // Creature has never hatched — start as spore with defaults.
+            // The full 30-second HatchingCeremony requires scene orchestration
+            // that will be wired in a future pass. For now, set stage from DB
+            // (defaults to .critter if no row exists) and log the state.
+            NSLog("[Pushling/Coordinator] Creature not yet hatched — "
+                  + "stage: %@. Full hatching ceremony not yet wired.",
+                  "\(creatureStage)")
+        } else {
+            NSLog("[Pushling/Coordinator] Creature already hatched — "
+                  + "stage: %@", "\(creatureStage)")
+        }
+    }
+
     // MARK: - Wiring: Emotions & Personality (A+B)
 
     private func wireEmotionsAndPersonality() {
@@ -201,8 +242,11 @@ final class GameCoordinator {
             stack.stage = creatureStage
         }
 
-        // Configure creature node for correct stage
+        // Configure creature node for correct stage (Gap 2: from DB, not hardcoded)
         scene.creatureNode?.configureForStage(creatureStage)
+
+        // Update world visual complexity for the real stage (Gap 6)
+        scene.worldManager.onStageChanged(creatureStage)
 
         // Emotional persistence callback
         emotionalState.onPersist = { [weak self] snapshot in
@@ -277,6 +321,29 @@ final class GameCoordinator {
                     xpToNext: 100,
                     stage: self.creatureStage
                 )
+
+                // Mutation badge check on commit (Gap 4)
+                let commitMessage = commitData["message"] as? String ?? ""
+                let languages = commitData["languages"] as? [String] ?? []
+                let hasTestFiles = languages.contains { ext in
+                    ext.contains("test") || ext.contains("spec")
+                }
+                let badgeData = CommitBadgeData(
+                    timestamp: Date(),
+                    languages: languages,
+                    messageLength: commitMessage.count,
+                    hasTestFiles: hasTestFiles,
+                    touchesOldFiles: false,
+                    currentStreakDays: 0,
+                    todayCommitCount: 0
+                )
+                self.mutationSystem.checkOnCommit(
+                    commitData: badgeData,
+                    queryProvider: self.stateCoordinator
+                )
+
+                // Voice integration: track commit eaten
+                self.voiceIntegration.onCommitEaten()
             }
         }
 
@@ -299,6 +366,22 @@ final class GameCoordinator {
                 speechCache: speechCache,
                 narrationOverlay: narrationOverlay
             )
+        }
+
+        // Apex world-shaping: speech triggers weather (Gap 7)
+        speechCoordinator.onWorldShapeEffect = { [weak self] effect, trigger in
+            guard let self = self else { return }
+            NSLog("[Pushling/Coordinator] World-shape effect: '%@' "
+                  + "(trigger: '%@')", effect, trigger)
+            if let weather = WeatherState(rawValue: effect) {
+                self.scene.worldManager.debugForceWeather(weather)
+            }
+        }
+
+        // Eating animation speech reaction (Gap 7)
+        eatingAnimation.onSpeechReaction = { [weak self] reaction in
+            guard let self = self else { return }
+            self.speechCoordinator.speakCommitReaction(reaction: reaction)
         }
 
         NSLog("[Pushling/Coordinator] Speech system wired")
@@ -368,18 +451,6 @@ final class GameCoordinator {
         NSLog("[Pushling/Coordinator] Input system wired")
     }
 
-    // MARK: - Wiring: Mutations (M)
-
-    private func wireMutations() {
-        mutationSystem.onBadgeEarned = { badge, isFirst in
-            NSLog("[Pushling/Coordinator] Badge earned: %@ (first: %@)",
-                  badge.displayName, isFirst ? "yes" : "no")
-            // TODO: Trigger badge ceremony animation
-        }
-
-        NSLog("[Pushling/Coordinator] Mutation system wired")
-    }
-
     // MARK: - Wiring: Voice (N)
 
     private func wireVoice() {
@@ -389,6 +460,14 @@ final class GameCoordinator {
                                      personality: personality.toSnapshot(),
                                      commitsEaten: totalXP)
         voiceIntegration.attach(to: speechCoordinator)
+
+        // Bridge SpeechCoordinator -> VoiceIntegration (Gap 3)
+        speechCoordinator.onSpeechRendered = {
+            [weak self] text, style, stage, source in
+            self?.voiceIntegration.onSpeech(
+                text: text, style: style, stage: stage, source: source
+            )
+        }
 
         NSLog("[Pushling/Coordinator] Voice system wired")
     }
@@ -411,78 +490,4 @@ final class GameCoordinator {
         NSLog("[Pushling/Coordinator] Eating animation wired")
     }
 
-    // MARK: - Helpers
-
-    /// Syncs current creature state to the touch handler.
-    private func syncTouchHandlerState() {
-        guard let creature = scene.creatureNode else { return }
-        let frame = creature.calculateAccumulatedFrame()
-        creatureTouchHandler.creatureHitbox = frame
-        touchTracker.creatureHitbox = frame
-        gestureRecognizer.creatureHitbox = frame
-        creatureTouchHandler.creatureStage = creatureStage
-        creatureTouchHandler.personalityEnergy = personality.energy
-        creatureTouchHandler.isSleeping =
-            scene.behaviorStack?.physics.isSleeping ?? false
-    }
-
-    /// Builds a SurpriseContext snapshot for the surprise scheduler.
-    private func buildSurpriseContext() -> SurpriseContext {
-        let sm = commandRouter.sessionManager
-        return SurpriseContext(
-            wallClock: Date(),
-            sceneTime: CACurrentMediaTime(),
-            stage: creatureStage,
-            personality: personality.toSnapshot(),
-            emotions: emotionalState.toSnapshot(),
-            isSleeping: scene.behaviorStack?.physics.isSleeping ?? false,
-            creatureName: creatureName,
-            lastCommitMessage: nil,  // TODO: Track from feed processor
-            lastCommitBranch: nil,
-            lastCommitLanguages: nil,
-            lastCommitTimestamp: nil,
-            totalCommitsEaten: totalXP,
-            streakDays: 0,  // TODO: Load from DB
-            weather: "clear",
-            hasCompanion: false,
-            companionType: nil,
-            placedObjects: [],
-            isClaudeSessionActive: sm.isSessionActive,
-            sessionDurationMinutes: 0,
-            recentToolUseCount: 0,
-            lastTouchTimestamp: nil,
-            lastMCPTimestamp: nil
-        )
-    }
-
-    // MARK: - DB Helpers
-
-    private static func loadStage(from db: DatabaseManager) -> GrowthStage {
-        let rows = (try? db.query("SELECT stage FROM creature WHERE id = 1")) ?? []
-        guard let name = rows.first?["stage"] as? String else { return .critter }
-        return GrowthStage.allCases.first { "\($0)" == name } ?? .critter
-    }
-
-    private static func loadCreatureName(from db: DatabaseManager) -> String {
-        let rows = (try? db.query("SELECT name FROM creature WHERE id = 1")) ?? []
-        return (rows.first?["name"] as? String) ?? "Pushling"
-    }
-
-    private static func loadXP(from db: DatabaseManager) -> Int {
-        let rows = (try? db.query("SELECT total_xp FROM creature WHERE id = 1")) ?? []
-        return (rows.first?["total_xp"] as? Int) ?? 0
-    }
-
-    private static func loadCircadian(from db: DatabaseManager) -> CircadianCycle {
-        let rows = (try? db.query(
-            "SELECT circadian_histogram, circadian_days_tracked FROM creature WHERE id = 1"
-        )) ?? []
-        guard let row = rows.first,
-              let json = row["circadian_histogram"] as? String,
-              let days = row["circadian_days_tracked"] as? Int else {
-            return CircadianCycle()
-        }
-        return CircadianCycle(histogram: CircadianCycle.histogramFrom(json: json),
-                               daysTracked: days)
-    }
 }

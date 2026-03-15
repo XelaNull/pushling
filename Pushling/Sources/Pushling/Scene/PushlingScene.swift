@@ -568,16 +568,25 @@ final class PushlingScene: SKScene {
         return a
     }()
 
-    /// Speech coordinator — lazily created, configured on first use.
-    private(set) lazy var debugSpeechCoordinator: SpeechCoordinator = {
-        let s = SpeechCoordinator()
-        if let c = creatureNode {
-            s.configure(creature: c, stage: c.currentStage,
-                        personality: .neutral, creatureName: "Pushling",
-                        speechCache: nil, narrationOverlay: nil)
+    /// Speech coordinator — uses production coordinator from GameCoordinator
+    /// when available, falls back to standalone instance (Gap 8).
+    var debugSpeechCoordinator: SpeechCoordinator {
+        if let gc = gameCoordinator {
+            return gc.speechCoordinator
         }
-        return s
-    }()
+        // Fallback for when GameCoordinator hasn't been set yet
+        if _fallbackSpeechCoordinator == nil {
+            let s = SpeechCoordinator()
+            if let c = creatureNode {
+                s.configure(creature: c, stage: c.currentStage,
+                            personality: .neutral, creatureName: "Pushling",
+                            speechCache: nil, narrationOverlay: nil)
+            }
+            _fallbackSpeechCoordinator = s
+        }
+        return _fallbackSpeechCoordinator!
+    }
+    private var _fallbackSpeechCoordinator: SpeechCoordinator?
 
     /// XP tracking for debug batch feeds.
     var debugXP: Int = 45

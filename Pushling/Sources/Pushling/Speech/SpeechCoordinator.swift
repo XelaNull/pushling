@@ -198,6 +198,14 @@ final class SpeechCoordinator {
             emotion: filterResult.emotion
         )
 
+        // Notify voice integration that speech was rendered (Gap 3)
+        onSpeechRendered?(
+            filterResult.filteredText,
+            request.style,
+            currentStage,
+            request.source
+        )
+
         // Check for Apex world-shaping
         if currentStage == .apex && request.source == .ai {
             checkWorldShaping(text: filterResult.filteredText)
@@ -430,6 +438,12 @@ final class SpeechCoordinator {
 
     /// Callback for world-shaping effects. Set by the scene.
     var onWorldShapeEffect: ((_ effect: String, _ triggerWord: String) -> Void)?
+
+    /// Callback when speech is rendered — bridges to VoiceIntegration (Gap 3).
+    /// Parameters: (text, style rawValue, stage)
+    var onSpeechRendered: ((_ text: String, _ style: SpeechStyle,
+                            _ stage: GrowthStage,
+                            _ source: UtteranceSource) -> Void)?
 
     // MARK: - First Word Ceremony
 
