@@ -34,11 +34,7 @@ extension CommandRouter {
         case "list":
             return handleWorldList(gc: gc)
         case "sound":
-            return .failure(
-                error: "Ambient sound system is not yet integrated. "
-                    + "Use 'speak' for creature sounds.",
-                code: "NOT_IMPLEMENTED"
-            )
+            return handleWorldSound(req, gc: gc)
         case "companion":
             return handleWorldCompanion(req, gc: gc)
         default:
@@ -178,6 +174,63 @@ extension CommandRouter {
         return .success([
             "period": periodStr,
             "note": "Sky time overridden to \(periodStr). Use 'period: auto' to restore."
+        ])
+    }
+
+    // MARK: - Ambient Sound
+
+    private func handleWorldSound(
+        _ req: IPCRequest, gc: GameCoordinator
+    ) -> IPCResult {
+        let wm = gc.scene.worldManager
+
+        guard let typeStr = req.params["type"] as? String else {
+            let valid = SoundType.allCases
+                .map(\.rawValue).joined(separator: ", ")
+            let active = wm.soundSystem.activeSounds
+                .map(\.rawValue).joined(separator: ", ")
+            return .success([
+                "active_sounds": active.isEmpty ? "none" : active,
+                "valid_types": valid,
+                "note": "Pass 'type' to play a sound. "
+                    + "Pass 'action: stop' to stop a sound."
+            ])
+        }
+
+        guard let soundType = SoundType(rawValue: typeStr) else {
+            let valid = SoundType.allCases
+                .map(\.rawValue).joined(separator: ", ")
+            return .failure(
+                error: "Unknown sound type '\(typeStr)'. Valid: \(valid)",
+                code: "INVALID_PARAMS"
+            )
+        }
+
+        let actionStr = req.params["action"] as? String ?? "play"
+        guard let action = SoundAction(rawValue: actionStr) else {
+            return .failure(
+                error: "Unknown sound action '\(actionStr)'. "
+                    + "Valid: play, stop",
+                code: "INVALID_PARAMS"
+            )
+        }
+
+        DispatchQueue.main.async {
+            wm.playSound(soundType, action: action)
+        }
+
+        let verb = action == .play ? "Playing" : "Stopping"
+        let loopNote = soundType.isLooping
+            ? " (loops until stopped)" : " (one-shot)"
+
+        journalLog(gc, type: "world_change",
+                   summary: "\(verb) ambient sound: \(typeStr)")
+
+        return .success([
+            "sound": typeStr,
+            "action": actionStr,
+            "looping": soundType.isLooping,
+            "note": "\(verb) '\(typeStr)'\(loopNote)."
         ])
     }
 

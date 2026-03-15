@@ -1,0 +1,546 @@
+#!/usr/bin/env bash
+# pushling-voice-setup — Downloads TTS models for Pushling voice system
+#
+# Downloads 3 tiers of TTS models that enable the creature to speak:
+#   Tier 1: espeak-ng VITS (~16MB) — babble sounds for Drop stage
+#   Tier 2: Piper TTS low (~16MB)  — emerging speech for Critter stage
+#   Tier 3: Kokoro-82M  (~80MB)    — clear speech for Beast+ stages
+#
+# Models are sourced from k2-fsa/sherpa-onnx GitHub releases (pinned).
+# All downloads go to ~/.local/share/pushling/voice/models/
+#
+# Usage:
+#   ./bin/pushling-voice-setup              Download all tiers (~100MB)
+#   ./bin/pushling-voice-setup --all        Same as above
+#   ./bin/pushling-voice-setup --tier1-only Just espeak-ng babble (~16MB)
+#   ./bin/pushling-voice-setup --tier2      Tiers 1 + 2 (~32MB)
+#   ./bin/pushling-voice-setup --status     Show what's installed
+#   ./bin/pushling-voice-setup --clean      Remove all models and re-download
+
+set -euo pipefail
+
+# ============================================================================
+# Constants
+# ============================================================================
+
+readonly VOICE_DIR="$HOME/.local/share/pushling/voice/models"
+readonly TMP_DIR="$HOME/.local/share/pushling/voice/.tmp"
+
+# --- Pinned download URLs (sherpa-onnx tts-models release) ---
+# These are stable URLs from the k2-fsa/sherpa-onnx GitHub releases.
+# Tier 1 + 2: Piper VITS model (en_US-amy-low) — includes espeak-ng-data
+readonly PIPER_ARCHIVE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-amy-low.tar.bz2"
+readonly PIPER_ARCHIVE_NAME="vits-piper-en_US-amy-low.tar.bz2"
+readonly PIPER_EXTRACT_DIR="vits-piper-en_US-amy-low"
+
+# Tier 3: Kokoro multilingual v1.0 — includes model.onnx, voices.bin, tokens.txt, espeak-ng-data
+readonly KOKORO_ARCHIVE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2"
+readonly KOKORO_ARCHIVE_NAME="kokoro-multi-lang-v1_0.tar.bz2"
+readonly KOKORO_EXTRACT_DIR="kokoro-multi-lang-v1_0"
+
+# --- Expected file sizes (bytes, approximate minimums for validation) ---
+readonly PIPER_MODEL_MIN_SIZE=10000000    # ~10MB minimum for en_US-amy-low.onnx
+readonly KOKORO_MODEL_MIN_SIZE=50000000   # ~50MB minimum for kokoro model.onnx
+readonly ESPEAK_DATA_MIN_FILES=10         # espeak-ng-data should have many files
+
+# ============================================================================
+# Colors & Output
+# ============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+log_info()    { echo -e "${CYAN}[voice-setup]${NC} $1"; }
+log_ok()      { echo -e "${GREEN}[voice-setup]${NC} $1"; }
+log_warn()    { echo -e "${YELLOW}[voice-setup]${NC} $1"; }
+log_error()   { echo -e "${RED}[voice-setup]${NC} $1" >&2; }
+log_step()    { echo -e "${MAGENTA}[voice-setup]${NC} ${BOLD}$1${NC}"; }
+log_detail()  { echo -e "             ${DIM}$1${NC}"; }
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+# Check if a command exists
+has_cmd() { command -v "$1" &>/dev/null; }
+
+# Get file size in bytes (cross-platform)
+file_size() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        stat -f%z "$1" 2>/dev/null || echo 0
+    else
+        stat -c%s "$1" 2>/dev/null || echo 0
+    fi
+}
+
+# Count files in a directory recursively
+count_files() {
+    find "$1" -type f 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Format bytes as human-readable
+human_size() {
+    local bytes=$1
+    if (( bytes >= 1073741824 )); then
+        echo "$(( bytes / 1073741824 ))GB"
+    elif (( bytes >= 1048576 )); then
+        echo "$(( bytes / 1048576 ))MB"
+    elif (( bytes >= 1024 )); then
+        echo "$(( bytes / 1024 ))KB"
+    else
+        echo "${bytes}B"
+    fi
+}
+
+# Download a file with progress, retrying on failure
+download_file() {
+    local url="$1"
+    local output="$2"
+    local description="$3"
+
+    log_info "Downloading ${BOLD}${description}${NC}..."
+    log_detail "URL: $url"
+    log_detail "To:  $output"
+
+    local curl_args=(-fSL --progress-bar -o "$output")
+
+    # Retry up to 3 times
+    local attempt=0
+    local max_attempts=3
+    while (( attempt < max_attempts )); do
+        attempt=$((attempt + 1))
+        if curl "${curl_args[@]}" "$url" 2>&1; then
+            return 0
+        fi
+        if (( attempt < max_attempts )); then
+            log_warn "Download failed (attempt $attempt/$max_attempts), retrying in 3s..."
+            sleep 3
+        fi
+    done
+
+    log_error "Failed to download $description after $max_attempts attempts"
+    rm -f "$output"
+    return 1
+}
+
+# Verify a file exists and meets minimum size
+verify_file() {
+    local path="$1"
+    local min_size="$2"
+    local description="$3"
+
+    if [[ ! -e "$path" ]]; then
+        log_error "Missing: $description ($path)"
+        return 1
+    fi
+
+    if [[ -f "$path" ]]; then
+        local size
+        size=$(file_size "$path")
+        if (( size < min_size )); then
+            log_error "$description is too small ($(human_size "$size"), expected >$(human_size "$min_size"))"
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# ============================================================================
+# Tier Installation Functions
+# ============================================================================
+
+install_piper_archive() {
+    # Downloads and extracts the Piper model archive.
+    # This archive is used for both Tier 1 (espeak-ng babble) and Tier 2 (Piper emerging).
+    # Contents: en_US-amy-low.onnx, tokens.txt, espeak-ng-data/
+
+    local archive_path="$TMP_DIR/$PIPER_ARCHIVE_NAME"
+
+    # Skip if archive is already extracted and valid
+    if [[ -d "$TMP_DIR/$PIPER_EXTRACT_DIR" ]] \
+        && [[ -f "$TMP_DIR/$PIPER_EXTRACT_DIR/en_US-amy-low.onnx" ]]; then
+        log_info "Piper archive already extracted, reusing"
+        return 0
+    fi
+
+    download_file "$PIPER_ARCHIVE_URL" "$archive_path" "Piper VITS model (en_US-amy-low)"
+
+    log_info "Extracting Piper archive..."
+    tar xf "$archive_path" -C "$TMP_DIR"
+
+    if [[ ! -d "$TMP_DIR/$PIPER_EXTRACT_DIR" ]]; then
+        log_error "Archive extraction failed — expected directory: $PIPER_EXTRACT_DIR"
+        return 1
+    fi
+
+    # Clean up archive
+    rm -f "$archive_path"
+    log_ok "Piper archive extracted"
+}
+
+install_tier1() {
+    # Tier 1: espeak-ng babble (Drop stage)
+    # Uses the Piper VITS model with extreme pitch/rate settings for babble.
+    # Files: model.onnx (symlink to piper), tokens.txt (copy), espeak-ng-data/ (symlink)
+
+    log_step "Tier 1: espeak-ng babble (Drop stage)"
+
+    local espeak_dir="$VOICE_DIR/espeak-ng"
+    mkdir -p "$espeak_dir"
+
+    # Check if already installed and valid
+    if [[ -f "$espeak_dir/model.onnx" ]] \
+        && [[ -f "$espeak_dir/tokens.txt" ]] \
+        && [[ -d "$espeak_dir/espeak-ng-data" ]]; then
+        local model_size
+        model_size=$(file_size "$espeak_dir/model.onnx")
+        if (( model_size > PIPER_MODEL_MIN_SIZE )); then
+            log_ok "Tier 1 already installed ($(human_size "$model_size"))"
+            return 0
+        fi
+    fi
+
+    # Ensure Piper archive is downloaded and extracted
+    install_piper_archive
+
+    local src="$TMP_DIR/$PIPER_EXTRACT_DIR"
+
+    # Copy model.onnx (we copy rather than symlink so each tier is self-contained
+    # and can be deleted independently, but espeak-ng-data is shared via symlink)
+    cp "$src/en_US-amy-low.onnx" "$espeak_dir/model.onnx"
+    cp "$src/tokens.txt" "$espeak_dir/tokens.txt"
+
+    # Copy espeak-ng-data directory
+    if [[ -d "$src/espeak-ng-data" ]]; then
+        rm -rf "$espeak_dir/espeak-ng-data"
+        cp -R "$src/espeak-ng-data" "$espeak_dir/espeak-ng-data"
+    fi
+
+    # Verify
+    verify_file "$espeak_dir/model.onnx" "$PIPER_MODEL_MIN_SIZE" "espeak-ng model" || return 1
+    verify_file "$espeak_dir/tokens.txt" 100 "espeak-ng tokens" || return 1
+
+    local data_count
+    data_count=$(count_files "$espeak_dir/espeak-ng-data")
+    if (( data_count < ESPEAK_DATA_MIN_FILES )); then
+        log_error "espeak-ng-data has too few files ($data_count, expected >$ESPEAK_DATA_MIN_FILES)"
+        return 1
+    fi
+
+    log_ok "Tier 1 installed: espeak-ng babble ready"
+    log_detail "Model: $espeak_dir/model.onnx ($(human_size "$(file_size "$espeak_dir/model.onnx")"))"
+    log_detail "Data:  $espeak_dir/espeak-ng-data/ ($data_count files)"
+}
+
+install_tier2() {
+    # Tier 2: Piper TTS low (Critter stage)
+    # Uses en_US-amy-low VITS model for emerging speech.
+    # Files: en_US-amy-low.onnx, tokens.txt, espeak-ng-data/
+
+    log_step "Tier 2: Piper TTS emerging speech (Critter stage)"
+
+    local piper_dir="$VOICE_DIR/piper"
+    mkdir -p "$piper_dir"
+
+    # Check if already installed and valid
+    if [[ -f "$piper_dir/en_US-amy-low.onnx" ]] \
+        && [[ -f "$piper_dir/tokens.txt" ]] \
+        && [[ -d "$piper_dir/espeak-ng-data" ]]; then
+        local model_size
+        model_size=$(file_size "$piper_dir/en_US-amy-low.onnx")
+        if (( model_size > PIPER_MODEL_MIN_SIZE )); then
+            log_ok "Tier 2 already installed ($(human_size "$model_size"))"
+            return 0
+        fi
+    fi
+
+    # Ensure Piper archive is downloaded and extracted
+    install_piper_archive
+
+    local src="$TMP_DIR/$PIPER_EXTRACT_DIR"
+
+    # Copy model and tokens
+    cp "$src/en_US-amy-low.onnx" "$piper_dir/en_US-amy-low.onnx"
+    cp "$src/tokens.txt" "$piper_dir/tokens.txt"
+
+    # Symlink espeak-ng-data from Tier 1 if it exists, otherwise copy
+    if [[ -d "$VOICE_DIR/espeak-ng/espeak-ng-data" ]]; then
+        rm -rf "$piper_dir/espeak-ng-data"
+        ln -s "$VOICE_DIR/espeak-ng/espeak-ng-data" "$piper_dir/espeak-ng-data"
+        log_detail "espeak-ng-data: symlinked from Tier 1"
+    elif [[ -d "$src/espeak-ng-data" ]]; then
+        rm -rf "$piper_dir/espeak-ng-data"
+        cp -R "$src/espeak-ng-data" "$piper_dir/espeak-ng-data"
+    fi
+
+    # Verify
+    verify_file "$piper_dir/en_US-amy-low.onnx" "$PIPER_MODEL_MIN_SIZE" "Piper model" || return 1
+    verify_file "$piper_dir/tokens.txt" 100 "Piper tokens" || return 1
+
+    log_ok "Tier 2 installed: Piper emerging speech ready"
+    log_detail "Model: $piper_dir/en_US-amy-low.onnx ($(human_size "$(file_size "$piper_dir/en_US-amy-low.onnx")"))"
+}
+
+install_tier3() {
+    # Tier 3: Kokoro-82M (Beast+ stages)
+    # Uses Kokoro multilingual v1.0 for clear, expressive speech.
+    # Files: model.onnx, voices.bin, tokens.txt, espeak-ng-data/
+
+    log_step "Tier 3: Kokoro-82M clear speech (Beast+ stages)"
+
+    local kokoro_dir="$VOICE_DIR/kokoro"
+    mkdir -p "$kokoro_dir"
+
+    # Check if already installed and valid
+    if [[ -f "$kokoro_dir/model.onnx" ]] \
+        && [[ -f "$kokoro_dir/voices.bin" ]] \
+        && [[ -f "$kokoro_dir/tokens.txt" ]] \
+        && [[ -d "$kokoro_dir/espeak-ng-data" ]]; then
+        local model_size
+        model_size=$(file_size "$kokoro_dir/model.onnx")
+        if (( model_size > KOKORO_MODEL_MIN_SIZE )); then
+            log_ok "Tier 3 already installed ($(human_size "$model_size"))"
+            return 0
+        fi
+    fi
+
+    local archive_path="$TMP_DIR/$KOKORO_ARCHIVE_NAME"
+
+    # Download Kokoro archive
+    if [[ -d "$TMP_DIR/$KOKORO_EXTRACT_DIR" ]] \
+        && [[ -f "$TMP_DIR/$KOKORO_EXTRACT_DIR/model.onnx" ]]; then
+        log_info "Kokoro archive already extracted, reusing"
+    else
+        download_file "$KOKORO_ARCHIVE_URL" "$archive_path" "Kokoro-82M model"
+
+        log_info "Extracting Kokoro archive..."
+        tar xf "$archive_path" -C "$TMP_DIR"
+
+        if [[ ! -d "$TMP_DIR/$KOKORO_EXTRACT_DIR" ]]; then
+            log_error "Archive extraction failed — expected directory: $KOKORO_EXTRACT_DIR"
+            return 1
+        fi
+
+        rm -f "$archive_path"
+        log_ok "Kokoro archive extracted"
+    fi
+
+    local src="$TMP_DIR/$KOKORO_EXTRACT_DIR"
+
+    # Copy core model files
+    cp "$src/model.onnx" "$kokoro_dir/model.onnx"
+    cp "$src/voices.bin" "$kokoro_dir/voices.bin"
+    cp "$src/tokens.txt" "$kokoro_dir/tokens.txt"
+
+    # Symlink espeak-ng-data from Tier 1 if it exists, otherwise copy from Kokoro's own
+    if [[ -d "$VOICE_DIR/espeak-ng/espeak-ng-data" ]]; then
+        rm -rf "$kokoro_dir/espeak-ng-data"
+        ln -s "$VOICE_DIR/espeak-ng/espeak-ng-data" "$kokoro_dir/espeak-ng-data"
+        log_detail "espeak-ng-data: symlinked from Tier 1"
+    elif [[ -d "$src/espeak-ng-data" ]]; then
+        rm -rf "$kokoro_dir/espeak-ng-data"
+        cp -R "$src/espeak-ng-data" "$kokoro_dir/espeak-ng-data"
+    fi
+
+    # Copy optional lexicon files (useful for better pronunciation)
+    for f in "$src"/lexicon-*.txt; do
+        [[ -f "$f" ]] && cp "$f" "$kokoro_dir/"
+    done
+
+    # Verify
+    verify_file "$kokoro_dir/model.onnx" "$KOKORO_MODEL_MIN_SIZE" "Kokoro model" || return 1
+    verify_file "$kokoro_dir/voices.bin" 1000 "Kokoro voices" || return 1
+    verify_file "$kokoro_dir/tokens.txt" 100 "Kokoro tokens" || return 1
+
+    log_ok "Tier 3 installed: Kokoro clear speech ready"
+    log_detail "Model:  $kokoro_dir/model.onnx ($(human_size "$(file_size "$kokoro_dir/model.onnx")"))"
+    log_detail "Voices: $kokoro_dir/voices.bin ($(human_size "$(file_size "$kokoro_dir/voices.bin")"))"
+}
+
+# ============================================================================
+# Status Report
+# ============================================================================
+
+show_status() {
+    echo ""
+    echo -e "${BOLD}Pushling Voice Models${NC}"
+    echo -e "${DIM}Directory: $VOICE_DIR${NC}"
+    echo ""
+
+    local total_size=0
+
+    # Tier 1: espeak-ng
+    local espeak_dir="$VOICE_DIR/espeak-ng"
+    if [[ -f "$espeak_dir/model.onnx" ]] && [[ -d "$espeak_dir/espeak-ng-data" ]]; then
+        local size
+        size=$(file_size "$espeak_dir/model.onnx")
+        total_size=$((total_size + size))
+        echo -e "  ${GREEN}[installed]${NC} Tier 1: espeak-ng babble   ($(human_size "$size") model)"
+    else
+        echo -e "  ${RED}[missing]${NC}   Tier 1: espeak-ng babble"
+    fi
+
+    # Tier 2: Piper
+    local piper_dir="$VOICE_DIR/piper"
+    if [[ -f "$piper_dir/en_US-amy-low.onnx" ]] && [[ -f "$piper_dir/tokens.txt" ]]; then
+        local size
+        size=$(file_size "$piper_dir/en_US-amy-low.onnx")
+        total_size=$((total_size + size))
+        echo -e "  ${GREEN}[installed]${NC} Tier 2: Piper emerging     ($(human_size "$size") model)"
+    else
+        echo -e "  ${RED}[missing]${NC}   Tier 2: Piper emerging speech"
+    fi
+
+    # Tier 3: Kokoro
+    local kokoro_dir="$VOICE_DIR/kokoro"
+    if [[ -f "$kokoro_dir/model.onnx" ]] && [[ -f "$kokoro_dir/voices.bin" ]]; then
+        local size
+        size=$(file_size "$kokoro_dir/model.onnx")
+        total_size=$((total_size + size))
+        echo -e "  ${GREEN}[installed]${NC} Tier 3: Kokoro clear speech ($(human_size "$size") model)"
+    else
+        echo -e "  ${RED}[missing]${NC}   Tier 3: Kokoro clear speech"
+    fi
+
+    echo ""
+    if (( total_size > 0 )); then
+        echo -e "  ${DIM}Total model size: $(human_size "$total_size")${NC}"
+    fi
+    echo ""
+}
+
+# ============================================================================
+# Cleanup
+# ============================================================================
+
+clean_models() {
+    log_warn "Removing all voice models..."
+    rm -rf "$VOICE_DIR"
+    rm -rf "$TMP_DIR"
+    log_ok "All voice models removed"
+}
+
+cleanup_tmp() {
+    if [[ -d "$TMP_DIR" ]]; then
+        rm -rf "$TMP_DIR"
+    fi
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+main() {
+    local mode="${1:---all}"
+
+    # Check prerequisites
+    if ! has_cmd curl; then
+        log_error "curl is required but not found. Install it with: brew install curl"
+        exit 1
+    fi
+
+    if ! has_cmd tar; then
+        log_error "tar is required but not found."
+        exit 1
+    fi
+
+    case "$mode" in
+        --status)
+            show_status
+            exit 0
+            ;;
+        --clean)
+            clean_models
+            mode="--all"
+            ;;
+    esac
+
+    echo ""
+    echo -e "${BOLD}Pushling Voice Setup${NC}"
+    echo -e "${DIM}Downloading TTS models so your creature can learn to speak${NC}"
+    echo ""
+
+    # Create directories
+    mkdir -p "$VOICE_DIR" "$TMP_DIR"
+
+    # Set up cleanup trap
+    trap cleanup_tmp EXIT
+
+    local failed=0
+    local start_time
+    start_time=$(date +%s)
+
+    case "$mode" in
+        --tier1-only)
+            log_info "Mode: Tier 1 only (espeak-ng babble, ~16MB)"
+            echo ""
+            install_tier1 || failed=1
+            ;;
+        --tier2)
+            log_info "Mode: Tiers 1 + 2 (babble + emerging speech, ~32MB)"
+            echo ""
+            install_tier1 || failed=1
+            install_tier2 || failed=1
+            ;;
+        --all|"")
+            log_info "Mode: All tiers (babble + emerging + clear speech, ~100MB)"
+            echo ""
+            install_tier1 || failed=1
+            install_tier2 || failed=1
+            install_tier3 || failed=1
+            ;;
+        --help|-h)
+            echo -e "${BOLD}Usage:${NC} pushling-voice-setup [option]"
+            echo ""
+            echo "Options:"
+            echo "  --all          Download all 3 tiers (~100MB) [default]"
+            echo "  --tier1-only   Just espeak-ng babble (~16MB)"
+            echo "  --tier2        Tiers 1 + 2 (~32MB)"
+            echo "  --status       Show installed models"
+            echo "  --clean        Remove all models and re-download"
+            echo "  --help         Show this help"
+            echo ""
+            echo "Model directory: $VOICE_DIR"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $mode"
+            echo "Run with --help for usage information"
+            exit 1
+            ;;
+    esac
+
+    local end_time
+    end_time=$(date +%s)
+    local elapsed=$((end_time - start_time))
+
+    echo ""
+    echo -e "${DIM}────────────────────────────────────────────────${NC}"
+
+    if (( failed == 0 )); then
+        echo ""
+        log_ok "Voice setup complete! (${elapsed}s)"
+        show_status
+        echo -e "${DIM}The creature will discover its voice as it grows:${NC}"
+        echo -e "${DIM}  Drop stage (20+ commits)   -> babble chirps${NC}"
+        echo -e "${DIM}  Critter stage (75+ commits) -> first words${NC}"
+        echo -e "${DIM}  Beast stage (200+ commits)  -> clear speech${NC}"
+        echo ""
+    else
+        echo ""
+        log_error "Some tiers failed to install. Run again to retry."
+        log_info "Successfully installed tiers will be skipped (idempotent)."
+        show_status
+        exit 1
+    fi
+}
+
+main "$@"

@@ -1,9 +1,10 @@
-// ModelManager.swift — TTS model discovery, validation, and lifecycle
+// ModelManager.swift — TTS model discovery, validation, and status
 // Checks for model files at ~/.local/share/pushling/voice/models/
-// Manages 3 model tiers: espeak-ng (~2MB), Piper (~16MB), Kokoro (~80MB).
+// Manages 3 model tiers: espeak-ng (~16MB), Piper (~16MB), Kokoro (~80MB).
 //
-// Models are expected to be pre-installed (bundled with app or placed
-// manually). Download stubs are provided for future on-demand fetching.
+// Download logic lives in ModelDownloader.swift (extension on this class).
+// Models can be pre-installed via `pushling voice download` or
+// `bin/pushling-voice-setup`, or downloaded on-demand via URLSession.
 //
 // The manager reports model status for each tier, enabling graceful
 // degradation: if Kokoro isn't present, the creature uses Piper.
@@ -17,7 +18,7 @@ import Foundation
 enum ModelStatus: String, CustomStringConvertible {
     case available    // Model files present and validated
     case missing      // Model files not found
-    case downloading  // Download in progress (future)
+    case downloading  // Download in progress
     case corrupted    // Files present but validation failed
     case incompatible // Wrong version or format
 
@@ -63,6 +64,9 @@ struct ModelTierInfo {
 /// Manages TTS model files on disk.
 /// Checks availability, validates integrity, and provides paths
 /// for the SherpaOnnxBridge to load.
+///
+/// Download capabilities are provided via extension in
+/// ModelDownloader.swift.
 final class ModelManager {
 
     // MARK: - Paths
@@ -106,10 +110,15 @@ final class ModelManager {
 
     /// The highest available tier.
     var highestAvailableTier: VoiceTier? {
-        // Prefer highest quality: speaking > emerging > babble
-        if tierStatus[.speaking]?.status.isUsable == true { return .speaking }
-        if tierStatus[.emerging]?.status.isUsable == true { return .emerging }
-        if tierStatus[.babble]?.status.isUsable == true { return .babble }
+        if tierStatus[.speaking]?.status.isUsable == true {
+            return .speaking
+        }
+        if tierStatus[.emerging]?.status.isUsable == true {
+            return .emerging
+        }
+        if tierStatus[.babble]?.status.isUsable == true {
+            return .babble
+        }
         return nil
     }
 
@@ -118,11 +127,61 @@ final class ModelManager {
         return highestAvailableTier != nil
     }
 
+    // MARK: - Download State (used by ModelDownloader.swift)
+
+    /// Download progress for a tier.
+    struct DownloadProgress {
+        let tier: VoiceTier
+        let bytesDownloaded: Int64
+        let totalBytes: Int64
+        var fraction: Double {
+            guard totalBytes > 0 else { return 0 }
+            return Double(bytesDownloaded) / Double(totalBytes)
+        }
+    }
+
+    /// Active download tasks keyed by tier.
+    private var activeDownloads: [VoiceTier: URLSessionDownloadTask] = [:]
+
+    /// Whether a download is in progress for a given tier.
+    func isDownloading(_ tier: VoiceTier) -> Bool {
+        return activeDownloads[tier] != nil
+    }
+
+    /// Set an active download task (called from ModelDownloader).
+    func setActiveDownload(
+        _ task: URLSessionDownloadTask, for tier: VoiceTier
+    ) {
+        activeDownloads[tier] = task
+    }
+
+    /// Clear an active download (called from ModelDownloader).
+    func clearActiveDownload(_ tier: VoiceTier) {
+        activeDownloads[tier] = nil
+    }
+
+    /// Update a tier's status in the cache.
+    func updateTierStatus(
+        _ tier: VoiceTier, to status: ModelStatus
+    ) {
+        if let info = tierStatus[tier] {
+            tierStatus[tier] = ModelTierInfo(
+                tier: info.tier, status: status,
+                directory: info.directory,
+                requiredFiles: info.requiredFiles,
+                presentFiles: info.presentFiles,
+                totalSizeBytes: info.totalSizeBytes,
+                estimatedDownloadMB: info.estimatedDownloadMB
+            )
+        }
+    }
+
     // MARK: - Initialization
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        self.modelsDirectory = "\(home)/.local/share/pushling/voice/models"
+        self.modelsDirectory =
+            "\(home)/.local/share/pushling/voice/models"
     }
 
     /// Initialize with a custom models directory (for testing).
@@ -139,7 +198,7 @@ final class ModelManager {
             tier: .babble,
             directory: espeakDir,
             requiredFiles: Self.espeakRequiredFiles,
-            estimatedDownloadMB: 2
+            estimatedDownloadMB: 16
         )
 
         tierStatus[.emerging] = scanTier(
@@ -174,7 +233,8 @@ final class ModelManager {
             return ModelTierInfo(
                 tier: tier, status: .missing, directory: directory,
                 requiredFiles: requiredFiles, presentFiles: [],
-                totalSizeBytes: 0, estimatedDownloadMB: estimatedDownloadMB
+                totalSizeBytes: 0,
+                estimatedDownloadMB: estimatedDownloadMB
             )
         }
 
@@ -190,21 +250,22 @@ final class ModelManager {
                 if isDir.boolValue {
                     totalSize += directorySize(path, fm: fm)
                 } else {
-                    if let attrs = try? fm.attributesOfItem(atPath: path),
-                       let size = attrs[.size] as? Int64 {
+                    if let attrs = try? fm.attributesOfItem(
+                        atPath: path
+                    ), let size = attrs[.size] as? Int64 {
                         totalSize += size
                     }
                 }
             }
         }
 
-        let allPresent = Set(requiredFiles).isSubset(of: Set(presentFiles))
+        let allPresent = Set(requiredFiles)
+            .isSubset(of: Set(presentFiles))
 
         // Validate model files (basic size check)
         let status: ModelStatus
         if allPresent {
             if totalSize < 1024 {
-                // Files exist but are suspiciously small
                 status = .corrupted
             } else {
                 status = .available
@@ -225,7 +286,9 @@ final class ModelManager {
     private func directorySize(
         _ path: String, fm: FileManager
     ) -> Int64 {
-        guard let enumerator = fm.enumerator(atPath: path) else { return 0 }
+        guard let enumerator = fm.enumerator(atPath: path) else {
+            return 0
+        }
         var total: Int64 = 0
         while let file = enumerator.nextObject() as? String {
             let filePath = "\(path)/\(file)"
@@ -272,7 +335,8 @@ final class ModelManager {
 
         for fallback in fallbackOrder {
             if tierStatus[fallback]?.status.isUsable == true {
-                NSLog("[Pushling/Voice/Models] Falling back from %@ to %@",
+                NSLog("[Pushling/Voice/Models] Falling back from"
+                      + " %@ to %@",
                       idealTier.rawValue, fallback.rawValue)
                 return fallback
             }
@@ -289,11 +353,17 @@ final class ModelManager {
 
         switch tier {
         case .babble:
-            return SherpaOnnxBridge.espeakConfig(modelDir: modelsDirectory)
+            return SherpaOnnxBridge.espeakConfig(
+                modelDir: modelsDirectory
+            )
         case .emerging:
-            return SherpaOnnxBridge.piperConfig(modelDir: modelsDirectory)
+            return SherpaOnnxBridge.piperConfig(
+                modelDir: modelsDirectory
+            )
         case .speaking:
-            return SherpaOnnxBridge.kokoroConfig(modelDir: modelsDirectory)
+            return SherpaOnnxBridge.kokoroConfig(
+                modelDir: modelsDirectory
+            )
         }
     }
 
@@ -309,46 +379,6 @@ final class ModelManager {
                 )
             }
         }
-    }
-
-    // MARK: - Download Stubs
-
-    /// Download status for a tier (future implementation).
-    struct DownloadProgress {
-        let tier: VoiceTier
-        let bytesDownloaded: Int64
-        let totalBytes: Int64
-        var fraction: Double {
-            guard totalBytes > 0 else { return 0 }
-            return Double(bytesDownloaded) / Double(totalBytes)
-        }
-    }
-
-    /// Request download of a model tier.
-    /// STUB: In the future, this will download from a CDN.
-    /// For now, logs the request and returns false.
-    func requestDownload(
-        tier: VoiceTier,
-        progress: @escaping (DownloadProgress) -> Void,
-        completion: @escaping (Bool) -> Void
-    ) {
-        NSLog("[Pushling/Voice/Models] Download requested for %@ "
-              + "(not yet implemented — place model files manually at %@)",
-              tier.rawValue, modelsDirectory)
-
-        // Update status to reflect the attempt
-        if var info = tierStatus[tier] {
-            tierStatus[tier] = ModelTierInfo(
-                tier: info.tier, status: .missing,
-                directory: info.directory,
-                requiredFiles: info.requiredFiles,
-                presentFiles: info.presentFiles,
-                totalSizeBytes: info.totalSizeBytes,
-                estimatedDownloadMB: info.estimatedDownloadMB
-            )
-        }
-
-        completion(false)
     }
 
     // MARK: - Status Report

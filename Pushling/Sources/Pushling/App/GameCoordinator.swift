@@ -15,10 +15,11 @@ final class GameCoordinator {
 
     // MARK: - Creature Identity
 
-    private(set) var personality: Personality = .neutral
-    private(set) var creatureStage: GrowthStage = .critter
-    private(set) var creatureName: String = "Pushling"
-    private(set) var totalXP: Int = 0
+    // internal(set) to allow GameCoordinator+Hatching.swift to write
+    internal var personality: Personality = .neutral
+    internal var creatureStage: GrowthStage = .critter
+    internal var creatureName: String = "Pushling"
+    internal var totalXP: Int = 0
 
     // MARK: - Subsystems
 
@@ -52,8 +53,12 @@ final class GameCoordinator {
     let nurtureDecayManager: NurtureDecayManager
 
     // MARK: - Hatching State
+    // internal setter to allow GameCoordinator+Hatching.swift to write
 
-    private(set) var isHatched: Bool = true
+    var isHatched: Bool = true
+
+    /// The active hatching ceremony reference (nil after completion).
+    var activeHatchingCeremony: HatchingCeremony?
 
     // MARK: - Throttle Timers
 
@@ -165,7 +170,11 @@ final class GameCoordinator {
     // MARK: - Per-Frame Update
 
     /// Called from PushlingScene.update() every frame.
+    /// Skipped during hatching — the scene gates its own update loop,
+    /// but guard here as well for safety.
     func update(deltaTime: TimeInterval) {
+        guard isHatched else { return }
+
         // 1. Emotions at 10Hz (not every frame)
         emotionUpdateAccumulator += deltaTime
         if emotionUpdateAccumulator >= Self.emotionUpdateInterval {
@@ -230,21 +239,7 @@ final class GameCoordinator {
     }
 
     // MARK: - Wiring: Hatching (Gap 1)
-
-    private func wireHatching() {
-        if !isHatched {
-            // Creature has never hatched — start as spore with defaults.
-            // The full 30-second HatchingCeremony requires scene orchestration
-            // that will be wired in a future pass. For now, set stage from DB
-            // (defaults to .critter if no row exists) and log the state.
-            NSLog("[Pushling/Coordinator] Creature not yet hatched — "
-                  + "stage: %@. Full hatching ceremony not yet wired.",
-                  "\(creatureStage)")
-        } else {
-            NSLog("[Pushling/Coordinator] Creature already hatched — "
-                  + "stage: %@", "\(creatureStage)")
-        }
-    }
+    // wireHatching() is in GameCoordinator+Hatching.swift
 
     // MARK: - Wiring: Emotions & Personality (A+B)
 

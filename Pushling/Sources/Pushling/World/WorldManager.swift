@@ -85,6 +85,11 @@ final class WorldManager {
     /// Owns RainRenderer, SnowRenderer, StormSystem, FogRenderer internally.
     let weatherSystem = WeatherSystem()
 
+    // MARK: - Sound Subsystem
+
+    /// Programmatic ambient sound synthesis (chime, purr, meow, wind, etc.).
+    let soundSystem = SoundSystem()
+
     // MARK: - World Object Subsystems
 
     /// Persistent world object renderer and manager.
@@ -107,6 +112,12 @@ final class WorldManager {
 
     /// Frame counter for periodic maintenance (eviction, etc.).
     private var frameCounter: Int = 0
+
+    /// Last weather state we synced sounds to.
+    private var lastSyncedWeather: WeatherState = .clear
+
+    /// Last time period we synced sounds to.
+    private var lastSyncedTimePeriod: TimePeriod?
 
     /// Whether the world has been set up.
     private(set) var isSetUp = false
@@ -225,16 +236,19 @@ final class WorldManager {
             self?.terrainHeightAt(worldX: worldX) ?? 4.0
         }
 
-        // 17. Setup world object renderer on foreground layer
+        // 17. Setup ambient sound system
+        soundSystem.setup()
+
+        // 18. Setup world object renderer on foreground layer
         if let foreLayer = parallax.foreLayer {
             objectRenderer.attach(to: foreLayer)
             companionSystem.attach(to: foreLayer)
         }
 
-        // 18. Load persisted objects from SQLite
+        // 19. Load persisted objects from SQLite
         loadObjectsFromDB()
 
-        // 19. Load persisted companion from SQLite
+        // 20. Load persisted companion from SQLite
         loadCompanionFromDB()
 
         isSetUp = true
@@ -299,6 +313,16 @@ final class WorldManager {
         // Periodic maintenance (every 30 frames ~ 0.5s at 60fps)
         if frameCounter % 30 == 0 {
             terrainGenerator.evictDistantChunks(centerWorldX: trackedX)
+
+            // Sync ambient sounds if weather or time period changed
+            let currentWeather = weatherSystem.currentState
+            let currentPeriod = skySystem.currentPeriod
+            if currentWeather != lastSyncedWeather
+                || currentPeriod != lastSyncedTimePeriod {
+                lastSyncedWeather = currentWeather
+                lastSyncedTimePeriod = currentPeriod
+                syncWeatherSounds()
+            }
         }
     }
 
@@ -490,6 +514,11 @@ final class WorldManager {
         weatherSystem.forceWeather(state, duration: 300)  // 5 min override
         NSLog("[Pushling/World] Debug weather override: %@ -> %@ (5 min)",
               previous.rawValue, state.rawValue)
+
+        // Sync ambient sounds to new weather
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.syncWeatherSounds()
+        }
     }
 
 }

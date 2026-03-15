@@ -55,6 +55,16 @@ final class PushlingScene: SKScene {
     private var idleTimeoutAccumulator: TimeInterval = 0
     private static let idleTimeoutInterval: TimeInterval = 0.5
 
+    // MARK: - Hatching Ceremony
+
+    /// Whether the scene is currently in hatching mode (first launch).
+    /// During hatching, normal creature behaviors are suppressed and the
+    /// HatchingCeremony drives the scene update loop instead.
+    private(set) var isHatching: Bool = false
+
+    /// The active hatching ceremony, if running.
+    private(set) var hatchingCeremony: HatchingCeremony?
+
     // MARK: - Game Coordinator
 
     /// The master wiring class — connects all subsystems. Set by AppDelegate.
@@ -147,7 +157,15 @@ final class PushlingScene: SKScene {
         // Start frame timing
         frameBudgetMonitor.beginFrame()
 
-        // === Subsystem update order ===
+        // === Hatching ceremony gate ===
+        // During hatching, only pump the ceremony — suppress all normal systems.
+        if isHatching {
+            hatchingCeremony?.update(deltaTime: deltaTime)
+            frameBudgetMonitor.endFrame()
+            return
+        }
+
+        // === Subsystem update order (normal operation) ===
         // 1. Physics — collision detection, force application
         updatePhysics(deltaTime: deltaTime)
 
@@ -254,6 +272,9 @@ final class PushlingScene: SKScene {
     /// forwarding mechanism; this is the common entry point.
     /// - Parameter scenePoint: The touch position in scene coordinates.
     func handleTouch(at scenePoint: CGPoint) {
+        // Ignore touches during hatching ceremony
+        guard !isHatching else { return }
+
         // Check if touch is on the creature (within creature bounds)
         if let creature = creatureNode {
             let creatureFrame = creature.calculateAccumulatedFrame()
@@ -450,6 +471,65 @@ final class PushlingScene: SKScene {
     func onSatisfactionChanged(_ satisfaction: Double) {
         worldManager.updateSatisfaction(satisfaction)
         hudOverlay.updateSatisfaction(satisfaction)
+    }
+
+    // MARK: - Hatching Ceremony Lifecycle
+
+    /// Enter hatching mode: hide creature and normal UI, prepare for ceremony.
+    /// Called by GameCoordinator when no creature is hatched.
+    func enterHatchingMode() {
+        isHatching = true
+
+        // Hide creature node — it shouldn't be visible during the ceremony
+        creatureNode?.isHidden = true
+
+        // Hide HUD and progress bar — ceremony has its own visuals
+        hudOverlay.rootNode.isHidden = true
+        evolutionProgressBar.hideForCeremony()
+        diamondIndicator?.isHidden = true
+
+        // Create and store the ceremony
+        let ceremony = HatchingCeremony(scene: self)
+        self.hatchingCeremony = ceremony
+
+        // Darken background to void (it's already black for OLED)
+        // World should not scroll or render terrain during hatching
+        worldManager.parallax.farLayer?.isHidden = true
+        worldManager.parallax.midLayer?.isHidden = true
+        worldManager.parallax.foreLayer?.isHidden = true
+
+        NSLog("[Pushling/Scene] Entered hatching mode")
+    }
+
+    /// Exit hatching mode: show creature, restore normal UI, start systems.
+    /// Called by GameCoordinator when the ceremony completes.
+    func exitHatchingMode() {
+        isHatching = false
+
+        // Remove leftover ceremony nodes (spore node left by ceremony)
+        // The ceremony leaves the spore node in the scene — remove it
+        // since we'll use the real creature node instead.
+        if let sporeNode = childNode(withName: "hatch_spore") {
+            sporeNode.removeFromParent()
+        }
+
+        // Show creature node
+        creatureNode?.isHidden = false
+
+        // Restore HUD and progress bar
+        hudOverlay.rootNode.isHidden = false
+        evolutionProgressBar.showAfterCeremony()
+        diamondIndicator?.isHidden = false
+
+        // Restore world rendering
+        worldManager.parallax.farLayer?.isHidden = false
+        worldManager.parallax.midLayer?.isHidden = false
+        worldManager.parallax.foreLayer?.isHidden = false
+
+        // Clear ceremony reference
+        hatchingCeremony = nil
+
+        NSLog("[Pushling/Scene] Exited hatching mode — normal operation")
     }
 
     // MARK: - Session Lifecycle (P4-T4)

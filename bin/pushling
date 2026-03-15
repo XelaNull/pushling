@@ -395,11 +395,35 @@ cmd_import() {
 
 cmd_voice_download() {
     ensure_data_dir
-    log_info "Downloading TTS voice models..."
-    log_info "  espeak-ng (~2MB)..."
-    log_info "  Piper TTS low-quality (~16MB)..."
-    log_info "  Kokoro-82M ONNX q8 (~80MB)..."
-    log_warn "Voice model download not yet implemented — models will download automatically when needed"
+
+    # Find the voice setup script
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local setup_script="$script_dir/pushling-voice-setup"
+
+    if [[ ! -x "$setup_script" ]]; then
+        # Try standard install locations
+        for path in \
+            /usr/local/bin/pushling-voice-setup \
+            /opt/homebrew/bin/pushling-voice-setup; do
+            if [[ -x "$path" ]]; then
+                setup_script="$path"
+                break
+            fi
+        done
+    fi
+
+    if [[ -x "$setup_script" ]]; then
+        # Pass through any extra arguments (--tier1-only, --status, etc.)
+        exec "$setup_script" "${@:2}"
+    else
+        log_error "Voice setup script not found."
+        log_info "Expected at: $script_dir/pushling-voice-setup"
+        log_info "You can download models manually:"
+        log_info "  mkdir -p ~/.local/share/pushling/voice/models"
+        log_info "  See: docs/TTS-RESEARCH.md for model URLs"
+        exit 1
+    fi
 }
 
 cmd_status() {
@@ -566,7 +590,10 @@ ${BOLD}Claude Code Integration:${NC}
 ${BOLD}Creature:${NC}
   export [file]          Export creature to portable JSON
   import <file>          Import creature from JSON
-  voice download         Pre-download all TTS voice models
+  voice download         Download all TTS voice models (~100MB)
+  voice download --tier1-only  Just espeak-ng babble (~16MB)
+  voice download --tier2       Babble + emerging speech (~32MB)
+  voice status           Show installed voice models
 
 ${BOLD}Daemon:${NC}
   status                 Show daemon status and creature summary
@@ -603,8 +630,9 @@ case "${1:-help}" in
         ;;
     voice)
         case "${2:-}" in
-            download) cmd_voice_download ;;
-            *)        log_error "Unknown voice subcommand: ${2:-}"; cmd_help ;;
+            download) cmd_voice_download "$@" ;;
+            status)   cmd_voice_download --status ;;
+            *)        log_error "Unknown voice subcommand: ${2:-}. Try: download, status"; cmd_help ;;
         esac
         ;;
     status)     cmd_status ;;
