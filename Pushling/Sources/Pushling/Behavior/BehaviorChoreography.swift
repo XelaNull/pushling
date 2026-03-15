@@ -64,6 +64,13 @@ enum BehaviorChoreography {
         case "tongue_blep":
             applyTongueBlep(output: &output)
 
+        case "knocking_things_off":
+            applyKnockingThingsOff(progress: progress, stage: stage,
+                                    output: &output)
+
+        case "if_i_fits_i_sits":
+            applyIfIFitsISits(progress: progress, output: &output)
+
         default:
             output.bodyState = "stand"
         }
@@ -213,5 +220,72 @@ enum BehaviorChoreography {
     /// Tongue blep: tongue stays out, everything else acts normal.
     private static func applyTongueBlep(output: inout LayerOutput) {
         output.mouthState = "blep"
+    }
+
+    /// Knocking things off: approach, bat with paw, watch it fall.
+    private static func applyKnockingThingsOff(
+        progress: Double,
+        stage: GrowthStage,
+        output: inout LayerOutput
+    ) {
+        if progress < 0.3 {
+            // Approach and examine
+            output.bodyState = "stand"
+            output.eyeLeftState = "wide"
+            output.eyeRightState = "wide"
+            if stage >= .critter {
+                output.earLeftState = "perk"
+                output.earRightState = "perk"
+            }
+        } else if progress < 0.5 {
+            // Tentative paw tap
+            output.bodyState = "stand"
+            output.pawStates = ["fl": "tap", "fr": "ground",
+                                "bl": "ground", "br": "ground"]
+            output.eyeLeftState = "wide"
+            output.eyeRightState = "wide"
+        } else if progress < 0.7 {
+            // Deliberate push
+            output.bodyState = "lean_forward"
+            output.pawStates = ["fl": "push", "fr": "ground",
+                                "bl": "ground", "br": "ground"]
+            output.tailState = "twitch_tip"
+        } else {
+            // Watch it fall with satisfaction
+            output.bodyState = "stand"
+            output.eyeLeftState = "half"
+            output.eyeRightState = "half"
+            output.tailState = "sway"
+        }
+    }
+
+    /// If I fits I sits: find a small space and squeeze into it.
+    private static func applyIfIFitsISits(
+        progress: Double,
+        output: inout LayerOutput
+    ) {
+        if progress < 0.2 {
+            // Examine the spot
+            output.bodyState = "stand"
+            output.eyeLeftState = "wide"
+            output.eyeRightState = "wide"
+        } else if progress < 0.4 {
+            // Circle and test
+            output.bodyState = "crouch"
+            output.tailState = "twitch_tip"
+        } else if progress < 0.6 {
+            // Squeeze in
+            output.bodyState = "curl"
+            output.pawStates = ["fl": "tuck", "fr": "tuck",
+                                "bl": "tuck", "br": "tuck"]
+        } else {
+            // Settled — content loaf in the spot
+            output.bodyState = "loaf"
+            output.pawStates = ["fl": "tuck", "fr": "tuck",
+                                "bl": "tuck", "br": "tuck"]
+            output.tailState = "wrap"
+            output.eyeLeftState = "half"
+            output.eyeRightState = "half"
+        }
     }
 }

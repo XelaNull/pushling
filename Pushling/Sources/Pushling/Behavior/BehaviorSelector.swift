@@ -235,6 +235,28 @@ final class BehaviorSelector {
             cooldown: 600,
             emotionalCondition: nil
         ),
+        BehaviorDefinition(
+            name: "knocking_things_off",
+            category: .mischievous,
+            stageMin: .beast,
+            durationRange: 3.0...5.0,
+            baseWeight: 0.4,
+            cooldown: 600,
+            emotionalCondition: EmotionalCondition(
+                axis: .energy, comparison: .greaterThan, threshold: 50
+            )
+        ),
+        BehaviorDefinition(
+            name: "if_i_fits_i_sits",
+            category: .calm,
+            stageMin: .critter,
+            durationRange: 10.0...20.0,
+            baseWeight: 0.5,
+            cooldown: 600,
+            emotionalCondition: EmotionalCondition(
+                axis: .contentment, comparison: .greaterThan, threshold: 40
+            )
+        ),
     ]
 
     // MARK: - Personality Affinity Map

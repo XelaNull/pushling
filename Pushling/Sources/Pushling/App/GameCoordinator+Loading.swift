@@ -192,6 +192,32 @@ extension GameCoordinator {
     /// Builds a SurpriseContext snapshot for the surprise scheduler.
     func buildSurpriseContext() -> SurpriseContext {
         let sm = commandRouter.sessionManager
+        let db = stateCoordinator.database
+
+        // Query streak days from SQLite
+        let streakDays = (try? db.queryScalarInt(
+            "SELECT streak_days FROM creature WHERE id = 1"
+        )) ?? 0
+
+        // Read live weather from world manager
+        let weather = scene.worldManager.currentWeather.rawValue
+
+        // Read companion state from companion system
+        let companion = scene.worldManager.companionSystem
+        let hasCompanion = companion.hasCompanion
+        let companionType = companion.companionInfo?.type.rawValue
+
+        // Read placed objects from world manager
+        let placedObjects = scene.worldManager.listObjects().map { $0.name }
+
+        // Calculate session duration from active session start time
+        let sessionDurationMinutes: Double
+        if let session = sm.activeSession {
+            sessionDurationMinutes = session.duration / 60.0
+        } else {
+            sessionDurationMinutes = 0
+        }
+
         return SurpriseContext(
             wallClock: Date(),
             sceneTime: CACurrentMediaTime(),
@@ -205,13 +231,13 @@ extension GameCoordinator {
             lastCommitLanguages: nil,
             lastCommitTimestamp: nil,
             totalCommitsEaten: totalXP,
-            streakDays: 0,
-            weather: "clear",
-            hasCompanion: false,
-            companionType: nil,
-            placedObjects: [],
+            streakDays: streakDays,
+            weather: weather,
+            hasCompanion: hasCompanion,
+            companionType: companionType,
+            placedObjects: placedObjects,
             isClaudeSessionActive: sm.isSessionActive,
-            sessionDurationMinutes: 0,
+            sessionDurationMinutes: sessionDurationMinutes,
             recentToolUseCount: 0,
             lastTouchTimestamp: nil,
             lastMCPTimestamp: nil
@@ -226,6 +252,7 @@ extension GameCoordinator {
     func wireVoice() {
         voiceSystem.initialize(stage: creatureStage,
                                 personality: personality.toSnapshot())
+        voiceSystem.commitsEaten = totalXP
         voiceIntegration.configure(stage: creatureStage,
                                      personality: personality.toSnapshot(),
                                      commitsEaten: totalXP)

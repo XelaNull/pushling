@@ -180,25 +180,27 @@ final class MouthController: BodyPartController {
     private func applyClosedShape(duration: TimeInterval) {
         shapeNode.yScale = 1.0
         shapeNode.xScale = 1.0
+        shapeNode.position.y = 0
     }
 
     private func applyOpenShape(duration: TimeInterval) {
         shapeNode.yScale = 1.5
         shapeNode.xScale = 1.0
+        shapeNode.position.y = 0
     }
 
     private func applySmileShape(duration: TimeInterval) {
         // Smile — upturned corners (represented by slight Y offset up)
         shapeNode.yScale = 1.0
         shapeNode.xScale = 1.1
-        shapeNode.position.y += 0.3
+        shapeNode.position.y = 0.3
     }
 
     private func applyFrownShape(duration: TimeInterval) {
         // Frown — downturned (Y offset down)
         shapeNode.yScale = 1.0
         shapeNode.xScale = 1.0
-        shapeNode.position.y -= 0.3
+        shapeNode.position.y = -0.3
     }
 
     // MARK: - Tongue Setup

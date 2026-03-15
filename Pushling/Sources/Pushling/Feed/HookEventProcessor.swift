@@ -53,6 +53,7 @@ final class HookEventProcessor {
     private var isRunning = false
     private var dispatchSource: DispatchSourceFileSystemObject?
     private var pollingTimer: DispatchSourceTimer?
+    private var cleanupTimer: DispatchSourceTimer?
 
     private let processingQueue = DispatchQueue(
         label: "com.pushling.feed.processor",
@@ -96,6 +97,8 @@ final class HookEventProcessor {
         dispatchSource = nil
         pollingTimer?.cancel()
         pollingTimer = nil
+        cleanupTimer?.cancel()
+        cleanupTimer = nil
         NSLog("[Pushling/Feed] HookEventProcessor stopped")
     }
 
@@ -132,6 +135,7 @@ final class HookEventProcessor {
         timer.schedule(deadline: .now() + 3600, repeating: 3600, leeway: .seconds(60))
         timer.setEventHandler { [weak self] in self?.cleanupProcessedFiles() }
         timer.resume()
+        cleanupTimer = timer
     }
 
     // MARK: - File Processing

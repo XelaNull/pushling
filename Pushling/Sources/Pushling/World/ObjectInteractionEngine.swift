@@ -490,7 +490,7 @@ final class ObjectInteractionEngine {
     /// Completes the current interaction.
     private func completeInteraction() {
         guard let interaction = activeInteraction else { return }
-        lastInteractionTime = interaction.elapsed  // Approximate
+        lastInteractionTime = ProcessInfo.processInfo.systemUptime
         activeInteraction = nil
 
         NSLog("[Pushling/Objects] Completed interaction '%@' with '%@'",

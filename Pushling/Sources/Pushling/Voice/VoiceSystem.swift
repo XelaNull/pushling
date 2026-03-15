@@ -300,22 +300,17 @@ final class VoiceSystem {
             self?.requestQueue.removeAll { $0.text == config.text }
             completion(true)
         }
-
-        // Update generating state immediately after scheduling
-        DispatchQueue.main.async { [weak self] in
-            self?.isGenerating = false
-        }
     }
 
     // MARK: - Critter Speech Mix
 
+    /// Commits eaten, set from GameCoordinator for Critter speech ratio.
+    var commitsEaten: Int = 0
+
     /// Mix real words with babble for the Critter stage.
     /// Early Critter: mostly babble. Late Critter: mostly words.
     private func critterSpeechMix(originalText: String) -> String {
-        // Use the static ratio calculator
-        // We approximate commits eaten from the stage parameter name
-        // In production, this would receive the actual commit count
-        let ratio = 0.5  // Default 50/50 mix
+        let ratio = Self.critterSpeechRatio(commitsEaten: commitsEaten)
 
         let words = originalText.split(separator: " ").map { String($0) }
         guard !words.isEmpty else { return generateBabbleText() }
@@ -433,10 +428,21 @@ final class VoiceSystem {
 
     private func cacheKeyFor(text: String,
                                params: VoiceParameters) -> String {
-        let textHash = abs(text.hashValue)
-        let paramsHash = abs("\(params.pitchSemitones)_\(params.rateMultiplier)"
-                               .hashValue)
+        let textHash = Self.deterministicHash(text)
+        let paramsStr = "\(params.pitchSemitones)_\(params.rateMultiplier)"
+        let paramsHash = Self.deterministicHash(paramsStr)
         return "\(params.stage)_\(textHash)_\(paramsHash)"
+    }
+
+    /// FNV-1a hash producing a deterministic UInt64 from a string.
+    /// Unlike Swift's hashValue, this is stable across process launches.
+    private static func deterministicHash(_ string: String) -> UInt64 {
+        var hash: UInt64 = 14695981039346656037  // FNV offset basis
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211  // FNV prime
+        }
+        return hash
     }
 
     private func clearCache() {

@@ -78,6 +78,7 @@ final class SpeechCoordinator {
     /// Multi-bubble chain queue.
     private var bubbleQueue: [String] = []
     private var chainTimer: TimeInterval = 0
+    private var activeChainStyle: SpeechStyle = .say
     private static let chainStagger: TimeInterval = 0.3
 
     /// Apex world-shaping cooldown.
@@ -279,6 +280,7 @@ final class SpeechCoordinator {
                                       stage: GrowthStage) {
         bubbleQueue = chunks
         chainTimer = 0
+        activeChainStyle = style
         renderNextChainBubble(style: style, stage: stage)
     }
 
@@ -385,7 +387,7 @@ final class SpeechCoordinator {
             if chainTimer >= Self.chainStagger {
                 chainTimer = 0
                 renderNextChainBubble(
-                    style: .say, stage: currentStage
+                    style: activeChainStyle, stage: currentStage
                 )
             }
         }

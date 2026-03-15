@@ -110,8 +110,17 @@ extension PushlingScene {
               worldManager.isSetUp ? "yes" : "no")
         NSLog("[Pushling/Debug]   Visual complexity: active")
         NSLog("[Pushling/Debug]   Landmarks: active")
-        NSLog("[Pushling/Debug]   Objects: (system not yet wired)")
-        NSLog("[Pushling/Debug]   Companions: (system not yet wired)")
+
+        let objectCount = worldManager.objectRenderer.activeObjects.count
+        NSLog("[Pushling/Debug]   Objects: %d active", objectCount)
+
+        let companion = worldManager.companionSystem
+        if let info = companion.companionInfo {
+            NSLog("[Pushling/Debug]   Companion: %@ (%@)",
+                  info.name, info.type.rawValue)
+        } else {
+            NSLog("[Pushling/Debug]   Companion: none")
+        }
 
         NSLog("[Pushling/Debug] === END WORLD STATE ===")
     }

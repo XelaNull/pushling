@@ -223,32 +223,58 @@ final class DebugActions {
     // MARK: - World Objects
 
     func placeObject(_ objectName: String) {
-        // World object system is skeletal — log intent and note
-        // the planned subsystem path.
-        NSLog("[Pushling/Debug] Place object: '%@'", objectName)
-        NSLog("[Pushling/Debug]   (World object system not yet wired — "
-              + "would place '%@' near creature via "
-              + "WorldManager.placeObject())", objectName)
+        guard let scene = scene else { logNoScene(); return }
+        let wm = scene.worldManager
+        let result = wm.createObject(params: [
+            "name": objectName,
+            "base_shape": objectName,
+            "position_x": Double(wm.cameraWorldX),
+            "source": "debug"
+        ])
+        if let info = result?.info {
+            NSLog("[Pushling/Debug] Placed object '%@' at x=%.0f",
+                  info.name, info.positionX)
+        } else {
+            NSLog("[Pushling/Debug] Failed to place object '%@'",
+                  objectName)
+        }
     }
 
     func removeAllObjects() {
-        NSLog("[Pushling/Debug] Remove all objects")
-        NSLog("[Pushling/Debug]   (World object system not yet wired — "
-              + "would call WorldManager.removeAllPlacedObjects())")
+        guard let scene = scene else { logNoScene(); return }
+        let wm = scene.worldManager
+        let objects = wm.objectRenderer.activeObjects
+        var removed = 0
+        for obj in objects {
+            let _ = wm.objectRenderer.removeObject(id: obj.definition.id)
+            removed += 1
+        }
+        NSLog("[Pushling/Debug] Removed %d objects", removed)
     }
 
     // MARK: - Companions
 
     func addCompanion(_ type: String) {
-        NSLog("[Pushling/Debug] Add companion: '%@'", type)
-        NSLog("[Pushling/Debug]   (Companion system not yet wired — "
-              + "would spawn '%@' companion near creature)", type)
+        guard let scene = scene else { logNoScene(); return }
+        let wm = scene.worldManager
+        if let info = wm.addCompanion(typeStr: type) {
+            NSLog("[Pushling/Debug] Added companion: %@ (%@)",
+                  info["name"] as? String ?? "?",
+                  info["type"] as? String ?? "?")
+        } else {
+            NSLog("[Pushling/Debug] Failed to add companion '%@' "
+                  + "(invalid type?)", type)
+        }
     }
 
     func removeCompanion() {
-        NSLog("[Pushling/Debug] Remove companion")
-        NSLog("[Pushling/Debug]   (Companion system not yet wired — "
-              + "would remove active companion)")
+        guard let scene = scene else { logNoScene(); return }
+        let wm = scene.worldManager
+        if wm.removeCompanion() {
+            NSLog("[Pushling/Debug] Removed companion")
+        } else {
+            NSLog("[Pushling/Debug] No companion to remove")
+        }
     }
 
     // MARK: - Mutations
@@ -369,22 +395,67 @@ final class DebugActions {
     // MARK: - Nurture
 
     func addHabit(_ habit: String) {
-        NSLog("[Pushling/Debug] Add habit: '%@'", habit)
-        NSLog("[Pushling/Debug]   (Nurture system not yet wired — "
-              + "would register habit '%@' via NurtureSystem)", habit)
+        guard let coord = coordinator else { logNoCoordinator(); return }
+        let definition = HabitDefinition(
+            id: UUID().uuidString, name: habit,
+            trigger: .afterEvent(event: "commit"),
+            behavior: "stand", behaviorVariant: nil,
+            frequency: .sometimes, variation: .moderate,
+            energyCost: 0.1, stageMin: .critter,
+            priority: 5, strength: 0.7,
+            reinforcementCount: 0,
+            personalityConflict: false, lastFiredAt: nil,
+            cooldownSeconds: 60.0
+        )
+        if coord.habitEngine.addHabit(definition) {
+            NSLog("[Pushling/Debug] Added habit '%@' (total: %d)",
+                  habit, coord.habitEngine.habits.count)
+        } else {
+            NSLog("[Pushling/Debug] Failed to add habit '%@' (at cap?)",
+                  habit)
+        }
     }
 
     func addPreference(_ preference: String) {
-        NSLog("[Pushling/Debug] Add preference: '%@'", preference)
-        NSLog("[Pushling/Debug]   (Nurture system not yet wired — "
-              + "would register preference '%@' via NurtureSystem)",
-              preference)
+        guard let coord = coordinator else { logNoCoordinator(); return }
+        coord.preferenceEngine.setPreference(
+            id: UUID().uuidString, subject: preference,
+            valence: 0.5, strength: 0.7
+        )
+        NSLog("[Pushling/Debug] Added preference '%@' (total: %d)",
+              preference,
+              coord.preferenceEngine.allPreferences.count)
     }
 
     func listActiveHabits() {
+        guard let coord = coordinator else { logNoCoordinator(); return }
         NSLog("[Pushling/Debug] === ACTIVE HABITS ===")
-        NSLog("[Pushling/Debug]   (Nurture system not yet wired — "
-              + "would list habits, preferences, quirks, routines)")
+        let habits = coord.habitEngine.habits
+        if habits.isEmpty {
+            NSLog("[Pushling/Debug]   No habits registered")
+        } else {
+            for h in habits {
+                NSLog("[Pushling/Debug]   %@ -> %@ (str: %.2f, freq: %@)",
+                      h.name, h.behavior, h.strength,
+                      h.frequency.rawValue)
+            }
+        }
+        let prefs = coord.preferenceEngine.allPreferences
+        if !prefs.isEmpty {
+            NSLog("[Pushling/Debug] -- Preferences --")
+            for p in prefs {
+                NSLog("[Pushling/Debug]   %@: valence=%.2f strength=%.2f",
+                      p.subject, p.valence, p.strength)
+            }
+        }
+        let quirks = coord.quirkEngine.quirks
+        if !quirks.isEmpty {
+            NSLog("[Pushling/Debug] -- Quirks --")
+            for q in quirks {
+                NSLog("[Pushling/Debug]   %@ (str: %.2f)",
+                      q.name, q.strength)
+            }
+        }
         NSLog("[Pushling/Debug] === END HABITS ===")
     }
 

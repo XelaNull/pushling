@@ -348,24 +348,6 @@ final class PushlingScene: SKScene {
         }
     }
 
-    // MARK: - Creature Walking Simulation
-
-    /// Simulates the creature walking back and forth through the world.
-    /// Will be replaced by the behavior stack's autonomous walk in Track 2.
-    private func simulateCreatureWalk(deltaTime: TimeInterval) {
-        creatureWorldX += creatureWalkSpeed * creatureDirection
-            * CGFloat(deltaTime)
-
-        // Reverse direction at world boundaries (for demo)
-        if creatureWorldX > 5000 {
-            creatureDirection = -1.0
-            creatureNode?.setFacing(.left)
-        } else if creatureWorldX < -1000 {
-            creatureDirection = 1.0
-            creatureNode?.setFacing(.right)
-        }
-    }
-
     // MARK: - Creature Setup
 
     /// Initialize the Pushling creature and add it to the scene.
