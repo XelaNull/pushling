@@ -396,9 +396,10 @@ final class GameCoordinator {
     // MARK: - Wiring: Command Router (K)
 
     private func wireCommandRouter() {
-        // TODO: Replace stub handlers with real dispatch to subsystems
-        // (speak -> speechCoordinator, move -> behaviorStack, sense -> live data)
-        NSLog("[Pushling/Coordinator] CommandRouter stubs active")
+        // CommandRouter.gameCoordinator is set by AppDelegate after init.
+        // All 9 tool handlers in CommandHandlers.swift dispatch through
+        // gameCoordinator to the real subsystems.
+        NSLog("[Pushling/Coordinator] CommandRouter handlers ready for live dispatch")
     }
 
     // MARK: - Wiring: Eating Animation

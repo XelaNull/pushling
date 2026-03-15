@@ -63,7 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             scene.gameCoordinator = game
             self.gameCoordinator = game
-            NSLog("[Pushling] GameCoordinator active — all subsystems wired")
+            router.gameCoordinator = game
+            NSLog("[Pushling] GameCoordinator active — all subsystems wired, "
+                  + "CommandRouter dispatch live")
         } else {
             NSLog("[Pushling] WARNING: No scene available — "
                   + "GameCoordinator not created")
