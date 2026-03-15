@@ -141,11 +141,13 @@ final class CommitEatingAnimation {
         // Spawn at edge of bar (further from creature)
         guard let creature = creature, let scene = scene else { return }
         let creatureX = creature.position.x
+        // Spawn text 120pt away from creature (not at edge of bar)
+        // so it arrives within the 2s arrival phase
         let spawnX: CGFloat
-        if creatureX > SceneConstants.sceneWidth / 2 {
-            spawnX = -20  // Spawn at left edge
+        if Bool.random() {
+            spawnX = creatureX + 120  // From the right
         } else {
-            spawnX = SceneConstants.sceneWidth + 20  // Spawn at right edge
+            spawnX = creatureX - 120  // From the left
         }
         textNode.position = CGPoint(
             x: spawnX,
@@ -209,7 +211,7 @@ final class CommitEatingAnimation {
         let creatureX = creature.position.x
         let textX = textNode.position.x
         let direction: CGFloat = textX > creatureX ? -1 : 1
-        let driftSpeed: CGFloat = commitType == .forcePush ? 45 : 15
+        let driftSpeed: CGFloat = commitType == .forcePush ? 200 : 80
         textNode.position.x += direction * driftSpeed * CGFloat(deltaTime)
 
         // Transition to Notice when within 60pt
