@@ -326,6 +326,44 @@ final class SpeechBubbleNode: SKNode {
         }
     }
 
+    /// Ensure the bubble is fully visible within the Touch Bar scene (1085x30pt).
+    /// Called after the bubble is added as a child of the creature.
+    /// Converts to scene coordinates, clamps, and adjusts local position.
+    func clampToSceneBounds() {
+        guard let creature = parent, let scene = creature.scene else { return }
+        let sceneWidth = scene.size.width
+        let sceneHeight = scene.size.height
+
+        // Convert bubble center to scene coordinates
+        let scenePos = convert(.zero, to: scene)
+
+        // Estimate bubble size from children
+        let bubbleHalfHeight: CGFloat = 8  // Approximate max bubble half-height
+        let bubbleHalfWidth: CGFloat = 40  // Approximate max bubble half-width
+
+        // Clamp vertically: bubble must stay within [0, sceneHeight]
+        let topEdge = scenePos.y + bubbleHalfHeight
+        let bottomEdge = scenePos.y - bubbleHalfHeight
+        if topEdge > sceneHeight {
+            // Bubble goes above scene — push it down
+            position.y -= (topEdge - sceneHeight + 1)
+        }
+        if bottomEdge < 0 {
+            // Bubble goes below scene — push it up
+            position.y += (-bottomEdge + 1)
+        }
+
+        // Clamp horizontally: bubble must stay within [0, sceneWidth]
+        let rightEdge = scenePos.x + bubbleHalfWidth
+        let leftEdge = scenePos.x - bubbleHalfWidth
+        if rightEdge > sceneWidth {
+            position.x -= (rightEdge - sceneWidth + 1)
+        }
+        if leftEdge < 0 {
+            position.x += (-leftEdge + 1)
+        }
+    }
+
     private func bubbleMaxWidth(for stage: GrowthStage) -> CGFloat {
         switch stage {
         case .spore: return 0;  case .drop: return 12
@@ -378,6 +416,11 @@ final class SpeechBubbleNode: SKNode {
 
         case .done:
             break
+        }
+
+        // Re-clamp every frame to handle creature movement and bubble drift
+        if phase == .holding || phase == .appearing {
+            clampToSceneBounds()
         }
 
         // Style-specific updates

@@ -250,6 +250,7 @@ final class SpeechCoordinator {
             stage: stage, positionMode: positionMode
         )
         creature.addChild(bubble)
+        bubble.clampToSceneBounds()  // Keep bubble visible on Touch Bar
         bubble.appear()
 
         // Dismiss any existing bubbles
@@ -303,6 +304,7 @@ final class SpeechCoordinator {
         bubble.position.y += stackOffset
 
         creature.addChild(bubble)
+        bubble.clampToSceneBounds()  // Keep bubble visible on Touch Bar
         bubble.appear()
         activeBubbles.append(bubble)
 

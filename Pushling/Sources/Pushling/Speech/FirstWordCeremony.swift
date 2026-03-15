@@ -220,6 +220,7 @@ final class FirstWordCeremony {
             )
 
             creature.addChild(bubble)
+            bubble.clampToSceneBounds()  // Keep visible on Touch Bar
             bubble.appear()
             wordBubble = bubble
 
