@@ -160,8 +160,10 @@ final class SkyGradientNode: SKSpriteNode {
 
         var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0, ta: CGFloat = 0
         var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
-        topColor.getRed(&tr, green: &tg, blue: &tb, alpha: &ta)
-        bottomColor.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        let topRGB = topColor.usingColorSpace(.sRGB) ?? topColor
+        let bottomRGB = bottomColor.usingColorSpace(.sRGB) ?? bottomColor
+        topRGB.getRed(&tr, green: &tg, blue: &tb, alpha: &ta)
+        bottomRGB.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
 
         for y in 0..<textureHeight {
             // t = 0 at bottom (y=0), t = 1 at top (y=height-1)
@@ -193,8 +195,10 @@ final class SkyGradientNode: SKSpriteNode {
     private func colorsMatch(_ a: SKColor, _ b: SKColor) -> Bool {
         var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
         var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
-        a.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        b.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        let aRGB = a.usingColorSpace(.sRGB) ?? a
+        let bRGB = b.usingColorSpace(.sRGB) ?? b
+        aRGB.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        bRGB.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
 
         let threshold: CGFloat = 0.005
         return abs(r1 - r2) < threshold &&

@@ -64,8 +64,11 @@ enum PushlingPalette {
 
         var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
         var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
-        from.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        to.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        // Convert to sRGB to avoid crash on grayscale colors (e.g. SKColor.black)
+        let fromRGB = from.usingColorSpace(.sRGB) ?? from
+        let toRGB = to.usingColorSpace(.sRGB) ?? to
+        fromRGB.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        toRGB.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
 
         return SKColor(
             displayP3Red: r1 + (r2 - r1) * t,
@@ -129,12 +132,14 @@ enum PushlingPalette {
     #if DEBUG
     static func auditColor(_ color: SKColor, context: String) {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let colorRGB = color.usingColorSpace(.sRGB) ?? color
+        colorRGB.getRed(&r, green: &g, blue: &b, alpha: &a)
 
         // Check against each palette color (ignoring alpha)
         for (name, paletteColor) in allColors {
             var pr: CGFloat = 0, pg: CGFloat = 0, pb: CGFloat = 0, pa: CGFloat = 0
-            paletteColor.getRed(&pr, green: &pg, blue: &pb, alpha: &pa)
+            let paletteRGB = paletteColor.usingColorSpace(.sRGB) ?? paletteColor
+            paletteRGB.getRed(&pr, green: &pg, blue: &pb, alpha: &pa)
 
             // Allow blends between palette colors — just warn if way off
             let dist = abs(r - pr) + abs(g - pg) + abs(b - pb)
@@ -150,7 +155,8 @@ enum PushlingPalette {
                 for t in stride(from: 0.0, through: 1.0, by: 0.1) {
                     let blended = lerp(from: c1, to: c2, t: CGFloat(t))
                     var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
-                    blended.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+                    let blendedRGB = blended.usingColorSpace(.sRGB) ?? blended
+                    blendedRGB.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
                     let dist = abs(r - br) + abs(g - bg) + abs(b - bb)
                     if dist < 0.1 {
                         return  // Valid blend
