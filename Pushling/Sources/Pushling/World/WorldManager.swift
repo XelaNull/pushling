@@ -85,6 +85,21 @@ final class WorldManager {
     /// Owns RainRenderer, SnowRenderer, StormSystem, FogRenderer internally.
     let weatherSystem = WeatherSystem()
 
+    // MARK: - World Object Subsystems
+
+    /// Persistent world object renderer and manager.
+    let objectRenderer = WorldObjectRenderer()
+
+    /// Wear/repair lifecycle for world objects.
+    let objectWearSystem = ObjectWearSystem()
+
+    /// NPC companion system (max 1 companion at a time).
+    let companionSystem = CompanionSystem()
+
+    /// Database reference for object persistence.
+    /// Internal access for use by WorldManager+Objects extension.
+    weak var database: DatabaseManager?
+
     // MARK: - State
 
     /// Current world-space X position of the tracked entity (creature/camera).
@@ -107,8 +122,11 @@ final class WorldManager {
     /// - Parameters:
     ///   - scene: The PushlingScene to render into.
     ///   - config: World configuration (seed, specialty, landmarks).
-    func setup(scene: SKScene, config: WorldConfig = WorldConfig()) {
+    ///   - db: Database manager for object persistence (optional for tests).
+    func setup(scene: SKScene, config: WorldConfig = WorldConfig(),
+               db: DatabaseManager? = nil) {
         self.scene = scene
+        self.database = db
         self.cameraWorldX = config.initialCreatureX
 
         // 1. Attach parallax layers to scene
@@ -207,10 +225,25 @@ final class WorldManager {
             self?.terrainHeightAt(worldX: worldX) ?? 4.0
         }
 
+        // 17. Setup world object renderer on foreground layer
+        if let foreLayer = parallax.foreLayer {
+            objectRenderer.attach(to: foreLayer)
+            companionSystem.attach(to: foreLayer)
+        }
+
+        // 18. Load persisted objects from SQLite
+        loadObjectsFromDB()
+
+        // 19. Load persisted companion from SQLite
+        loadCompanionFromDB()
+
         isSetUp = true
         NSLog("[Pushling/World] World system initialized — seed %llu, "
-              + "specialty %@, %d landmarks, stage %@, sky %@, weather %@",
+              + "specialty %@, %d landmarks, %d objects, companion %@, "
+              + "stage %@, sky %@, weather %@",
               config.seed, config.specialty, config.landmarks.count,
+              objectRenderer.activeObjects.count,
+              companionSystem.hasCompanion ? "yes" : "no",
               "\(config.creatureStage)",
               skySystem.currentPeriod.rawValue,
               weatherSystem.currentState.rawValue)
@@ -253,6 +286,15 @@ final class WorldManager {
 
         // Update ruin inscription cooldown
         ruinInscriptions.update(deltaTime: deltaTime)
+
+        // Update world objects LOD, effects, and wear visuals (< 0.1ms)
+        objectRenderer.update(deltaTime: deltaTime, cameraWorldX: trackedX)
+
+        // Update companion NPC autonomous behavior (< 0.1ms)
+        let creatureY = terrainHeightAt(worldX: trackedX) + 4.0
+        companionSystem.update(deltaTime: deltaTime,
+                                creatureX: trackedX,
+                                creatureY: creatureY)
 
         // Periodic maintenance (every 30 frames ~ 0.5s at 60fps)
         if frameCounter % 30 == 0 {
@@ -353,13 +395,16 @@ final class WorldManager {
         let hungerNode = hungerDesaturation.nodeCount
         let eventNodes = visualEvents.nodeCount
         let inscriptionNodes = ruinInscriptions.nodeCount
+        let objectNodes = objectRenderer.totalNodeCount
+        let companionNodes = companionSystem.nodeCount
         // Sky: gradient(1) + starField(1 container) + moon(1 container) = 3
         // Weather: rain container(1) + snow container(1) + storm container(1) + fog container(1) = 4
         let skyNodes = 3
         let weatherNodes = 4
         return parallaxNodes + terrainNodes + landmarkNodes + tintNode
             + reflectionNodes + ghostNodes + hungerNode + eventNodes
-            + inscriptionNodes + skyNodes + weatherNodes
+            + inscriptionNodes + objectNodes + companionNodes
+            + skyNodes + weatherNodes
     }
 
     // MARK: - Weather Queries
@@ -447,21 +492,4 @@ final class WorldManager {
               previous.rawValue, state.rawValue)
     }
 
-    /// Adds a repo landmark with a known type (e.g., loaded from SQLite).
-    func addRepoLandmark(repoName: String, landmarkType: LandmarkType) {
-        // Map LandmarkType back to RepoType for the addLandmark API
-        let repoType: RepoType
-        switch landmarkType {
-        case .neonTower:    repoType = .webApp
-        case .fortress:     repoType = .apiBackend
-        case .obelisk:      repoType = .cliTool
-        case .crystal:      repoType = .library
-        case .smokeStack:   repoType = .infraDevOps
-        case .observatory:  repoType = .dataML
-        case .scrollTower:  repoType = .docsContent
-        case .windmill:     repoType = .gameCreative
-        case .monolith:     repoType = .generic
-        }
-        landmarkSystem?.addLandmark(repoName: repoName, repoType: repoType)
-    }
 }

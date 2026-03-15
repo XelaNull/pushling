@@ -108,28 +108,25 @@ extension GameCoordinator {
     func wireNurture() {
         let db = stateCoordinator.database
 
-        // HabitEngine, PreferenceEngine, QuirkEngine, RoutineEngine are
-        // already instantiated in init — load persisted data if any.
-
-        // Note: SQLite tables exist per Schema.swift but may be empty.
-        // The engines handle empty loads gracefully.
-
-        // Habits
-        // (Full habit loading requires parsing trigger JSON — defer)
-        NSLog("[Pushling/Coordinator] HabitEngine ready (%d habits)",
-              habitEngine.habits.count)
-
-        // Preferences
+        // Load all nurture data from SQLite
         loadPreferencesFromDB(db)
+        loadHabitsFromDB(db)
+        loadQuirksFromDB(db)
+        loadRoutinesFromDB(db)
 
-        // Quirks
-        // (Full quirk loading requires parsing action JSON — defer)
-        NSLog("[Pushling/Coordinator] QuirkEngine ready (%d quirks)",
-              quirkEngine.quirks.count)
+        // Wire decay manager callbacks
+        nurtureDecayManager.onStrengthUpdate = { [weak self] name, strength in
+            self?.habitEngine.updateStrength(name: name, strength: strength)
+            self?.preferenceEngine.updateStrength(subject: name, strength: strength)
+            self?.quirkEngine.updateStrength(name: name, strength: strength)
+        }
+        nurtureDecayManager.onForgotten = { [weak self] name in
+            guard let self = self else { return }
+            NSLog("[Pushling/Coordinator] Nurture item forgotten: %@", name)
+        }
 
-        // Routines
-        // (Full routine loading requires parsing step JSON — defer)
-        NSLog("[Pushling/Coordinator] RoutineEngine ready")
+        // Run initial decay on startup (catches offline time)
+        runNurtureDecayIfNeeded()
 
         NSLog("[Pushling/Coordinator] Nurture engines wired — "
               + "habits: %d, preferences: %d, quirks: %d",
@@ -220,4 +217,387 @@ extension GameCoordinator {
             lastMCPTimestamp: nil
         )
     }
+}
+
+// MARK: - Small Wiring Methods (extracted for file size)
+
+extension GameCoordinator {
+
+    func wireVoice() {
+        voiceSystem.initialize(stage: creatureStage,
+                                personality: personality.toSnapshot())
+        voiceIntegration.configure(stage: creatureStage,
+                                     personality: personality.toSnapshot(),
+                                     commitsEaten: totalXP)
+        voiceIntegration.attach(to: speechCoordinator)
+
+        speechCoordinator.onSpeechRendered = {
+            [weak self] text, style, stage, source in
+            self?.voiceIntegration.onSpeech(
+                text: text, style: style, stage: stage, source: source
+            )
+        }
+
+        NSLog("[Pushling/Coordinator] Voice system wired")
+    }
+
+    func wireCommandRouter() {
+        NSLog("[Pushling/Coordinator] CommandRouter handlers ready for live dispatch")
+    }
+
+    func wireEatingAnimation() {
+        if let creature = scene.creatureNode {
+            eatingAnimation.configure(creature: creature, scene: scene)
+        }
+        NSLog("[Pushling/Coordinator] Eating animation wired")
+    }
+}
+
+// MARK: - Nurture DB Loading
+
+extension GameCoordinator {
+
+    /// Load habits from the SQLite habits table.
+    func loadHabitsFromDB(_ db: DatabaseManager) {
+        let rows = (try? db.query(
+            "SELECT name, trigger_json, action_json, frequency, "
+            + "variation, strength, reinforcement_count, cooldown_s "
+            + "FROM habits"
+        )) ?? []
+
+        var habits: [HabitDefinition] = []
+        for row in rows {
+            guard let name = row["name"] as? String,
+                  let triggerJSON = row["trigger_json"] as? String,
+                  let actionJSON = row["action_json"] as? String else { continue }
+
+            let trigger = parseTriggerJSON(triggerJSON)
+            let behavior = parseActionJSON(actionJSON)
+            let freq = HabitFrequency(rawValue: row["frequency"] as? String ?? "sometimes")
+                ?? .sometimes
+            let variation = VariationLevel(rawValue: row["variation"] as? String ?? "moderate")
+                ?? .moderate
+            let strength = (row["strength"] as? Double) ?? 0.5
+            let reinforcement = (row["reinforcement_count"] as? Int) ?? 0
+            let cooldown = (row["cooldown_s"] as? Double) ?? 60.0
+
+            habits.append(HabitDefinition(
+                id: UUID().uuidString, name: name, trigger: trigger,
+                behavior: behavior, behaviorVariant: nil,
+                frequency: freq, variation: variation,
+                energyCost: 0.1, stageMin: .spore,
+                priority: 5, strength: strength,
+                reinforcementCount: reinforcement,
+                personalityConflict: false, lastFiredAt: nil,
+                cooldownSeconds: cooldown
+            ))
+        }
+
+        if !habits.isEmpty {
+            habitEngine.loadHabits(habits)
+        }
+    }
+
+    /// Load quirks from the SQLite quirks table.
+    func loadQuirksFromDB(_ db: DatabaseManager) {
+        let rows = (try? db.query(
+            "SELECT name, behavior_target, modifier_json, probability, "
+            + "strength, reinforcement_count FROM quirks"
+        )) ?? []
+
+        var quirks: [QuirkDefinition] = []
+        for row in rows {
+            guard let name = row["name"] as? String,
+                  let target = row["behavior_target"] as? String,
+                  let modJSON = row["modifier_json"] as? String else { continue }
+
+            let mod = parseModifierJSON(modJSON)
+            let probability = (row["probability"] as? Double) ?? 0.5
+            let strength = (row["strength"] as? Double) ?? 0.5
+            let reinforcement = (row["reinforcement_count"] as? Int) ?? 0
+
+            quirks.append(QuirkDefinition(
+                id: UUID().uuidString, name: name, description: nil,
+                targetBehavior: target, modification: mod.type,
+                action: mod.action,
+                probability: probability, strength: strength,
+                reinforcementCount: reinforcement, createdAt: Date()
+            ))
+        }
+
+        if !quirks.isEmpty {
+            quirkEngine.loadQuirks(quirks)
+        }
+    }
+
+    /// Load routines from the SQLite routines table.
+    func loadRoutinesFromDB(_ db: DatabaseManager) {
+        let rows = (try? db.query(
+            "SELECT slot, steps_json, strength, reinforcement_count "
+            + "FROM routines"
+        )) ?? []
+
+        var routines: [RoutineDefinition] = []
+        for row in rows {
+            guard let slotStr = row["slot"] as? String,
+                  let slot = RoutineSlot(rawValue: slotStr),
+                  let stepsJSON = row["steps_json"] as? String else { continue }
+
+            let steps = parseStepsJSON(stepsJSON)
+            guard steps.count >= 2 else { continue }
+            let strength = (row["strength"] as? Double) ?? 0.5
+            let reinforcement = (row["reinforcement_count"] as? Int) ?? 0
+
+            routines.append(RoutineDefinition(
+                id: UUID().uuidString, slot: slot, steps: steps,
+                strength: strength, reinforcementCount: reinforcement,
+                createdAt: Date()
+            ))
+        }
+
+        if !routines.isEmpty {
+            routineEngine.loadRoutines(routines)
+        }
+    }
+}
+
+// MARK: - Nurture JSON Parsing Helpers
+
+extension GameCoordinator {
+
+    func parseTriggerJSON(_ json: String) -> TriggerDefinition {
+        guard let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .afterEvent(event: "commit")
+        }
+        return CommandRouter.parseTrigger(dict) ?? .afterEvent(event: "commit")
+    }
+
+    func parseActionJSON(_ json: String) -> String {
+        guard let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return "stand"
+        }
+        return dict["behavior"] as? String ?? "stand"
+    }
+
+    func parseModifierJSON(_ json: String)
+        -> (type: QuirkModification, action: QuirkAction) {
+        guard let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return (.append, QuirkAction(track: "tail", state: "flick",
+                                          durationSeconds: 0.5))
+        }
+        let modType = QuirkModification(rawValue: dict["type"] as? String ?? "append")
+            ?? .append
+        let track = dict["track"] as? String ?? "tail"
+        let state = dict["state"] as? String ?? "flick"
+        let duration = dict["duration_s"] as? Double ?? 0.5
+        return (modType, QuirkAction(track: track, state: state,
+                                      durationSeconds: duration))
+    }
+
+    func parseStepsJSON(_ json: String) -> [RoutineStep] {
+        guard let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+        return arr.compactMap { dict in
+            guard let typeStr = dict["type"] as? String,
+                  let stepType = RoutineStep.RoutineStepType(rawValue: typeStr) else {
+                return nil
+            }
+            return RoutineStep(
+                type: stepType,
+                behavior: dict["behavior"] as? String,
+                variant: dict["variant"] as? String,
+                expression: dict["expression"] as? String,
+                text: dict["text"] as? String,
+                movementAction: dict["movement"] as? String,
+                durationSeconds: dict["duration_s"] as? Double ?? 2.0
+            )
+        }
+    }
+}
+
+// MARK: - Nurture Runtime Helpers
+
+extension GameCoordinator {
+
+    /// Per-frame nurture subsystem updates: habit triggers, decay, routines.
+    func updateNurtureSubsystems(deltaTime: TimeInterval) {
+        // Habit periodic trigger tick (every 30s)
+        habitPeriodicAccumulator += deltaTime
+        if habitPeriodicAccumulator >= Self.habitPeriodicInterval {
+            habitPeriodicAccumulator = 0
+            let sceneTime = CACurrentMediaTime()
+            habitEngine.evaluate(event: .periodicTick,
+                                 stage: creatureStage,
+                                 currentTime: sceneTime)
+            let cal = Calendar.current
+            let now = Date()
+            habitEngine.evaluate(
+                event: .timeTick(hour: cal.component(.hour, from: now),
+                                 minute: cal.component(.minute, from: now)),
+                stage: creatureStage,
+                currentTime: sceneTime
+            )
+        }
+
+        // Execute queued habits
+        if habitEngine.hasQueuedHabits {
+            if let habit = habitEngine.nextHabitToExecute(
+                currentTime: CACurrentMediaTime()
+            ) {
+                executeHabitBehavior(habit)
+            }
+        }
+
+        // Nurture decay check (every 60s)
+        nurtureDecayAccumulator += deltaTime
+        if nurtureDecayAccumulator >= Self.nurtureDecayInterval {
+            nurtureDecayAccumulator = 0
+            runNurtureDecayIfNeeded()
+        }
+
+        // Routine update (active routine step execution)
+        if routineEngine.isExecuting {
+            routineEngine.update(deltaTime: deltaTime)
+        }
+    }
+
+    /// Execute a habit behavior through the behavior stack.
+    func executeHabitBehavior(_ habit: HabitDefinition) {
+        NSLog("[Pushling/Coordinator] Executing habit '%@' -> %@",
+              habit.name, habit.behavior)
+
+        // Inject as an AI-directed command for the behavior stack
+        if let stack = scene.behaviorStack {
+            var output = LayerOutput()
+            output.bodyState = habit.behavior
+            let command = AICommand(
+                id: "habit_\(habit.id)",
+                type: .perform,
+                output: output,
+                holdDuration: 3.0,
+                enqueuedAt: CACurrentMediaTime()
+            )
+            stack.enqueueAICommand(command)
+        }
+
+        // Journal
+        let db = stateCoordinator.database
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.string(from: Date())
+        db.performWriteAsync({
+            try db.execute(
+                "INSERT INTO journal (type, summary, timestamp) VALUES (?, ?, ?)",
+                arguments: ["nurture",
+                            "Habit fired: '\(habit.name)' -> \(habit.behavior)",
+                            now]
+            )
+            try db.execute(
+                "UPDATE habits SET last_triggered_at = ? WHERE name = ?",
+                arguments: [now, habit.name]
+            )
+        })
+    }
+
+    /// Runs nurture decay if enough time has elapsed.
+    func runNurtureDecayIfNeeded() {
+        guard nurtureDecayManager.shouldRunDecay() else { return }
+
+        // Decay habits
+        let habitResults = nurtureDecayManager.calculateDecay(
+            items: habitEngine.habits
+        )
+        for result in habitResults {
+            habitEngine.updateStrength(name: result.name,
+                                        strength: result.newStrength)
+        }
+
+        // Decay preferences
+        let prefResults = nurtureDecayManager.calculateDecay(
+            items: preferenceEngine.allPreferences.map {
+                DecayableWrapper(name: $0.subject, strength: $0.strength,
+                                  reinforcementCount: $0.reinforcementCount)
+            }
+        )
+        for result in prefResults {
+            preferenceEngine.updateStrength(subject: result.name,
+                                             strength: result.newStrength)
+        }
+
+        // Decay quirks
+        let quirkResults = nurtureDecayManager.calculateDecay(
+            items: quirkEngine.quirks
+        )
+        for result in quirkResults {
+            quirkEngine.updateStrength(name: result.name,
+                                        strength: result.newStrength)
+        }
+
+        // Persist updated strengths to SQLite
+        let db = stateCoordinator.database
+        db.performWriteAsync({
+            for r in habitResults {
+                try db.execute("UPDATE habits SET strength = ? WHERE name = ?",
+                               arguments: [r.newStrength, r.name])
+            }
+            for r in prefResults {
+                try db.execute("UPDATE preferences SET strength = ? WHERE subject = ?",
+                               arguments: [r.newStrength, r.name])
+            }
+            for r in quirkResults {
+                try db.execute("UPDATE quirks SET strength = ? WHERE name = ?",
+                               arguments: [r.newStrength, r.name])
+            }
+        })
+    }
+
+    /// Handles session lifecycle events for nurture (habits + routines).
+    func handleSessionEventForNurture(_ event: SessionEvent) {
+        let sceneTime = CACurrentMediaTime()
+
+        switch event {
+        case .sessionStarted(sessionId: _):
+            // Routine: greeting slot
+            routineEngine.trigger(slot: .greeting)
+            // Habit trigger: session start
+            habitEngine.evaluate(event: .sessionEvent(event: "start"),
+                                 stage: creatureStage,
+                                 currentTime: sceneTime)
+            // Habit trigger: wake
+            habitEngine.evaluate(event: .woke,
+                                 stage: creatureStage,
+                                 currentTime: sceneTime)
+
+        case .sessionEnded(sessionId: _, reason: _, duration: _):
+            // Routine: farewell slot
+            routineEngine.trigger(slot: .farewell)
+            // Habit trigger: session end
+            habitEngine.evaluate(event: .sessionEvent(event: "end"),
+                                 stage: creatureStage,
+                                 currentTime: sceneTime)
+
+        case .commandReceived, .idlePhaseChanged, .subagentsStarted,
+             .subagentsStopped, .sessionRejected:
+            break
+        }
+    }
+}
+
+// MARK: - Decayable Conformance
+
+/// Makes HabitDefinition conform to Decayable for the decay system.
+extension HabitDefinition: Decayable {}
+
+/// Makes QuirkDefinition conform to Decayable for the decay system.
+extension QuirkDefinition: Decayable {}
+
+/// Wrapper to make Preference conform to Decayable (uses subject as name).
+struct DecayableWrapper: Decayable {
+    let name: String
+    let strength: Double
+    let reinforcementCount: Int
 }

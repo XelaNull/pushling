@@ -1,12 +1,7 @@
 // AutonomousLayer.swift — Layer 4 (lowest priority): Autonomous behavior
-// The creature's own mind. Wanders, idles, performs cat behaviors.
-//
-// This layer NEVER stops computing. Even when higher layers override it,
-// the autonomous state machine keeps running underneath so that when
-// control returns, behavior resumes immediately (within 1 frame).
-//
-// State machine: walking -> idle -> behavior -> resting
-// All transitions use personality-influenced random timings.
+// The creature's own mind. Wanders, idles, performs cat behaviors and taught tricks.
+// Always computing even when higher layers override.
+// State machine: walking -> idle -> behavior/taughtBehavior -> resting
 
 import Foundation
 import CoreGraphics
@@ -21,6 +16,8 @@ enum AutonomousState {
     case idle
     /// Performing a specific cat behavior (from behavior selector).
     case behavior(name: String)
+    /// Performing a taught behavior (from TaughtBehaviorEngine).
+    case taughtBehavior(name: String)
     /// Low-energy rest state (loaf, sit, sleep).
     case resting
 }
@@ -43,62 +40,37 @@ final class AutonomousLayer: BehaviorLayer {
     /// The behavior selector for choosing cat behaviors.
     let behaviorSelector: BehaviorSelector
 
+    // MARK: - Taught Behavior Dependencies (set by GameCoordinator)
+
+    var taughtEngine: TaughtBehaviorEngine?
+    var taughtMastery: MasteryTracker?
+    var taughtGovernor: IdleRotationGovernor?
+    var taughtDefinitions: (() -> [String: ChoreographyDefinition])?
+    var onTaughtBehaviorCompleted: ((String, ChoreographyDefinition,
+                                     TimeInterval) -> Void)?
+
     // MARK: - Internal State
 
-    /// Current state in the autonomous state machine.
     private(set) var state: AutonomousState = .idle
-
-    /// Time spent in the current state (seconds).
     private var stateTimer: TimeInterval = 0
-
-    /// Duration the creature will stay in the current state before transitioning.
     private var stateDuration: TimeInterval = 3.0
-
-    /// Current facing direction (maintained independently of physics).
     private var facing: Direction = .right
-
-    /// Current world X position — integrated from walkSpeed each frame.
     private(set) var currentX: CGFloat = 542.5
-
-    /// Current walk speed (points/second), personality-modulated.
     private var currentWalkSpeed: CGFloat = 0
-
-    /// Whether a direction reversal has been requested (boundary or random).
     private var pendingDirectionChange: Bool = false
-
-    /// Time accumulator for the walk cycle animation.
     private var walkCyclePhase: Double = 0
-
-    /// Time accumulator for blink timing.
     private var blinkTimer: TimeInterval = 0
-
-    /// Next blink interval (randomized per cycle).
     private var nextBlinkInterval: TimeInterval = 5.0
-
-    /// Whether we're currently mid-blink.
     private var isBlinking: Bool = false
-
-    /// Blink phase timer (for the 0.15s blink animation).
     private var blinkPhase: TimeInterval = 0
-
-    /// Time accumulator for tail sway.
     private var tailSwayPhase: Double = 0
-
-    /// The currently active behavior (when in .behavior state).
     private var activeBehavior: ActiveBehavior?
-
-    /// Random number generator with a predictable-ish seed for personality.
     private var rng = SystemRandomNumberGenerator()
 
     // MARK: - Constants
 
-    /// Blink animation total duration (close + hold + open).
     private static let blinkDuration: TimeInterval = 0.15
-
-    /// Tail sway base amplitude in radians (12 degrees).
     private static let tailSwayBaseAmplitude: Double = 0.209
-
-    /// Tail sway base period in seconds.
     private static let tailSwayBasePeriod: Double = 3.0
 
     // MARK: - Init
@@ -122,7 +94,8 @@ final class AutonomousLayer: BehaviorLayer {
 
         // Update the state machine
         stateTimer += deltaTime
-        updateStateMachine(deltaTime: deltaTime, output: &output)
+        updateStateMachine(deltaTime: deltaTime, currentTime: currentTime,
+                           output: &output)
 
         // Always output current position and facing — even during idle/behavior
         // so the creature doesn't snap to default position
@@ -142,6 +115,7 @@ final class AutonomousLayer: BehaviorLayer {
     // MARK: - State Machine
 
     private func updateStateMachine(deltaTime: TimeInterval,
+                                    currentTime: TimeInterval,
                                     output: inout LayerOutput) {
         switch state {
         case .walking:
@@ -153,18 +127,22 @@ final class AutonomousLayer: BehaviorLayer {
         case .behavior(let name):
             updateBehavior(name: name, deltaTime: deltaTime, output: &output)
 
+        case .taughtBehavior(let name):
+            updateTaughtBehavior(name: name, deltaTime: deltaTime,
+                                 currentTime: currentTime, output: &output)
+
         case .resting:
             updateResting(deltaTime: deltaTime, output: &output)
         }
 
-        // Global check: energy-based resting
+        // Global check: energy-based resting (don't interrupt taught behaviors)
         if case .resting = state {
-            // Already resting — check if we should wake up
             if emotions.energy > 40 {
                 transitionTo(.idle)
             }
+        } else if case .taughtBehavior = state {
+            // Let taught behaviors finish — don't interrupt for rest
         } else if emotions.energy < 20 {
-            // Should rest
             transitionTo(.resting)
         }
     }
@@ -247,7 +225,14 @@ final class AutonomousLayer: BehaviorLayer {
 
         // Check for state transition
         if stateTimer >= stateDuration {
-            // Try to select a behavior
+            // Check if a taught behavior should play
+            if let selected = selectTaughtBehavior() {
+                startTaughtBehavior(selected)
+                return
+            }
+
+            // Otherwise, select a cat behavior
+            taughtGovernor?.recordCatBehavior()
             let selectedBehavior = behaviorSelector.selectBehavior(
                 stage: stage,
                 personality: personality,
@@ -261,7 +246,6 @@ final class AutonomousLayer: BehaviorLayer {
                     elapsed: 0
                 )
             } else {
-                // No behavior available — go back to walking
                 transitionTo(.walking)
             }
         }
@@ -367,6 +351,7 @@ final class AutonomousLayer: BehaviorLayer {
 
         // If we're in a behavior that overrides the tail, skip
         if case .behavior = state, output.tailState != nil { return }
+        if case .taughtBehavior = state, output.tailState != nil { return }
         if case .resting = state { return }
 
         // Personality modulation
@@ -399,7 +384,7 @@ final class AutonomousLayer: BehaviorLayer {
 
     // MARK: - State Transitions
 
-    private func transitionTo(_ newState: AutonomousState) {
+    func transitionTo(_ newState: AutonomousState) {
         state = newState
         stateTimer = 0
         regenerateStateDuration()
@@ -431,6 +416,10 @@ final class AutonomousLayer: BehaviorLayer {
             } else {
                 stateDuration = 3.0
             }
+
+        case .taughtBehavior:
+            // Duration controlled by TaughtBehaviorEngine
+            stateDuration = .infinity
 
         case .resting:
             // Rest until energy recovers above 40

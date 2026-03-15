@@ -100,7 +100,8 @@ final class PushlingScene: SKScene {
         config.creatureStage = .critter  // Will be read from SQLite in production
         // Landmarks will be loaded from SQLite in future phases.
         // For now, add a few demo landmarks to prove the system works.
-        worldManager.setup(scene: self, config: config)
+        worldManager.setup(scene: self, config: config,
+                          db: DatabaseManager.shared)
 
         // Demo landmarks (will be replaced by SQLite reads)
         worldManager.addRepoLandmark(repoName: "pushling",

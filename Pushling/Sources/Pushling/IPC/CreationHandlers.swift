@@ -1,188 +1,10 @@
-// CreationHandlers.swift — pushling_world, pushling_recall, pushling_teach, pushling_nurture
-// Extension on CommandRouter for world-shaping, memory, creation, and nurturing.
-// Dispatches to WorldManager, DatabaseManager, ChoreographyParser, and identity DB.
+// CreationHandlers.swift — pushling_recall, pushling_teach, pushling_nurture
+// Extension on CommandRouter for memory, creation, and nurturing.
+// World handler (pushling_world) is in WorldHandlers.swift.
+// Dispatches to DatabaseManager, ChoreographyParser, and identity DB.
 
 import Foundation
 import CoreGraphics
-
-// MARK: - World Handler
-
-extension CommandRouter {
-
-    func handleWorld(_ req: IPCRequest) -> IPCResult {
-        guard let gc = gameCoordinator else {
-            return .failure(error: "Creature systems not initialized.",
-                            code: "NOT_READY")
-        }
-
-        let action = req.action ?? "weather"
-
-        switch action {
-        case "weather":
-            return handleWorldWeather(req, gc: gc)
-        case "event":
-            return handleWorldEvent(req, gc: gc)
-        case "time_override":
-            return handleWorldTimeOverride(req, gc: gc)
-        case "place", "create":
-            return .failure(
-                error: "Object placement system is not yet fully integrated. "
-                    + "Use the debug menu to test world objects, or use "
-                    + "'world weather' and 'world event' which are live.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "remove", "modify":
-            return .failure(
-                error: "Object modification is not yet fully integrated. "
-                    + "Placed objects support is coming in a future update.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "sound":
-            return .failure(
-                error: "Ambient sound system is not yet integrated. "
-                    + "Use 'speak' for creature sounds.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "companion":
-            return .failure(
-                error: "Companion system is not yet integrated. "
-                    + "The creature explores alone for now.",
-                code: "NOT_IMPLEMENTED"
-            )
-        default:
-            return .failure(
-                error: "Unknown world action '\(action)'.",
-                code: "UNKNOWN_ACTION"
-            )
-        }
-    }
-
-    private func handleWorldWeather(
-        _ req: IPCRequest, gc: GameCoordinator
-    ) -> IPCResult {
-        let wm = gc.scene.worldManager
-        let previous = wm.currentWeather
-
-        guard let typeStr = req.params["type"] as? String else {
-            return .success([
-                "current": wm.currentWeather.rawValue,
-                "time_of_day": wm.currentTimePeriod.rawValue,
-                "moon_phase": wm.moonPhaseName,
-                "is_full_moon": wm.isFullMoon,
-                "description": wm.weatherDescription
-            ])
-        }
-
-        guard let weatherState = WeatherState(rawValue: typeStr) else {
-            let valid = WeatherState.allCases.map(\.rawValue).joined(separator: ", ")
-            return .failure(
-                error: "Unknown weather type '\(typeStr)'. Valid: \(valid)",
-                code: "INVALID_PARAMS"
-            )
-        }
-
-        let duration = req.params["duration"] as? Int ?? 300
-
-        DispatchQueue.main.async {
-            wm.debugForceWeather(weatherState)
-        }
-
-        journalLog(gc, type: "world_change",
-                   summary: "Weather changed: \(previous.rawValue) -> \(typeStr)")
-
-        return .success([
-            "type": typeStr,
-            "previous": previous.rawValue,
-            "duration_s": duration,
-            "note": "Weather transitioning over 30-60s."
-        ])
-    }
-
-    private func handleWorldEvent(
-        _ req: IPCRequest, gc: GameCoordinator
-    ) -> IPCResult {
-        let wm = gc.scene.worldManager
-
-        guard let typeStr = req.params["type"] as? String else {
-            let valid = VisualEventType.allCases.map(\.rawValue).joined(separator: ", ")
-            return .failure(
-                error: "Missing 'type' parameter. Valid visual events: \(valid)",
-                code: "INVALID_PARAMS"
-            )
-        }
-
-        guard let eventType = VisualEventType(rawValue: typeStr) else {
-            let valid = VisualEventType.allCases.map(\.rawValue).joined(separator: ", ")
-            return .failure(
-                error: "Unknown visual event '\(typeStr)'. Valid: \(valid)",
-                code: "INVALID_PARAMS"
-            )
-        }
-
-        var started = false
-        DispatchQueue.main.sync {
-            started = wm.triggerVisualEvent(eventType)
-        }
-
-        if started {
-            journalLog(gc, type: "world_change",
-                       summary: "Visual event triggered: \(typeStr)")
-            return .success([
-                "event": typeStr,
-                "started": true,
-                "duration_s": eventType.duration
-            ])
-        } else {
-            return .success([
-                "event": typeStr,
-                "started": false,
-                "note": "Event was queued or stage requirement not met. "
-                    + "Visual events require critter+ stage."
-            ])
-        }
-    }
-
-    private func handleWorldTimeOverride(
-        _ req: IPCRequest, gc: GameCoordinator
-    ) -> IPCResult {
-        guard let periodStr = req.params["period"] as? String else {
-            let current = gc.scene.worldManager.currentTimePeriod
-            return .success([
-                "current_period": current.rawValue,
-                "note": "Pass 'period' to override. Valid: "
-                    + TimePeriod.allCases.map(\.rawValue).joined(separator: ", ")
-            ])
-        }
-
-        if periodStr == "auto" {
-            DispatchQueue.main.async {
-                gc.scene.worldManager.skySystem.timeOverrideHour = nil
-            }
-            return .success([
-                "period": "auto",
-                "note": "Sky time override cleared. Using wall clock."
-            ])
-        }
-
-        guard let period = TimePeriod(rawValue: periodStr) else {
-            let valid = TimePeriod.allCases.map(\.rawValue).joined(separator: ", ")
-                + ", auto"
-            return .failure(
-                error: "Unknown time period '\(periodStr)'. Valid: \(valid)",
-                code: "INVALID_PARAMS"
-            )
-        }
-
-        DispatchQueue.main.async {
-            gc.scene.worldManager.skySystem.timeOverrideHour = period.startHour + 0.5
-        }
-
-        return .success([
-            "period": periodStr,
-            "note": "Sky time overridden to \(periodStr). Use 'period: auto' to restore."
-        ])
-    }
-}
 
 // MARK: - Recall Handler
 
@@ -410,13 +232,40 @@ extension CommandRouter {
         switch result {
         case .success(let definition):
             let db = gc.stateCoordinator.database
-            let jsonData = try? JSONSerialization.data(withJSONObject: choreography)
-            let jsonStr = jsonData.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-
             let formatter = ISO8601DateFormatter()
             let now = formatter.string(from: Date())
 
+            // Serialize tracks and triggers for DB storage
+            let tracksJSON = Self.serializeTracks(definition.tracks)
+            let triggersJSON = Self.serializeTriggers(definition.triggers)
+
             do {
+                // Upsert into taught_behaviors table (replace if same name)
+                try db.execute(
+                    """
+                    INSERT INTO taught_behaviors
+                        (name, category, stage_min, duration_s,
+                         tracks_json, triggers_json, source, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'taught', ?)
+                    ON CONFLICT(name) DO UPDATE SET
+                        category = excluded.category,
+                        stage_min = excluded.stage_min,
+                        duration_s = excluded.duration_s,
+                        tracks_json = excluded.tracks_json,
+                        triggers_json = excluded.triggers_json
+                    """,
+                    arguments: [
+                        definition.name,
+                        definition.category,
+                        "\(definition.stageMin)",
+                        definition.durationSeconds,
+                        tracksJSON,
+                        triggersJSON,
+                        now
+                    ]
+                )
+
+                // Journal entry
                 try db.execute(
                     """
                     INSERT INTO journal (type, summary, timestamp, data)
@@ -425,7 +274,7 @@ extension CommandRouter {
                     arguments: [
                         "Taught trick: \(definition.name)",
                         now,
-                        jsonStr
+                        tracksJSON
                     ]
                 )
             } catch {
@@ -435,12 +284,16 @@ extension CommandRouter {
                 )
             }
 
+            // Register with engine at runtime
+            gc.registerTaughtBehavior(definition)
+
             return .success([
                 "committed": true,
                 "name": definition.name,
+                "mastery": "learning",
                 "note": "Trick '\(definition.name)' saved! "
-                    + "Use 'perform \(definition.name)' to execute it. "
-                    + "It will also appear in idle rotation."
+                    + "It will appear in idle rotation (20% chance, max 3/hour). "
+                    + "Mastery starts at Learning — performing it improves execution."
             ])
 
         case .failure(let errors):
@@ -453,20 +306,84 @@ extension CommandRouter {
         }
     }
 
+    /// Serializes tracks to JSON string for DB storage.
+    static func serializeTracks(
+        _ tracks: [String: [Keyframe]]
+    ) -> String {
+        var dict: [String: [[String: Any]]] = [:]
+        for (trackName, keyframes) in tracks {
+            dict[trackName] = keyframes.map { kf in
+                var kfDict: [String: Any] = [
+                    "t": kf.time,
+                    "state": kf.state,
+                    "easing": kf.easing.rawValue
+                ]
+                for (k, v) in kf.params { kfDict[k] = v }
+                return kfDict
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let str = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return str
+    }
+
+    /// Serializes triggers to JSON string for DB storage.
+    static func serializeTriggers(
+        _ triggers: TriggerConfig
+    ) -> String {
+        var dict: [String: Any] = [
+            "idle_weight": triggers.idleWeight,
+            "on_touch": triggers.onTouch,
+            "cooldown_s": triggers.cooldownSeconds
+        ]
+        if !triggers.onCommitTypes.isEmpty {
+            dict["on_commit_type"] = triggers.onCommitTypes
+        }
+        if !triggers.contexts.isEmpty {
+            dict["contexts"] = triggers.contexts
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let str = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return str
+    }
+
     private func handleTeachList(_ gc: GameCoordinator) -> IPCResult {
         let db = gc.stateCoordinator.database
         do {
             let rows = try db.query(
-                "SELECT summary, timestamp FROM journal WHERE type = 'teach' ORDER BY timestamp DESC"
+                """
+                SELECT name, category, stage_min, duration_s,
+                       mastery_level, performance_count, strength,
+                       source, created_at, last_performed_at
+                FROM taught_behaviors ORDER BY created_at DESC
+                """
             )
             let tricks = rows.map { row -> [String: Any] in
-                [
-                    "name": (row["summary"] as? String)?
-                        .replacingOccurrences(of: "Taught trick: ", with: "") ?? "unknown",
-                    "taught_at": row["timestamp"] ?? ""
+                let count = (row["performance_count"] as? Int) ?? 0
+                let mastery = MasteryLevel(performanceCount: count)
+                return [
+                    "name": row["name"] ?? "unknown",
+                    "category": row["category"] ?? "playful",
+                    "stage_min": row["stage_min"] ?? "critter",
+                    "duration_s": row["duration_s"] ?? 3.0,
+                    "mastery": mastery.displayName,
+                    "performances": count,
+                    "strength": row["strength"] ?? 0.5,
+                    "source": row["source"] ?? "taught",
+                    "taught_at": row["created_at"] ?? "",
+                    "last_performed": row["last_performed_at"] as Any
                 ]
             }
-            return .success(["tricks": tricks, "count": tricks.count])
+            let governor = gc.idleRotationGovernor
+            return .success([
+                "tricks": tricks,
+                "count": tricks.count,
+                "governor": governor.statusSummary
+            ])
         } catch {
             return .success(["tricks": [] as [Any], "count": 0])
         }
@@ -485,9 +402,14 @@ extension CommandRouter {
         let db = gc.stateCoordinator.database
         do {
             try db.execute(
+                "DELETE FROM taught_behaviors WHERE name = ?",
+                arguments: [name]
+            )
+            try db.execute(
                 "DELETE FROM journal WHERE type = 'teach' AND summary LIKE ?",
                 arguments: ["%\(name)%"]
             )
+            gc.unregisterTaughtBehavior(name: name)
             return .success([
                 "removed": true,
                 "name": name
@@ -514,46 +436,16 @@ extension CommandRouter {
         let action = req.action ?? "list"
 
         switch action {
-        case "identity":
-            return handleNurtureIdentity(req, gc: gc)
-        case "habit":
-            return .failure(
-                error: "Habit system is being developed. Habits will let you define "
-                    + "automatic behaviors triggered by events (commits, idle time, etc.). "
-                    + "Use 'nurture identity' to set name/title/motto now.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "preference":
-            return .failure(
-                error: "Preference system is being developed. Preferences will let you "
-                    + "set likes/dislikes that influence autonomous behavior. "
-                    + "Use 'nurture identity' to set name/title/motto now.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "quirk":
-            return .failure(
-                error: "Quirk system is being developed. Quirks will add probabilistic "
-                    + "character flourishes to idle behavior. "
-                    + "Use 'nurture identity' to set name/title/motto now.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "routine":
-            return .failure(
-                error: "Routine system is being developed. Routines will define "
-                    + "time-of-day behavior sequences. "
-                    + "Use 'nurture identity' to set name/title/motto now.",
-                code: "NOT_IMPLEMENTED"
-            )
-        case "suggest":
-            return handleNurtureSuggest(gc)
-        case "list":
-            return handleNurtureList(gc)
-        case "remove":
-            return .failure(
-                error: "Nurture removal is not yet implemented. "
-                    + "Identity changes can be made by setting new values.",
-                code: "NOT_IMPLEMENTED"
-            )
+        case "identity":   return handleNurtureIdentity(req, gc: gc)
+        case "set":        return handleNurtureSet(req, gc: gc)
+        case "habit":      return handleNurtureSetHabit(req, gc: gc)
+        case "preference": return handleNurtureSetPreference(req, gc: gc)
+        case "quirk":      return handleNurtureSetQuirk(req, gc: gc)
+        case "routine":    return handleNurtureSetRoutine(req, gc: gc)
+        case "suggest":    return handleNurtureSuggest(gc)
+        case "list":       return handleNurtureList(gc)
+        case "remove":     return handleNurtureRemove(req, gc: gc)
+        case "reinforce":  return handleNurtureReinforce(req, gc: gc)
         default:
             return .failure(
                 error: "Unknown nurture action '\(action)'.",
@@ -632,71 +524,69 @@ extension CommandRouter {
 
     private func handleNurtureSuggest(_ gc: GameCoordinator) -> IPCResult {
         var suggestions: [[String: String]] = []
-
         let emo = gc.emotionalState
-
         if emo.satisfaction < 30 {
-            suggestions.append([
-                "action": "Commit some code! The creature is hungry.",
-                "type": "feeding"
-            ])
+            suggestions.append(["action": "Commit some code! The creature is hungry.", "type": "feeding"])
         }
         if emo.energy < 20 {
-            suggestions.append([
-                "action": "Let the creature rest — use 'perform nap'.",
-                "type": "rest"
-            ])
+            suggestions.append(["action": "Let the creature rest — use 'perform nap'.", "type": "rest"])
         }
         if emo.curiosity > 70 {
-            suggestions.append([
-                "action": "Teach a new trick — the creature is eager to learn.",
-                "type": "teach"
-            ])
+            suggestions.append(["action": "Teach a new trick — the creature is eager to learn.", "type": "teach"])
         }
         if gc.creatureName == "Pushling" {
-            suggestions.append([
-                "action": "Give the creature a name with 'nurture identity'.",
-                "type": "identity"
-            ])
+            suggestions.append(["action": "Give the creature a name with 'nurture identity'.", "type": "identity"])
         }
-        suggestions.append([
-            "action": "Express joy or love to build the bond.",
-            "type": "expression"
-        ])
-
+        if gc.habitEngine.habits.isEmpty {
+            suggestions.append(["action": "Set a habit — e.g. stretch after every commit.", "type": "habit"])
+        }
+        if gc.preferenceEngine.allPreferences.isEmpty {
+            suggestions.append(["action": "Set a preference — does the creature love rain?", "type": "preference"])
+        }
+        suggestions.append(["action": "Express joy or love to build the bond.", "type": "expression"])
         return .success(["suggestions": suggestions])
     }
 
     private func handleNurtureList(_ gc: GameCoordinator) -> IPCResult {
         let db = gc.stateCoordinator.database
-
-        let nameRow = try? db.query(
-            "SELECT name, title, motto FROM creature WHERE id = 1"
-        )
+        let nameRow = try? db.query("SELECT name, title, motto FROM creature WHERE id = 1")
         let identity: [String: Any] = [
             "name": nameRow?.first?["name"] as? String ?? gc.creatureName,
             "title": nameRow?.first?["title"] as Any,
             "motto": nameRow?.first?["motto"] as Any
         ]
-
         let nurtureEntries: [[String: Any]]
         if let rows = try? db.query(
-            "SELECT summary, timestamp FROM journal WHERE type = 'nurture' ORDER BY timestamp DESC LIMIT 20"
-        ) {
-            nurtureEntries = rows
-        } else {
-            nurtureEntries = []
-        }
+            "SELECT summary, timestamp FROM journal "
+            + "WHERE type = 'nurture' ORDER BY timestamp DESC LIMIT 20"
+        ) { nurtureEntries = rows } else { nurtureEntries = [] }
 
+        let habitList: [[String: Any]] = gc.habitEngine.habits.map { h in
+            ["name": h.name, "behavior": h.behavior,
+             "frequency": h.frequency.rawValue, "strength": h.strength,
+             "reinforcements": h.reinforcementCount]
+        }
+        let prefList: [[String: Any]] = gc.preferenceEngine.allPreferences.map { p in
+            ["subject": p.subject, "valence": p.valence,
+             "strength": p.strength, "reinforcements": p.reinforcementCount]
+        }
+        let quirkList: [[String: Any]] = gc.quirkEngine.activeQuirks.map { q in
+            ["name": q.name, "target": q.targetBehavior,
+             "probability": q.probability, "strength": q.strength,
+             "reinforcements": q.reinforcementCount]
+        }
+        let routineRows = (try? db.query(
+            "SELECT slot, strength, reinforcement_count FROM routines"
+        )) ?? []
+        let routineList: [[String: Any]] = routineRows.map { r in
+            ["slot": r["slot"] as? String ?? "",
+             "strength": r["strength"] as? Double ?? 0.5,
+             "reinforcements": r["reinforcement_count"] as? Int ?? 0]
+        }
         return .success([
-            "identity": identity,
-            "nurture_history": nurtureEntries,
-            "habits": [] as [Any],
-            "preferences": [] as [Any],
-            "quirks": [] as [Any],
-            "routines": [] as [Any],
-            "note": "Habits, preferences, quirks, and routines are coming soon. "
-                + "Identity is live."
+            "identity": identity, "nurture_history": nurtureEntries,
+            "habits": habitList, "preferences": prefList,
+            "quirks": quirkList, "routines": routineList
         ])
     }
 }

@@ -45,7 +45,7 @@ final class CommandRouter {
                     "dreams", "relationship", "failed_speech"],
         "teach": ["compose", "preview", "refine", "commit", "list", "remove"],
         "nurture": ["habit", "preference", "quirk", "routine", "identity",
-                     "suggest", "list", "remove"]
+                     "suggest", "list", "remove", "set", "reinforce"]
     ]
 
     init(eventBuffer: EventBuffer, sessionManager: SessionManager = SessionManager()) {

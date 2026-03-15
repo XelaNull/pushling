@@ -175,9 +175,9 @@ final class MiniGameManager {
         switch type {
         case .catchStars:    game = CatchGame()
         case .rhythmTap:     game = RhythmTapGame()
-        case .memory:        game = MemoryGameStub()
-        case .treasureHunt:  game = TreasureHuntStub()
-        case .tugOfWar:      game = TugOfWarStub()
+        case .memory:        game = MemoryGame()
+        case .treasureHunt:  game = TreasureHuntGame()
+        case .tugOfWar:      game = TugOfWarGame()
         }
 
         // Create game layer

@@ -456,6 +456,9 @@ final class BehaviorSelector {
         currentTime = time
     }
 
+    /// Current scene time for external queries (e.g., taught behavior selection).
+    var currentSceneTime: TimeInterval { currentTime }
+
     // MARK: - Debug
 
     /// Returns a summary of all behavior weights for the current state.

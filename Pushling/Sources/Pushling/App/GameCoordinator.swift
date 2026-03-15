@@ -38,6 +38,7 @@ final class GameCoordinator {
     let taughtBehaviorEngine: TaughtBehaviorEngine
     let masteryTracker: MasteryTracker
     let idleRotationGovernor: IdleRotationGovernor
+    let behaviorBreeding: BehaviorBreeding
     let voiceSystem: VoiceSystem
     let voiceIntegration: VoiceIntegration
     let eatingAnimation: CommitEatingAnimation
@@ -48,6 +49,7 @@ final class GameCoordinator {
     let preferenceEngine: PreferenceEngine
     let quirkEngine: QuirkEngine
     let routineEngine: RoutineEngine
+    let nurtureDecayManager: NurtureDecayManager
 
     // MARK: - Hatching State
 
@@ -57,6 +59,12 @@ final class GameCoordinator {
 
     private var emotionUpdateAccumulator: TimeInterval = 0
     private static let emotionUpdateInterval: TimeInterval = 0.1  // 10Hz
+
+    var nurtureDecayAccumulator: TimeInterval = 0
+    static let nurtureDecayInterval: TimeInterval = 60.0  // Check every 60s
+
+    var habitPeriodicAccumulator: TimeInterval = 0
+    static let habitPeriodicInterval: TimeInterval = 30.0
 
     // MARK: - Initialization
 
@@ -110,6 +118,7 @@ final class GameCoordinator {
         self.taughtBehaviorEngine = TaughtBehaviorEngine()
         self.masteryTracker = MasteryTracker()
         self.idleRotationGovernor = IdleRotationGovernor()
+        self.behaviorBreeding = BehaviorBreeding()
 
         // --- N. Voice ---
         self.voiceSystem = VoiceSystem()
@@ -123,6 +132,7 @@ final class GameCoordinator {
         self.preferenceEngine = PreferenceEngine()
         self.quirkEngine = QuirkEngine()
         self.routineEngine = RoutineEngine()
+        self.nurtureDecayManager = NurtureDecayManager()
 
         // --- Hatching State ---
         self.isHatched = Self.loadHatched(from: db)
@@ -140,6 +150,7 @@ final class GameCoordinator {
         wireCommandRouter()
         wireEatingAnimation()
         wireNurture()
+        wireTaughtBehaviors()
 
         // Start subsystems
         feedProcessor.start()
@@ -199,6 +210,9 @@ final class GameCoordinator {
 
         // 9. Update creature touch handler with current creature state
         syncTouchHandlerState()
+
+        // 10. Nurture subsystem updates (habits, decay, routines)
+        updateNurtureSubsystems(deltaTime: deltaTime)
     }
 
     // MARK: - Shutdown
@@ -344,6 +358,23 @@ final class GameCoordinator {
 
                 // Voice integration: track commit eaten
                 self.voiceIntegration.onCommitEaten()
+
+                // Habit trigger: commit eaten
+                let commitTypeStr = commitData["commit_type"] as? String ?? "normal"
+                self.habitEngine.evaluate(
+                    event: .commitEaten(type: commitTypeStr,
+                                        linesChanged: totalLines),
+                    stage: self.creatureStage,
+                    currentTime: CACurrentMediaTime()
+                )
+
+                // Routine trigger: post_meal (every commit) or
+                // post_feast (200+ lines)
+                if totalLines >= 200 {
+                    self.routineEngine.trigger(slot: .postFeast)
+                } else {
+                    self.routineEngine.trigger(slot: .postMeal)
+                }
             }
         }
 
@@ -391,6 +422,15 @@ final class GameCoordinator {
 
     private func wireSessionManager() {
         scene.wireSessionManager(commandRouter.sessionManager)
+
+        // Wire routine/habit triggers to session lifecycle events
+        let sm = commandRouter.sessionManager
+        let previousHandler = sm.onSessionEvent
+        sm.onSessionEvent = { [weak self] event in
+            previousHandler?(event)
+            self?.handleSessionEventForNurture(event)
+        }
+
         NSLog("[Pushling/Coordinator] Session manager wired to scene")
     }
 
@@ -451,43 +491,6 @@ final class GameCoordinator {
         NSLog("[Pushling/Coordinator] Input system wired")
     }
 
-    // MARK: - Wiring: Voice (N)
-
-    private func wireVoice() {
-        voiceSystem.initialize(stage: creatureStage,
-                                personality: personality.toSnapshot())
-        voiceIntegration.configure(stage: creatureStage,
-                                     personality: personality.toSnapshot(),
-                                     commitsEaten: totalXP)
-        voiceIntegration.attach(to: speechCoordinator)
-
-        // Bridge SpeechCoordinator -> VoiceIntegration (Gap 3)
-        speechCoordinator.onSpeechRendered = {
-            [weak self] text, style, stage, source in
-            self?.voiceIntegration.onSpeech(
-                text: text, style: style, stage: stage, source: source
-            )
-        }
-
-        NSLog("[Pushling/Coordinator] Voice system wired")
-    }
-
-    // MARK: - Wiring: Command Router (K)
-
-    private func wireCommandRouter() {
-        // CommandRouter.gameCoordinator is set by AppDelegate after init.
-        // All 9 tool handlers in CommandHandlers.swift dispatch through
-        // gameCoordinator to the real subsystems.
-        NSLog("[Pushling/Coordinator] CommandRouter handlers ready for live dispatch")
-    }
-
-    // MARK: - Wiring: Eating Animation
-
-    private func wireEatingAnimation() {
-        if let creature = scene.creatureNode {
-            eatingAnimation.configure(creature: creature, scene: scene)
-        }
-        NSLog("[Pushling/Coordinator] Eating animation wired")
-    }
+    // wireVoice() is in GameCoordinator+Loading.swift
 
 }
