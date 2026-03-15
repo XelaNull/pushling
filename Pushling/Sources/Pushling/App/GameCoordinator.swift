@@ -192,10 +192,14 @@ final class GameCoordinator {
     func update(deltaTime: TimeInterval) {
         guard isHatched else { return }
 
+        // Compute shared time values once per frame to avoid redundant allocations
+        let now = Date()
+        let currentTime = CACurrentMediaTime()
+
         // 1. Emotions at 10Hz (not every frame)
         emotionUpdateAccumulator += deltaTime
         if emotionUpdateAccumulator >= Self.emotionUpdateInterval {
-            let hour = Calendar.current.component(.hour, from: Date())
+            let hour = Calendar.current.component(.hour, from: now)
             emotionalState.update(deltaTime: emotionUpdateAccumulator, hour: hour)
             emotionUpdateAccumulator = 0
 
@@ -215,18 +219,18 @@ final class GameCoordinator {
 
         // 4. Surprise animation player
         surprisePlayer.update(deltaTime: deltaTime,
-                                sceneTime: CACurrentMediaTime())
+                                sceneTime: currentTime)
 
         // 5. Speech coordinator (bubble lifecycle)
         speechCoordinator.update(deltaTime: deltaTime)
 
         // 6. Touch input (gesture recognizer long-press/sustained checks)
         gestureRecognizer.update(
-            currentTime: CACurrentMediaTime(),
+            currentTime: currentTime,
             activeTouches: touchTracker.activeTouches
         )
         creatureTouchHandler.update(deltaTime: deltaTime,
-                                      currentTime: CACurrentMediaTime())
+                                      currentTime: currentTime)
 
         // 7. Voice integration (cooldown timer)
         voiceIntegration.update(deltaTime: deltaTime)
@@ -242,7 +246,7 @@ final class GameCoordinator {
 
         // 11. Late-night lantern (solidarity, not judgment)
         if let creature = scene.creatureNode {
-            let hour = Calendar.current.component(.hour, from: Date())
+            let hour = Calendar.current.component(.hour, from: now)
             let isDeveloperActive = commandRouter.sessionManager.isSessionActive
             lateNightLantern.update(deltaTime: deltaTime, hour: hour,
                                      isDeveloperActive: isDeveloperActive,

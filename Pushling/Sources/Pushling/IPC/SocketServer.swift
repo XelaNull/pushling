@@ -71,7 +71,7 @@ final class SocketServer {
 
         serverFD = socket(AF_UNIX, SOCK_STREAM, 0)
         guard serverFD >= 0 else {
-            NSLog("[Pushling:IPC] Failed to create socket: \(errnoString)")
+            NSLog("[Pushling/IPC] Failed to create socket: \(errnoString)")
             return
         }
 
@@ -91,20 +91,20 @@ final class SocketServer {
         } == 0
 
         guard bindOK else {
-            NSLog("[Pushling:IPC] Failed to bind: \(errnoString)")
+            NSLog("[Pushling/IPC] Failed to bind: \(errnoString)")
             close(serverFD); serverFD = -1
             return
         }
 
         guard listen(serverFD, 3) == 0 else {
-            NSLog("[Pushling:IPC] Failed to listen: \(errnoString)")
+            NSLog("[Pushling/IPC] Failed to listen: \(errnoString)")
             close(serverFD); serverFD = -1; unlink(SocketServer.socketPath)
             return
         }
 
         setNonBlocking(serverFD)
         isRunning = true
-        NSLog("[Pushling:IPC] Listening on \(SocketServer.socketPath)")
+        NSLog("[Pushling/IPC] Listening on \(SocketServer.socketPath)")
 
         let source = DispatchSource.makeReadSource(fileDescriptor: serverFD, queue: queue)
         source.setEventHandler { [weak self] in self?.acceptConnection() }
@@ -129,7 +129,7 @@ final class SocketServer {
 
         for conn in all { disconnectClient(conn, reason: "server shutdown") }
         unlink(SocketServer.socketPath)
-        NSLog("[Pushling:IPC] Server stopped")
+        NSLog("[Pushling/IPC] Server stopped")
     }
 
     // MARK: - Connection Management
@@ -144,7 +144,7 @@ final class SocketServer {
         }
         guard clientFD >= 0 else {
             if errno != EAGAIN && errno != EWOULDBLOCK {
-                NSLog("[Pushling:IPC] Accept failed: \(errnoString)")
+                NSLog("[Pushling/IPC] Accept failed: \(errnoString)")
             }
             return
         }
@@ -156,7 +156,7 @@ final class SocketServer {
         connections[conn.id] = conn
         connectionsLock.unlock()
 
-        NSLog("[Pushling:IPC] Client connected: \(conn.id)")
+        NSLog("[Pushling/IPC] Client connected: \(conn.id)")
 
         let source = DispatchSource.makeReadSource(fileDescriptor: clientFD, queue: queue)
         source.setEventHandler { [weak self] in self?.handleRead(for: conn) }
@@ -262,7 +262,7 @@ final class SocketServer {
                 router.handleAbruptDisconnect(sessionId: sid)
             }
         }
-        NSLog("[Pushling:IPC] Client disconnected: \(conn.id) (\(reason))")
+        NSLog("[Pushling/IPC] Client disconnected: \(conn.id) (\(reason))")
     }
 
     // MARK: - Response Helpers
@@ -284,6 +284,8 @@ final class SocketServer {
         ["id": id, "ok": false, "error": error, "code": code, "pending_events": [] as [Any]]
     }
 
+    private static let maxWriteRetries = 50  // 50 * 1ms = 50ms max wait
+
     private func writeJSON(_ dict: [String: Any], to conn: ClientConnection) {
         guard var data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
         else { return }
@@ -293,14 +295,20 @@ final class SocketServer {
         data.withUnsafeBytes { buf in
             guard let base = buf.baseAddress else { return }
             var written = 0
+            var retries = 0
             while written < buf.count {
                 let n = write(fd, base + written, buf.count - written)
                 if n <= 0 {
-                    if errno == EAGAIN || errno == EWOULDBLOCK { usleep(1000); continue }
-                    NSLog("[Pushling:IPC] Write failed: \(errnoString)")
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) && retries < Self.maxWriteRetries {
+                        retries += 1
+                        usleep(1000)
+                        continue
+                    }
+                    NSLog("[Pushling/IPC] Write failed after %d retries: %@", retries, errnoString)
                     return
                 }
                 written += n
+                retries = 0  // Reset retries on successful write
             }
         }
     }

@@ -304,7 +304,7 @@ final class WeatherSystem {
         // Pre-activate the target renderer so it can fade in
         activateRenderer(for: newState)
 
-        NSLog("[Pushling] Weather transitioning: \(currentState.rawValue) -> \(newState.rawValue) over \(Int(duration))s")
+        NSLog("[Pushling/World] Weather transitioning: \(currentState.rawValue) -> \(newState.rawValue) over \(Int(duration))s")
     }
 
     /// Complete the current transition.
@@ -334,7 +334,7 @@ final class WeatherSystem {
             reactionDelegate?.weatherCleared(previousWeather: previousState)
         }
 
-        NSLog("[Pushling] Weather now: \(currentState.rawValue) (duration: \(Int(weatherDurationRemaining))s)")
+        NSLog("[Pushling/World] Weather now: \(currentState.rawValue) (duration: \(Int(weatherDurationRemaining))s)")
     }
 
     // MARK: - Renderer Management

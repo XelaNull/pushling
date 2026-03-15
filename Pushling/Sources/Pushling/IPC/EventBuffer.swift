@@ -62,6 +62,14 @@ final class EventBuffer {
 
     private let lock = NSLock()
 
+    /// Cached ISO 8601 formatter — `ISO8601DateFormatter()` is expensive to create.
+    /// Reused across all push/drain calls to avoid allocation under the lock.
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
     // MARK: - Init
 
     init(capacity: Int = EventBuffer.defaultCapacity) {
@@ -102,7 +110,7 @@ final class EventBuffer {
         let event = PushlingEvent(
             seq: nextSeq,
             type: type,
-            timestamp: ISO8601DateFormatter().string(from: Date()),
+            timestamp: Self.isoFormatter.string(from: Date()),
             data: data
         )
 
@@ -168,7 +176,7 @@ final class EventBuffer {
             let droppedEvent: [String: Any] = [
                 "seq": 0,  // Meta-event, not part of normal sequence
                 "type": "events_dropped",
-                "timestamp": ISO8601DateFormatter().string(from: Date()),
+                "timestamp": Self.isoFormatter.string(from: Date()),
                 "data": ["count": droppedCount]
             ]
             result.insert(droppedEvent, at: 0)

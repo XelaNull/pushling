@@ -395,6 +395,32 @@ function filterContentAware(
   };
 }
 
+// ─── Word scoring dictionaries (module-level for reuse) ─────────────
+
+const STOP_WORDS = new Set([
+  "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+  "should", "may", "might", "must", "can", "could", "am", "to", "of",
+  "in", "for", "on", "with", "at", "by", "from", "as", "into", "that",
+  "this", "it", "its", "and", "but", "or", "not", "no", "so", "if",
+  "than", "too", "very", "just", "about", "up", "out", "also",
+]);
+
+const TECH_WORDS = new Set([
+  "code", "bug", "fix", "error", "test", "build", "deploy", "merge",
+  "commit", "branch", "release", "feature", "auth", "api", "data",
+  "config", "server", "client", "refactor", "debug", "function",
+  "module", "component", "database", "query", "cache", "performance",
+]);
+
+const EMOTION_WORDS = new Set([
+  "good", "great", "bad", "happy", "sad", "love", "hate", "nice",
+  "wonderful", "terrible", "awesome", "beautiful", "ugly", "proud",
+  "sorry", "thanks", "thank", "please", "help", "amazing", "wow",
+  "cool", "elegant", "broken", "perfect", "morning", "night",
+  "hello", "hi", "bye", "yes", "no", "ok", "ready", "done",
+]);
+
 /**
  * Score a word's importance for extraction.
  * Higher = more important, more likely to be kept.
@@ -404,17 +430,7 @@ function scoreWord(word: string, index: number, totalWords: number): number {
   const lower = word.toLowerCase().replace(/[^a-z]/g, "");
 
   // ─── Content words score higher ─────────────────────────────
-  // Common stop words score low
-  const stopWords = new Set([
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
-    "should", "may", "might", "must", "can", "could", "am", "to", "of",
-    "in", "for", "on", "with", "at", "by", "from", "as", "into", "that",
-    "this", "it", "its", "and", "but", "or", "not", "no", "so", "if",
-    "than", "too", "very", "just", "about", "up", "out", "also",
-  ]);
-
-  if (stopWords.has(lower)) {
+  if (STOP_WORDS.has(lower)) {
     score -= 5;
   } else {
     score += 3;
@@ -427,25 +443,12 @@ function scoreWord(word: string, index: number, totalWords: number): number {
   }
 
   // Technical words (common in dev context) get a boost
-  const techWords = new Set([
-    "code", "bug", "fix", "error", "test", "build", "deploy", "merge",
-    "commit", "branch", "release", "feature", "auth", "api", "data",
-    "config", "server", "client", "refactor", "debug", "function",
-    "module", "component", "database", "query", "cache", "performance",
-  ]);
-  if (techWords.has(lower)) {
+  if (TECH_WORDS.has(lower)) {
     score += 3;
   }
 
   // Emotional words get high priority (preserve intent)
-  const emotionWords = new Set([
-    "good", "great", "bad", "happy", "sad", "love", "hate", "nice",
-    "wonderful", "terrible", "awesome", "beautiful", "ugly", "proud",
-    "sorry", "thanks", "thank", "please", "help", "amazing", "wow",
-    "cool", "elegant", "broken", "perfect", "morning", "night",
-    "hello", "hi", "bye", "yes", "no", "ok", "ready", "done",
-  ]);
-  if (emotionWords.has(lower)) {
+  if (EMOTION_WORDS.has(lower)) {
     score += 5;
   }
 
@@ -456,7 +459,7 @@ function scoreWord(word: string, index: number, totalWords: number): number {
 
   // ─── Length heuristic ───────────────────────────────────────
   // Very short words are usually less important (except emotional ones)
-  if (lower.length <= 2 && !emotionWords.has(lower)) score -= 2;
+  if (lower.length <= 2 && !EMOTION_WORDS.has(lower)) score -= 2;
   // Medium-length words tend to be content words
   if (lower.length >= 4 && lower.length <= 8) score += 1;
 

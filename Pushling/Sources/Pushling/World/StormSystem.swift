@@ -250,7 +250,7 @@ final class StormSystem {
             weatherSystem?.reactionDelegate?.thunderRumbled()
         }
 
-        NSLog("[Pushling] Lightning strike! Thunder in \(String(format: "%.1f", thunderDelay))s")
+        NSLog("[Pushling/World] Lightning strike! Thunder in \(String(format: "%.1f", thunderDelay))s")
     }
 
     /// Update the flash animation phases.

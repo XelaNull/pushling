@@ -104,13 +104,13 @@ final class FrameBudgetMonitor {
         if seconds > Self.errorThreshold {
             if now - lastErrorLogTime > Self.logThrottleInterval {
                 let ms = seconds * 1000.0
-                NSLog("[Pushling] FRAME BUDGET ERROR: %.1fms (limit: 14ms) — frame may drop", ms)
+                NSLog("[Pushling/Scene] FRAME BUDGET ERROR: %.1fms (limit: 14ms) — frame may drop", ms)
                 lastErrorLogTime = now
             }
         } else if seconds > Self.warningThreshold {
             if now - lastWarningLogTime > Self.logThrottleInterval {
                 let ms = seconds * 1000.0
-                NSLog("[Pushling] Frame budget warning: %.1fms (limit: 10ms)", ms)
+                NSLog("[Pushling/Scene] Frame budget warning: %.1fms (limit: 10ms)", ms)
                 lastWarningLogTime = now
             }
         }

@@ -175,18 +175,22 @@ enum XPCalculator {
 
     // MARK: - Date Helpers
 
+    /// Cached DateFormatter — DateFormatter() is expensive to create (~0.5ms).
+    /// Reused across all streak calculations.
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     private static func todayString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: Date())
+        dateFormatter.string(from: Date())
     }
 
     private static func yesterdayString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
         let yesterday = Calendar.current.date(
             byAdding: .day, value: -1, to: Date()
         )!
-        return formatter.string(from: yesterday)
+        return dateFormatter.string(from: yesterday)
     }
 }

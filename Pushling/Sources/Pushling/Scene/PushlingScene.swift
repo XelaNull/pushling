@@ -104,7 +104,7 @@ final class PushlingScene: SKScene {
 
         setupDebugOverlay()
 
-        NSLog("[Pushling] Scene active — \(Int(size.width))x\(Int(size.height))pt"
+        NSLog("[Pushling/Scene] Scene active — \(Int(size.width))x\(Int(size.height))pt"
               + " | OLED true-black enabled")
     }
 
@@ -386,7 +386,7 @@ final class PushlingScene: SKScene {
         )
         self.sessionReactions = reactions
 
-        NSLog("[Pushling] Creature node active — %d nodes | Behavior stack ready"
+        NSLog("[Pushling/Scene] Creature node active — %d nodes | Behavior stack ready"
               + " | Diamond indicator ready",
               creature.countNodes())
     }
@@ -512,13 +512,13 @@ final class PushlingScene: SKScene {
     func wireSessionManager(_ sessionManager: SessionManager) {
         self.sessionManager = sessionManager
         guard let reactions = sessionReactions else {
-            NSLog("[Pushling] Warning: sessionReactions not ready when wiring SessionManager")
+            NSLog("[Pushling/Scene] Warning: sessionReactions not ready when wiring SessionManager")
             return
         }
         sessionManager.onSessionEvent = { [weak reactions] event in
             reactions?.handleSessionEvent(event)
         }
-        NSLog("[Pushling] SessionManager wired to scene reactions")
+        NSLog("[Pushling/Scene] SessionManager wired to scene reactions")
     }
 
     /// Checks idle timeout gradient and updates diamond opacity.
