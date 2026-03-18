@@ -160,6 +160,7 @@ final class WorldManager {
                 biomeManager: biomeManager,
                 foreLayer: foreLayer,
                 midLayer: parallax.midLayer,
+                deepLayer: parallax.deepLayer,
                 farLayer: parallax.farLayer
             )
         }

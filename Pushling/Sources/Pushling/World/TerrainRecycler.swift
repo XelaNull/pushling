@@ -46,20 +46,26 @@ final class TerrainRecycler {
 
     // Background layer constants
     private static let farSeedOffset: UInt64 = 0xFA20_FACE
+    private static let deepSeedOffset: UInt64 = 0xD33D_1A7E
     private static let midSeedOffset: UInt64 = 0xBEEF_0000
     private static let farSamplesPerChunk: Int = 128
+    private static let deepSamplesPerChunk: Int = 192
     private static let midSamplesPerChunk: Int = 256
     private static let farPointsPerSample: CGFloat = 4.0
+    private static let deepPointsPerSample: CGFloat = 3.0
     private static let midPointsPerSample: CGFloat = 2.0
     static let farChunkWidth: CGFloat = CGFloat(farSamplesPerChunk) * farPointsPerSample
+    static let deepChunkWidth: CGFloat = CGFloat(deepSamplesPerChunk) * deepPointsPerSample
     static let midChunkWidth: CGFloat = CGFloat(midSamplesPerChunk) * midPointsPerSample
     private static let farXOffset: CGFloat = 50.0
+    private static let deepXOffset: CGFloat = 37.0
     private static let midXOffset: CGFloat = 25.0
 
     // MARK: - Properties
 
     private var activeChunks: [Int: VisualChunk] = [:]
     private var activeChunksFar: [Int: VisualChunk] = [:]
+    private var activeChunksDeep: [Int: VisualChunk] = [:]
     private var activeChunksMid: [Int: VisualChunk] = [:]
     private var chunkPool: [VisualChunk] = []
     private var objectPool: [TerrainObjectType: [SKNode]] = [:]
@@ -67,6 +73,7 @@ final class TerrainRecycler {
     private let biomeManager: BiomeManager
     private weak var foreLayer: SKNode?
     private weak var midLayer: SKNode?
+    private weak var deepLayer: SKNode?
     private weak var farLayer: SKNode?
     weak var complexityController: VisualComplexityController?
     private let objectPerm: [UInt8]
@@ -78,11 +85,13 @@ final class TerrainRecycler {
          biomeManager: BiomeManager,
          foreLayer: SKNode,
          midLayer: SKNode? = nil,
+         deepLayer: SKNode? = nil,
          farLayer: SKNode? = nil) {
         self.terrainGenerator = terrainGenerator
         self.biomeManager = biomeManager
         self.foreLayer = foreLayer
         self.midLayer = midLayer
+        self.deepLayer = deepLayer
         self.farLayer = farLayer
         self.objectPerm = Self.buildObjectPerm()
     }
@@ -123,6 +132,9 @@ final class TerrainRecycler {
             count += chunk.textureNodes.count
         }
         for chunk in activeChunksFar.values {
+            count += chunk.groundNode != nil ? 1 : 0
+        }
+        for chunk in activeChunksDeep.values {
             count += chunk.groundNode != nil ? 1 : 0
         }
         for chunk in activeChunksMid.values {
@@ -468,6 +480,13 @@ final class TerrainRecycler {
         xOffset: farXOffset, depth: 0.85, prefix: "far"
     )
 
+    private static let deepConfig = BGLayerConfig(
+        scrollFactor: 0.25, samples: deepSamplesPerChunk,
+        pps: deepPointsPerSample, chunkWidth: deepChunkWidth,
+        octaves: 1, amplitude: 1.2, seedOffset: deepSeedOffset,
+        xOffset: deepXOffset, depth: 0.65, prefix: "deep"
+    )
+
     private static let midConfig = BGLayerConfig(
         scrollFactor: 0.4, samples: midSamplesPerChunk,
         pps: midPointsPerSample, chunkWidth: midChunkWidth,
@@ -479,6 +498,10 @@ final class TerrainRecycler {
         if farLayer != nil {
             updateBGLayer(cameraWorldX: cameraWorldX, layer: farLayer,
                           active: &activeChunksFar, config: Self.farConfig)
+        }
+        if deepLayer != nil {
+            updateBGLayer(cameraWorldX: cameraWorldX, layer: deepLayer,
+                          active: &activeChunksDeep, config: Self.deepConfig)
         }
         if midLayer != nil {
             updateBGLayer(cameraWorldX: cameraWorldX, layer: midLayer,

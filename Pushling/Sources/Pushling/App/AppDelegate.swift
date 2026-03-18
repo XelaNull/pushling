@@ -149,6 +149,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toggleTBItem.target = self
         menu.addItem(toggleTBItem)
 
+        let resetFogItem = NSMenuItem(
+            title: "Reset Explored Areas",
+            action: #selector(resetExploredAreas),
+            keyEquivalent: ""
+        )
+        resetFogItem.target = self
+        menu.addItem(resetFogItem)
+
+        let resetAllItem = NSMenuItem(
+            title: "Reset All Progress...",
+            action: #selector(resetAllProgress),
+            keyEquivalent: ""
+        )
+        resetAllItem.target = self
+        menu.addItem(resetAllItem)
+
         let debugItem = NSMenuItem(
             title: "Toggle Debug Overlay",
             action: #selector(toggleDebugOverlay),
@@ -219,6 +235,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleTouchBar() {
         touchBarController?.toggleVisibility()
+    }
+
+    @objc private func resetExploredAreas() {
+        touchBarController?.currentScene?.worldManager.fogOfWar?.exploredRanges.reset()
+        NSLog("[Pushling] Explored areas reset — fog of war restored")
+    }
+
+    @objc private func resetAllProgress() {
+        let alert = NSAlert()
+        alert.messageText = "Reset All Progress?"
+        alert.informativeText = "This will delete all creature data, XP, journal entries, taught behaviors, and start fresh. This cannot be undone."
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "Reset Everything")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        NSLog("[Pushling] Resetting all progress...")
+
+        // Delete the database file — app will recreate from schema on restart
+        let dbPath = DatabaseManager.shared.databasePath
+        gameCoordinator?.shutdown()
+        touchBarController?.dismiss()
+        socketServer?.stop()
+        stateCoordinator?.shutdown()
+
+        // Remove database and WAL files
+        let fm = FileManager.default
+        for suffix in ["", "-wal", "-shm"] {
+            try? fm.removeItem(atPath: dbPath + suffix)
+        }
+
+        NSLog("[Pushling] Database deleted — restarting fresh")
+        exit(0)  // LaunchAgent will relaunch with clean state
     }
 
     @objc private func toggleDebugOverlay() {

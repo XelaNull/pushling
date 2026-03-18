@@ -9,28 +9,36 @@ extension WorldManager {
 
     // MARK: - Depth Zone Constants
 
-    /// Z boundaries between terrain layers.
-    private static let midZoneStart: CGFloat = 0.05  // Fore → Mid transition begins (nearly immediate)
-    private static let farZoneStart: CGFloat = 0.7   // Mid → Far transition begins
+    /// Z boundaries between terrain layers (4 layers: fore, mid, deep, far).
+    private static let midZoneStart: CGFloat = 0.05   // Fore → Mid
+    private static let deepZoneStart: CGFloat = 0.35  // Mid → Deep
+    private static let farZoneStart: CGFloat = 0.6    // Deep → Far
 
     /// Background layer scroll factors (must match ParallaxSystem/TerrainRecycler).
     private static let midScrollFactor: CGFloat = 0.4
+    private static let deepScrollFactor: CGFloat = 0.25
     private static let farScrollFactor: CGFloat = 0.15
 
     /// Background layer X offsets (must match TerrainRecycler).
     private static let midXOffset: CGFloat = 25.0
+    private static let deepXOffset: CGFloat = 37.0
     private static let farXOffset: CGFloat = 50.0
 
     /// Background layer noise parameters (must match TerrainRecycler BGLayerConfig).
     private static let midSeedOffset: UInt64 = 0xBEEF_0000
+    private static let deepSeedOffset: UInt64 = 0xD33D_1A7E
     private static let farSeedOffset: UInt64 = 0xFA20_FACE
     private static let midOctaves: Int = 2
+    private static let deepOctaves: Int = 1
     private static let farOctaves: Int = 1
     private static let midAmplitude: CGFloat = 1.0
+    private static let deepAmplitude: CGFloat = 1.2
     private static let farAmplitude: CGFloat = 1.5
     private static let midSamplesPerChunk: Int = 256
+    private static let deepSamplesPerChunk: Int = 192
     private static let farSamplesPerChunk: Int = 128
     private static let midPointsPerSample: CGFloat = 2.0
+    private static let deepPointsPerSample: CGFloat = 3.0
     private static let farPointsPerSample: CGFloat = 4.0
 
     // MARK: - Public API
@@ -76,10 +84,28 @@ extension WorldManager {
             seedOffset: Self.midSeedOffset
         )
 
-        // Zone 2: Fore ↔ Mid interpolation (Z 0.05 - 0.7)
-        if depth <= Self.farZoneStart {
-            let t = (depth - Self.midZoneStart) / (Self.farZoneStart - Self.midZoneStart)
+        // Zone 2: Fore ↔ Mid interpolation (Z 0.05 - 0.35)
+        if depth <= Self.deepZoneStart {
+            let t = (depth - Self.midZoneStart) / (Self.deepZoneStart - Self.midZoneStart)
             return lerp(foreHeight, midHeight, CGFloat(t)) - depthDrop + microBump
+        }
+
+        // Convert worldX to deep-layer coordinate space
+        let deepWorldX = worldX * Self.deepScrollFactor + Self.deepXOffset
+        let deepHeight = backgroundHeightAt(
+            generator: generator,
+            worldX: deepWorldX,
+            samplesPerChunk: Self.deepSamplesPerChunk,
+            pointsPerSample: Self.deepPointsPerSample,
+            octaves: Self.deepOctaves,
+            amplitudeScale: Self.deepAmplitude,
+            seedOffset: Self.deepSeedOffset
+        )
+
+        // Zone 3: Mid ↔ Deep interpolation (Z 0.35 - 0.6)
+        if depth <= Self.farZoneStart {
+            let t = (depth - Self.deepZoneStart) / (Self.farZoneStart - Self.deepZoneStart)
+            return lerp(midHeight, deepHeight, CGFloat(t)) - depthDrop + microBump
         }
 
         // Convert worldX to far-layer coordinate space
@@ -94,9 +120,9 @@ extension WorldManager {
             seedOffset: Self.farSeedOffset
         )
 
-        // Zone 3: Mid ↔ Far interpolation (Z 0.7 - 1.0)
+        // Zone 4: Deep ↔ Far interpolation (Z 0.6 - 1.0)
         let t = (depth - Self.farZoneStart) / (1.0 - Self.farZoneStart)
-        return lerp(midHeight, farHeight, CGFloat(t)) - depthDrop + microBump
+        return lerp(deepHeight, farHeight, CGFloat(t)) - depthDrop + microBump
     }
 
     // MARK: - Background Height Point Query

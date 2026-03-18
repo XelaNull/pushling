@@ -29,9 +29,10 @@ final class ParallaxSystem {
     static let sceneWidth: CGFloat = 1085
     static let sceneHeight: CGFloat = 30
 
-    /// Layer configurations — defined by the vision spec.
+    /// Layer configurations — 4 parallax depth layers.
     static let layerConfigs: [ParallaxLayerConfig] = [
         ParallaxLayerConfig(name: "far",  scrollFactor: 0.15, zPosition: -100),
+        ParallaxLayerConfig(name: "deep", scrollFactor: 0.25, zPosition: -75),
         ParallaxLayerConfig(name: "mid",  scrollFactor: 0.4,  zPosition: -50),
         ParallaxLayerConfig(name: "fore", scrollFactor: 1.0,  zPosition: 0)
     ]
@@ -72,6 +73,9 @@ final class ParallaxSystem {
 
     /// Returns the far background layer (stars, mountains). 0.15x scroll.
     var farLayer: SKNode? { layers["far"] }
+
+    /// Returns the deep layer (distant hills). 0.25x scroll.
+    var deepLayer: SKNode? { layers["deep"] }
 
     /// Returns the mid layer (hills, landmarks). 0.4x scroll.
     var midLayer: SKNode? { layers["mid"] }
