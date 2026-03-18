@@ -47,6 +47,15 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
     /// Whether the creature is sleeping.
     var isSleeping = false
 
+    /// Whether a cinematic sequence is active.
+    /// When true, most gestures are suppressed except triple-tap on world
+    /// (escape hatch to cancel the cinematic).
+    var isCinematicActive: Bool = false
+
+    /// Callback invoked when the user triple-taps during a cinematic
+    /// to cancel the sequence (escape hatch).
+    var onCinematicCancelRequest: (() -> Void)?
+
     /// Camera controller for pan/zoom (set during wiring).
     var cameraController: CameraController?
 
@@ -97,6 +106,15 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
 
     func gestureRecognizer(_ recognizer: GestureRecognizer,
                            didRecognize event: GestureEvent) {
+        // Cinematic mode: suppress all input except triple-tap on world
+        // (escape hatch to cancel the cinematic sequence).
+        if isCinematicActive {
+            if event.type == .tripleTap, case .world = event.target {
+                onCinematicCancelRequest?()
+            }
+            return
+        }
+
         // Record all gestures for milestone tracking
         milestoneTracker.recordGesture(event.type)
         petStreak.recordInteraction()

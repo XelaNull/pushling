@@ -18,6 +18,12 @@ final class CommitTextNode: SKNode {
     /// Total text being displayed.
     private(set) var displayText: String = ""
 
+    /// Active font size (set during configure).
+    private(set) var activeFontSize: CGFloat = 7.5
+
+    /// Active character spacing (set during configure).
+    private(set) var activeSpacing: CGFloat = 5
+
     /// Pool of reusable character nodes (max 20).
     private static let poolSize = 20
     private var nodePool: [SKLabelNode] = []
@@ -32,7 +38,7 @@ final class CommitTextNode: SKNode {
         // Pre-create the node pool
         for i in 0..<Self.poolSize {
             let label = SKLabelNode(fontNamed: "SFProText-Bold")
-            label.fontSize = 6
+            label.fontSize = 7.5
             label.fontColor = PushlingPalette.tide
             label.horizontalAlignmentMode = .center
             label.verticalAlignmentMode = .center
@@ -53,7 +59,10 @@ final class CommitTextNode: SKNode {
     /// - Parameters:
     ///   - message: The commit message.
     ///   - sha: The commit SHA (used as fallback padding).
-    func configure(message: String, sha: String) {
+    ///   - fontSize: Font size in points (default 7.5).
+    func configure(message: String, sha: String, fontSize: CGFloat = 7.5) {
+        self.activeFontSize = fontSize
+        self.activeSpacing = fontSize * 0.67
         // Select text: first 20 chars of message
         var text = message.trimmingCharacters(in: .whitespaces)
 
@@ -84,13 +93,14 @@ final class CommitTextNode: SKNode {
         displayText = text
 
         // Configure character nodes
-        let spacing: CGFloat = 4
+        let spacing = activeSpacing
         charNodes = []
 
         for (i, char) in text.enumerated() {
             guard i < nodePool.count else { break }
             let node = nodePool[i]
             node.text = String(char)
+            node.fontSize = fontSize
             node.position = CGPoint(
                 x: CGFloat(i) * spacing, y: 0
             )

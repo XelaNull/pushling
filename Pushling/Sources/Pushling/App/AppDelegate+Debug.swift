@@ -173,6 +173,14 @@ extension AppDelegate {
         addItem(to: menu, "Skip to Night",    #selector(debugSkipToNight))
         menu.addItem(.separator())
 
+        // --- Camera ---
+        addHeader(to: menu, title: "Camera")
+        addItem(to: menu, "Zoom In (+0.25)",   #selector(debugZoomIn))
+        addItem(to: menu, "Zoom Out (-0.25)",  #selector(debugZoomOut))
+        addItem(to: menu, "Reset Zoom (1.0x)", #selector(debugZoomReset))
+        addItem(to: menu, "Show Camera State",  #selector(debugShowCameraState))
+        menu.addItem(.separator())
+
         // --- Info ---
         addHeader(to: menu, title: "Info")
         addItem(to: menu, "Show Full Stats (Console)",
@@ -432,6 +440,21 @@ extension AppDelegate {
     }
     @objc func debugSkipToNight() {
         ensureDebugActions().skipToNight()
+    }
+
+    // MARK: - Camera
+
+    @objc func debugZoomIn() {
+        ensureDebugActions().zoomIn()
+    }
+    @objc func debugZoomOut() {
+        ensureDebugActions().zoomOut()
+    }
+    @objc func debugZoomReset() {
+        ensureDebugActions().zoomReset()
+    }
+    @objc func debugShowCameraState() {
+        ensureDebugActions().showCameraState()
     }
 
     // MARK: - Info

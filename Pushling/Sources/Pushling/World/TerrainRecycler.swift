@@ -11,6 +11,7 @@ final class VisualChunk {
     let containerNode: SKNode
     var groundNode: SKShapeNode?
     var objectNodes: [SKNode] = []
+    var textureNodes: [SKShapeNode] = []
     var isActive: Bool { containerNode.parent != nil }
 
     init(chunkIndex: Int) {
@@ -24,6 +25,7 @@ final class VisualChunk {
         groundNode = nil
         for obj in objectNodes { obj.removeAllActions(); obj.removeFromParent() }
         objectNodes.removeAll()
+        textureNodes.removeAll()
         containerNode.removeAllChildren()
         containerNode.removeFromParent()
     }
@@ -66,6 +68,7 @@ final class TerrainRecycler {
     private weak var foreLayer: SKNode?
     private weak var midLayer: SKNode?
     private weak var farLayer: SKNode?
+    weak var complexityController: VisualComplexityController?
     private let objectPerm: [UInt8]
     private var visibleInteractiveCount: Int = 0
 
@@ -117,6 +120,7 @@ final class TerrainRecycler {
             count += 1  // container
             count += chunk.groundNode != nil ? 1 : 0
             count += chunk.objectNodes.count
+            count += chunk.textureNodes.count
         }
         for chunk in activeChunksFar.values {
             count += chunk.groundNode != nil ? 1 : 0
@@ -125,6 +129,42 @@ final class TerrainRecycler {
             count += chunk.groundNode != nil ? 1 : 0
         }
         return count
+    }
+
+    // MARK: - Texture Rebuild
+
+    /// Rebuilds terrain texture overlays on all active foreground chunks.
+    /// Call when complexity level changes (stage evolution) so existing
+    /// chunks update without waiting for recycle.
+    func rebuildActiveChunkTextures() {
+        let config = complexityController?.terrainTextureConfig
+        let hasTexture = config.map {
+            $0.shadowAlpha > 0 || $0.highlightAlpha > 0
+                || $0.contourLineCount > 0 || $0.microDetailSpacing > 0
+        } ?? false
+
+        for (index, visual) in activeChunks {
+            // Strip old texture nodes
+            for node in visual.textureNodes { node.removeFromParent() }
+            visual.textureNodes.removeAll()
+
+            // Rebuild with current config
+            if hasTexture, let config = config {
+                let terrainChunk = terrainGenerator.chunkAt(index: index)
+                let centerX = terrainChunk.worldXStart
+                    + TerrainGenerator.chunkWorldWidth / 2
+                let biomeColor = biomeManager.groundColor(at: centerX)
+                let texNodes = buildTerrainTexture(
+                    from: terrainChunk,
+                    biomeColor: biomeColor,
+                    config: config
+                )
+                for node in texNodes {
+                    visual.containerNode.addChild(node)
+                }
+                visual.textureNodes = texNodes
+            }
+        }
     }
 
     // MARK: - Chunk Activation
@@ -152,6 +192,24 @@ final class TerrainRecycler {
         for obj in objects {
             visual.containerNode.addChild(obj)
             visual.objectNodes.append(obj)
+        }
+
+        // Build terrain texture overlays (complexity-gated)
+        if let config = complexityController?.terrainTextureConfig,
+           config.shadowAlpha > 0 || config.highlightAlpha > 0
+               || config.contourLineCount > 0 || config.microDetailSpacing > 0 {
+            let centerX = terrainChunk.worldXStart
+                + TerrainGenerator.chunkWorldWidth / 2
+            let biomeColor = biomeManager.groundColor(at: centerX)
+            let texNodes = buildTerrainTexture(
+                from: terrainChunk,
+                biomeColor: biomeColor,
+                config: config
+            )
+            for node in texNodes {
+                visual.containerNode.addChild(node)
+            }
+            visual.textureNodes = texNodes
         }
 
         // Position container at chunk world-X start
@@ -211,8 +269,9 @@ final class TerrainRecycler {
         let path = CGMutablePath()
         let pps = TerrainGenerator.pointsPerSample
 
-        // Start at bottom-left
-        path.move(to: CGPoint(x: 0, y: 0))
+        // Start at bottom-left (extend well below baseline so ground fill
+        // covers any visible area during camera Y-shift and zoom-out)
+        path.move(to: CGPoint(x: 0, y: -60))
 
         // Walk along the heightmap
         for (i, height) in chunk.heights.enumerated() {
@@ -223,7 +282,7 @@ final class TerrainRecycler {
 
         // Close polygon at bottom-right
         let endX = CGFloat(chunk.heights.count) * pps
-        path.addLine(to: CGPoint(x: endX, y: 0))
+        path.addLine(to: CGPoint(x: endX, y: -60))
         path.closeSubpath()
 
         let groundNode = SKShapeNode(path: path)
@@ -249,7 +308,12 @@ final class TerrainRecycler {
     // MARK: - Object Placement
 
     /// Places terrain objects within a chunk using noise-driven positions.
+    /// Respects complexity-gated maxObjects limit (spore = 0 objects).
     private func placeObjects(in chunk: TerrainChunk) -> [SKNode] {
+        // Gate: skip object placement if complexity says maxObjects = 0
+        let maxAllowed = complexityController?.terrainConfig.maxObjects ?? 0
+        guard maxAllowed > 0 else { return [] }
+
         var nodes: [SKNode] = []
         let chunkWidth = TerrainGenerator.chunkWorldWidth
         let biomeBlend = biomeManager.biomeBlendAt(
@@ -460,11 +524,11 @@ final class TerrainRecycler {
     private func buildBGGround(heights: [CGFloat], pps: CGFloat,
                                 depth: CGFloat) -> SKShapeNode {
         let path = CGMutablePath()
-        path.move(to: CGPoint(x: 0, y: 0))
+        path.move(to: CGPoint(x: 0, y: -60))
         for (i, h) in heights.enumerated() {
             path.addLine(to: CGPoint(x: CGFloat(i) * pps, y: TerrainGenerator.baselineY + h))
         }
-        path.addLine(to: CGPoint(x: CGFloat(heights.count) * pps, y: 0))
+        path.addLine(to: CGPoint(x: CGFloat(heights.count) * pps, y: -60))
         path.closeSubpath()
 
         let node = SKShapeNode(path: path)

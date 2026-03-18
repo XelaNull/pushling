@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateCoordinator: StateCoordinator?
     private var socketServer: SocketServer?
     var gameCoordinator: GameCoordinator?
+    private var hotReloadMonitor: HotReloadMonitor?
     private var debugOverlayEnabled = false
 
     /// Debug action handler — created lazily when the debug menu is opened.
@@ -71,16 +72,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   + "GameCoordinator not created")
         }
 
+        // 7. Hot-reload monitor: watch for new binary builds
+        let monitor = HotReloadMonitor()
+        monitor.onNewBinaryDetected = { [weak self] in
+            self?.performGracefulRestart(reason: "new binary detected")
+        }
+        monitor.start()
+        self.hotReloadMonitor = monitor
+
         NSLog("[Pushling] Daemon started — all systems active")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         NSLog("[Pushling] Shutting down...")
+        hotReloadMonitor?.stop()
         gameCoordinator?.shutdown()
         touchBarController?.dismiss()
         socketServer?.stop()
         stateCoordinator?.shutdown()
         NSLog("[Pushling] Clean shutdown complete")
+    }
+
+    /// Graceful restart: save all state, tear down subsystems, exit.
+    /// LaunchAgent's KeepAlive will relaunch with the new binary.
+    func performGracefulRestart(reason: String) {
+        NSLog("[Pushling] Graceful restart: %@", reason)
+        hotReloadMonitor?.stop()
+        gameCoordinator?.shutdown()
+        touchBarController?.dismiss()
+        socketServer?.stop()
+        stateCoordinator?.shutdown()
+        NSLog("[Pushling] State saved — exiting for restart")
+        exit(0)
     }
 
     /// Keep the app running even if all windows are closed (there are none).
@@ -102,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         // Version header (non-clickable)
-        let versionItem = NSMenuItem(title: "Pushling v0.1.0-dev", action: nil, keyEquivalent: "")
+        let versionItem = NSMenuItem(title: "Pushling v\(PushlingVersion.string)", action: nil, keyEquivalent: "")
         versionItem.isEnabled = false
         menu.addItem(versionItem)
 
@@ -117,6 +140,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(aboutItem)
 
         menu.addItem(NSMenuItem.separator())
+
+        let toggleTBItem = NSMenuItem(
+            title: "Toggle Touch Bar",
+            action: #selector(toggleTouchBar),
+            keyEquivalent: "t"
+        )
+        toggleTBItem.target = self
+        menu.addItem(toggleTBItem)
 
         let debugItem = NSMenuItem(
             title: "Toggle Debug Overlay",
@@ -179,11 +210,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = """
             A Touch Bar virtual pet that grows with your code.
 
-            Version 0.1.0 (Phase 1 Scaffold)
+            Version \(PushlingVersion.string)
             """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    @objc private func toggleTouchBar() {
+        touchBarController?.toggleVisibility()
     }
 
     @objc private func toggleDebugOverlay() {

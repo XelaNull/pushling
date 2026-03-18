@@ -96,7 +96,77 @@ final class LandmarkSystem {
         midLayer?.addChild(node)
         landmarkNodes[repoName] = node
 
+        // Emerge animation — rise from below with dust and Gilt flash
+        emergeLandmark(node: node)
+
         nextWorldX = worldX + Self.minSpacing
+    }
+
+    /// Animate a landmark emerging from the ground.
+    /// 3s rise from Y=-5, dust particles, Gilt flash on arrival.
+    private func emergeLandmark(node: SKNode) {
+        let targetY = node.position.y
+        node.position.y = targetY - 5
+        node.alpha = 0
+
+        // Rise animation
+        let rise = SKAction.moveBy(x: 0, y: 5, duration: 3.0)
+        rise.timingMode = .easeOut
+        let fadeIn = SKAction.fadeIn(withDuration: 1.5)
+
+        // Gilt flash on arrival
+        let flash = SKAction.sequence([
+            SKAction.wait(forDuration: 2.5),
+            SKAction.run { [weak node] in
+                guard let node = node else { return }
+                let glow = SKShapeNode(circleOfRadius: 4)
+                glow.fillColor = PushlingPalette.gilt
+                glow.strokeColor = .clear
+                glow.alpha = 0.6
+                glow.blendMode = .add
+                glow.name = "emerge_glow"
+                glow.zPosition = 5
+                node.addChild(glow)
+                glow.run(SKAction.sequence([
+                    SKAction.fadeOut(withDuration: 0.5),
+                    SKAction.removeFromParent()
+                ]))
+            }
+        ])
+
+        // Dust particles at base
+        let dust = SKAction.sequence([
+            SKAction.wait(forDuration: 0.5),
+            SKAction.run { [weak node] in
+                guard let node = node else { return }
+                for i in 0..<3 {
+                    let particle = SKShapeNode(circleOfRadius: 0.5)
+                    particle.fillColor = PushlingPalette.ash
+                    particle.strokeColor = .clear
+                    particle.alpha = 0.4
+                    particle.position = CGPoint(
+                        x: CGFloat(i - 1) * 2,
+                        y: -2
+                    )
+                    node.addChild(particle)
+                    let drift = SKAction.group([
+                        SKAction.moveBy(x: CGFloat.random(in: -3...3),
+                                         y: CGFloat.random(in: 2...5),
+                                         duration: 1.5),
+                        SKAction.fadeOut(withDuration: 1.5)
+                    ])
+                    particle.run(SKAction.sequence([
+                        drift, SKAction.removeFromParent()
+                    ]))
+                }
+            }
+        ])
+
+        node.run(SKAction.group([
+            SKAction.group([rise, fadeIn]),
+            flash,
+            dust
+        ]))
     }
 
     func loadLandmarks(_ data: [LandmarkData]) {

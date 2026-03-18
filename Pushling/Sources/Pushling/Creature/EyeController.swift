@@ -25,8 +25,21 @@ final class EyeController: BodyPartController {
     /// Pupil node for look_at targeting.
     private var pupilNode: SKShapeNode?
 
+    /// Iris ring node (specialty-colored).
+    private var irisNode: SKShapeNode?
+
+    /// Catch-light highlight dot.
+    private var catchLightNode: SKShapeNode?
+
     /// Target position for look_at state (relative pupil offset, clamped to maxRange).
     private var lookTarget: CGPoint = .zero
+
+    /// Pupil dilation factor (0.0 = max constriction, 1.0 = max dilation).
+    /// Driven by SkySystem brightness — dark = dilated, bright = constricted.
+    private var pupilDilation: CGFloat = 0.5
+
+    /// Base pupil radius (set from eye radius at init).
+    private var basePupilRadius: CGFloat = 1.0
 
     /// Original eye size for scaling states.
     private let baseWidth: CGFloat
@@ -56,10 +69,13 @@ final class EyeController: BodyPartController {
         self.isLeftEye = isLeft
         self.baseWidth = width
         self.baseHeight = height
+        self.basePupilRadius = width * 0.35  // matches ShapeFactory pupil radius ratio
 
-        // Wire the pupil node from ShapeFactory (created as a child of the container)
-        let pupilName = "\(eyeNode.name ?? "eye")_pupil"
-        self.pupilNode = eyeNode.childNode(withName: pupilName) as? SKShapeNode
+        // Wire nodes from ShapeFactory
+        let baseName = eyeNode.name ?? "eye"
+        self.pupilNode = eyeNode.childNode(withName: "\(baseName)_pupil") as? SKShapeNode
+        self.irisNode = eyeNode.childNode(withName: "\(baseName)_iris") as? SKShapeNode
+        self.catchLightNode = eyeNode.childNode(withName: "\(baseName)_catchlight") as? SKShapeNode
     }
 
     // MARK: - BodyPartController
@@ -246,6 +262,26 @@ final class EyeController: BodyPartController {
         let nx = dx / length
         let ny = dy / length
         lookTarget = CGPoint(x: nx * maxRange, y: ny * maxRange)
+    }
+
+    // MARK: - Pupil Dilation (Phase 1.2)
+
+    /// Update pupil dilation based on ambient brightness.
+    /// - Parameter brightness: 0.0 = dark (pupils dilate), 1.0 = bright (pupils constrict)
+    func updatePupilDilation(brightness: CGFloat) {
+        // Invert: low brightness = high dilation
+        let targetDilation = 1.0 - max(0, min(1, brightness))
+        // Smooth toward target (don't snap)
+        pupilDilation += (targetDilation - pupilDilation) * 0.05
+
+        // Slit pupil via xScale: 0.25 = narrow vertical slit, 1.0 = full round
+        pupilNode?.xScale = 0.25 + pupilDilation * 0.75
+    }
+
+    /// Set the iris color (from personality specialty).
+    /// - Parameter color: The iris color to use.
+    func setIrisColor(_ color: SKColor) {
+        irisNode?.fillColor = color
     }
 
 }

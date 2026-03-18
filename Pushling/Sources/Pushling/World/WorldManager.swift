@@ -1,7 +1,7 @@
 // WorldManager.swift — World system orchestrator
 // Owns all world subsystems: parallax, terrain, biomes, objects, landmarks, tinting,
 // sky, weather, visual complexity, puddle reflections, ghost echo, hunger desaturation,
-// visual events, and ruin inscriptions.
+// visual events, ruin inscriptions, and fog of war.
 // Called from PushlingScene's update loop.
 // Manages chunk lifecycle, eviction timing, and subsystem coordination.
 //
@@ -75,6 +75,9 @@ final class WorldManager {
 
     /// Ruin inscription system (P3-T3-11).
     let ruinInscriptions = RuinInscriptionSystem()
+
+    /// Fog of war controller — stage-gated visibility around the creature.
+    private(set) var fogOfWar: FogOfWarController?
 
     // MARK: - Sky & Weather Subsystems
 
@@ -161,6 +164,8 @@ final class WorldManager {
             )
         }
 
+        terrainRecycler?.complexityController = complexityController
+
         // 5. Create landmark system on the mid layer
         if let midLayer = parallax.midLayer {
             landmarkSystem = LandmarkSystem(midLayer: midLayer)
@@ -171,15 +176,16 @@ final class WorldManager {
         worldTinting.attach(to: scene)
         worldTinting.applyImmediate(config.specialty)
 
-        // 7. Initial terrain generation around starting position
+        // 7. Initialize visual complexity controller (P3-T3-03)
+        //    Must precede terrain generation so initial chunks get texture detail.
+        complexityController.updateStage(config.creatureStage)
+
+        // 8. Initial terrain generation around starting position
         terrainGenerator.ensureChunksForRange(centerWorldX: cameraWorldX)
         terrainRecycler?.update(cameraWorldX: cameraWorldX)
 
-        // 8. Initial parallax update
+        // 9. Initial parallax update
         parallax.update(cameraWorldX: cameraWorldX)
-
-        // 9. Initialize visual complexity controller (P3-T3-03)
-        complexityController.updateStage(config.creatureStage)
 
         // 10. Setup puddle reflection on foreground layer (P3-T3-04)
         if let foreLayer = parallax.foreLayer {
@@ -205,7 +211,13 @@ final class WorldManager {
             ruinInscriptions.configureForStage(config.creatureStage)
         }
 
-        // 15. Setup sky system — gradient behind everything, stars + moon on far layer
+        // 15. Setup fog of war — stage-gated visibility around the creature
+        let fogConfig = complexityController.fogOfWarConfig
+        let fog = FogOfWarController(config: fogConfig)
+        fog.addToScene(scene)
+        self.fogOfWar = fog
+
+        // 16. Setup sky system — gradient behind everything, stars + moon on far layer
         //     SkySystem owns gradientNode, starField, and moonNode.
         //     We add them to appropriate layers rather than using addToScene
         //     so each element lands on the correct parallax depth.
@@ -215,7 +227,7 @@ final class WorldManager {
             farLayer.addChild(skySystem.moonNode)
         }
 
-        // 16. Setup weather system — renderers on correct parallax layers
+        // 17. Setup weather system — renderers on correct parallax layers
         //     WeatherSystem owns all renderers but we attach nodes to layers manually
         //     so rain/snow are foreground, fog is mid-layer, storm is scene-level.
         weatherSystem.skySystem = skySystem  // Wire sky darkening
@@ -238,10 +250,10 @@ final class WorldManager {
             self?.terrainHeightAt(worldX: worldX) ?? 4.0
         }
 
-        // 17. Setup ambient sound system
+        // 18. Setup ambient sound system
         soundSystem.setup()
 
-        // 18. Setup world object renderer on all parallax layers
+        // 19. Setup world object renderer on all parallax layers
         if let farLayer = parallax.farLayer,
            let midLayer = parallax.midLayer,
            let foreLayer = parallax.foreLayer {
@@ -251,10 +263,10 @@ final class WorldManager {
             companionSystem.attach(to: foreLayer)
         }
 
-        // 19. Load persisted objects from SQLite
+        // 20. Load persisted objects from SQLite
         loadObjectsFromDB()
 
-        // 20. Load persisted companion from SQLite
+        // 21. Load persisted companion from SQLite
         loadCompanionFromDB()
 
         isSetUp = true
@@ -375,10 +387,18 @@ final class WorldManager {
     /// Called when the creature's growth stage changes.
     /// Updates all stage-gated subsystems.
     func onStageChanged(_ newStage: GrowthStage) {
+        let oldFogConfig = complexityController.fogOfWarConfig
         complexityController.updateStage(newStage)
         puddleReflection.configureForStage(newStage)
         ghostEcho.configureForStage(newStage)
         ruinInscriptions.configureForStage(newStage)
+
+        // Rebuild terrain texture overlays for the new complexity level
+        terrainRecycler?.rebuildActiveChunkTextures()
+
+        // Update fog of war with evolution reveal animation
+        let newFogConfig = complexityController.fogOfWarConfig
+        updateFogStage(from: oldFogConfig, to: newFogConfig, animated: true)
 
         NSLog("[Pushling/World] Stage changed to %@ — complexity level %d",
               "\(newStage)", complexityController.level.rawValue)
@@ -427,6 +447,7 @@ final class WorldManager {
         let hungerNode = hungerDesaturation.nodeCount
         let eventNodes = visualEvents.nodeCount
         let inscriptionNodes = ruinInscriptions.nodeCount
+        let fogNodes = fogOfWar?.nodeCount ?? 0
         let objectNodes = objectRenderer.totalNodeCount
         let companionNodes = companionSystem.nodeCount
         // Sky: gradient(1) + starField(1 container) + moon(1 container) = 3
@@ -435,7 +456,7 @@ final class WorldManager {
         let weatherNodes = 4
         return parallaxNodes + terrainNodes + landmarkNodes + tintNode
             + reflectionNodes + ghostNodes + hungerNode + eventNodes
-            + inscriptionNodes + objectNodes + companionNodes
+            + inscriptionNodes + fogNodes + objectNodes + companionNodes
             + skyNodes + weatherNodes
     }
 

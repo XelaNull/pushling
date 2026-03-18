@@ -2,7 +2,10 @@
 // Core routing logic, session management, and GameCoordinator binding.
 // Handler implementations live in CommandHandlers.swift (extension).
 
+import AppKit
 import Foundation
+import ImageIO
+import SpriteKit
 
 /// Routes incoming IPC commands to their handler functions.
 /// Manages session state and delegates event buffer operations.
@@ -24,7 +27,8 @@ final class CommandRouter {
     static let allCommands = [
         "sense", "move", "express", "speak", "perform",
         "world", "recall", "teach", "nurture",
-        "connect", "disconnect", "ping"
+        "connect", "disconnect", "ping", "reload", "screenshot",
+        "debug_nodes"
     ]
 
     static let validActions: [String: [String]] = [
@@ -67,6 +71,9 @@ final class CommandRouter {
         handlers["recall"] = handleRecall
         handlers["teach"] = handleTeach
         handlers["nurture"] = handleNurture
+        handlers["reload"] = handleReload
+        handlers["screenshot"] = handleScreenshot
+        handlers["debug_nodes"] = handleDebugNodes
     }
 
     // MARK: - Routing
@@ -85,7 +92,8 @@ final class CommandRouter {
         }
 
         // Track commands with session manager for idle timeout (P4-T4-04)
-        let sessionCmds: Set<String> = ["connect", "disconnect", "ping"]
+        let sessionCmds: Set<String> = ["connect", "disconnect", "ping", "screenshot",
+                                        "debug_nodes"]
         if !sessionCmds.contains(request.cmd) {
             sessionManager.recordCommand()
         }
@@ -145,6 +153,107 @@ final class CommandRouter {
 
     private func handlePing(_ req: IPCRequest) -> IPCResult {
         .success(["uptime_s": Int(ProcessInfo.processInfo.systemUptime)])
+    }
+
+    private func handleReload(_ req: IPCRequest) -> IPCResult {
+        // Schedule restart after 200ms to allow this response to be sent
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard let appDelegate = NSApp.delegate as? AppDelegate else {
+                NSLog("[Pushling/IPC] Cannot reload — no AppDelegate")
+                return
+            }
+            appDelegate.performGracefulRestart(reason: "IPC reload command")
+        }
+        return .success(["reloading": true])
+    }
+
+    private func handleScreenshot(_ req: IPCRequest) -> IPCResult {
+        guard let gc = gameCoordinator else {
+            return .failure(error: "Scene not initialized.", code: "NOT_READY")
+        }
+
+        // SpriteKit capture must happen on the main thread.
+        // IPC handlers run on a background queue, so dispatch + wait.
+        let semaphore = DispatchSemaphore(value: 0)
+        var pngData: Data?
+
+        DispatchQueue.main.async {
+            pngData = gc.scene.captureScreenshot()
+            semaphore.signal()
+        }
+
+        let timeout = semaphore.wait(timeout: .now() + 2.0)
+        guard timeout == .success, let data = pngData else {
+            return .failure(error: "Screenshot capture timed out or failed.",
+                            code: "CAPTURE_FAILED")
+        }
+
+        let path = "/tmp/pushling_screenshot.png"
+        do {
+            try data.write(to: URL(fileURLWithPath: path))
+        } catch {
+            return .failure(error: "Failed to write screenshot: \(error.localizedDescription)",
+                            code: "WRITE_FAILED")
+        }
+
+        // Read image dimensions from the PNG data via CGImageSource
+        var width = 0
+        var height = 0
+        if let source = CGImageSourceCreateWithData(data as CFData, nil),
+           let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
+            width = props[kCGImagePropertyPixelWidth as String] as? Int ?? 0
+            height = props[kCGImagePropertyPixelHeight as String] as? Int ?? 0
+        }
+
+        NSLog("[Pushling/IPC] Screenshot captured: %dx%d -> %@", width, height, path)
+
+        return .success([
+            "path": path,
+            "width": width,
+            "height": height
+        ])
+    }
+
+    private func handleDebugNodes(_ req: IPCRequest) -> IPCResult {
+        guard let gc = gameCoordinator else {
+            return .failure(error: "Scene not initialized.", code: "NOT_READY")
+        }
+
+        // SpriteKit scene graph must be read on the main thread.
+        let semaphore = DispatchSemaphore(value: 0)
+        var nodes: [[String: Any]] = []
+        var totalCount = 0
+        var creaturePos: [String: Any] = [:]
+
+        DispatchQueue.main.async {
+            nodes = gc.scene.dumpNodeTree()
+            totalCount = gc.scene.debugCountAllNodes(in: gc.scene)
+
+            if let creature = gc.scene.creatureNode {
+                creaturePos = [
+                    "x": round(Double(creature.position.x) * 10) / 10,
+                    "y": round(Double(creature.position.y) * 10) / 10,
+                    "z_position": round(Double(creature.zPosition) * 10) / 10,
+                    "facing": creature.facing.rawValue,
+                    "stage": "\(creature.currentStage)"
+                ]
+            }
+
+            semaphore.signal()
+        }
+
+        let timeout = semaphore.wait(timeout: .now() + 2.0)
+        guard timeout == .success else {
+            return .failure(error: "Node tree capture timed out.",
+                            code: "TIMEOUT")
+        }
+
+        return .success([
+            "nodes": nodes,
+            "total_count": totalCount,
+            "visible_count": nodes.count,
+            "creature": creaturePos
+        ])
     }
 
     // MARK: - Creature Snapshot (for connect response)

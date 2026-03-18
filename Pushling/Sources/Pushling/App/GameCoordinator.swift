@@ -265,7 +265,11 @@ final class GameCoordinator {
         EmotionalState.save(emotionalState, to: stateCoordinator.database)
         PersonalityPersistence.save(personality, to: stateCoordinator.database)
 
-        NSLog("[Pushling/Coordinator] GameCoordinator shut down")
+        // Persist XP and stage (synchronous — DB closes right after)
+        persistXPAndStageSync()
+
+        NSLog("[Pushling/Coordinator] GameCoordinator shut down — "
+              + "XP: %d, Stage: %@", totalXP, "\(creatureStage)")
     }
 
     // MARK: - Wiring: Hatching (Gap 1)
@@ -366,6 +370,10 @@ final class GameCoordinator {
                     xpToNext: 100,
                     stage: self.creatureStage
                 )
+
+                // Persist XP to SQLite and check for evolution
+                self.persistXPAndStage()
+                self.checkEvolution()
 
                 // Mutation badge check on commit (Gap 4)
                 let commitMessage = commitData["message"] as? String ?? ""

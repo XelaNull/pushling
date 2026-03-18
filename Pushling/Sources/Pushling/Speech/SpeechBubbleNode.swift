@@ -134,10 +134,10 @@ final class SpeechBubbleNode: SKNode {
         // Calculate hold duration
         let wordCount = text.split(separator: " ").count
         if text.count <= 3 {
-            // Symbols: flat duration
-            holdDuration = 1.2
+            // Symbols: readable duration
+            holdDuration = 2.5
         } else {
-            holdDuration = max(1.5, min(5.0, Double(wordCount) * 0.5 + 1.0))
+            holdDuration = max(3.0, min(8.0, Double(wordCount) * 0.8 + 1.5))
         }
 
         if positionMode == .floating {
@@ -319,10 +319,10 @@ final class SpeechBubbleNode: SKNode {
         guard let config = StageConfiguration.all[stage] else { return }
         let h = config.size.height, w = config.size.width
         switch mode {
-        case .above:    position = CGPoint(x: 0, y: h / 2 + 4)
-        case .sideRight: position = CGPoint(x: w / 2 + 5, y: h / 4)
-        case .sideLeft:  position = CGPoint(x: -(w / 2 + 5), y: h / 4)
-        case .floating:  position = CGPoint(x: 0, y: h / 2 + 3)
+        case .above:    position = CGPoint(x: 0, y: h / 2 + 1)
+        case .sideRight: position = CGPoint(x: w / 2 + 5, y: 0)
+        case .sideLeft:  position = CGPoint(x: -(w / 2 + 5), y: 0)
+        case .floating:  position = CGPoint(x: 0, y: h / 2 + 1)
         }
     }
 

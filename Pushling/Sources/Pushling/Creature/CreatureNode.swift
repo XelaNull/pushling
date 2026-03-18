@@ -101,6 +101,15 @@ final class CreatureNode: SKNode {
     private(set) var isEvolving = false
     private var evolutionCeremony: EvolutionCeremony?
 
+    /// Callback invoked when evolution is requested. The scene intercepts
+    /// this to route the evolution through the CinematicSequencer.
+    ///
+    /// Parameters: (fromStage, toStage, startCeremony closure).
+    /// The scene calls the startCeremony closure at the right phase
+    /// in the cinematic sequence to trigger EvolutionCeremony.begin().
+    var onEvolutionRequested: ((GrowthStage, GrowthStage,
+                                @escaping () -> Void) -> Void)?
+
     // MARK: - Initialization
 
     override init() {
@@ -319,6 +328,13 @@ final class CreatureNode: SKNode {
     // MARK: - Evolution (P2-T1-09)
 
     /// Begin an evolution ceremony to a new stage.
+    ///
+    /// If `onEvolutionRequested` is set (wired by PushlingScene), the
+    /// ceremony is routed through the CinematicSequencer which controls
+    /// camera zoom/pan, touch suppression, and behavior freeze. The
+    /// ceremony's begin() is called at the right cinematic phase.
+    ///
+    /// If no callback is set, the ceremony starts immediately (fallback).
     func evolve(to newStage: GrowthStage,
                 completion: (() -> Void)? = nil) {
         guard !isEvolving else { return }
@@ -329,16 +345,27 @@ final class CreatureNode: SKNode {
         }
 
         isEvolving = true
+        let fromStage = currentStage
+
         let ceremony = EvolutionCeremony(
             creature: self,
-            fromStage: currentStage,
+            fromStage: fromStage,
             toStage: newStage
         ) { [weak self] in
             self?.isEvolving = false
             completion?()
         }
         self.evolutionCeremony = ceremony
-        ceremony.begin()
+
+        // Route through cinematic sequencer if available
+        if let handler = onEvolutionRequested {
+            handler(fromStage, newStage) { [weak ceremony] in
+                ceremony?.begin()
+            }
+        } else {
+            // Fallback: start ceremony immediately
+            ceremony.begin()
+        }
     }
 
     // MARK: - Node Count

@@ -1,6 +1,6 @@
 # CLAUDE.md - Pushling Workspace Guide
 
-**Last Updated:** 2026-03-14 | **Active Project:** Pushling (Touch Bar Virtual Pet)
+**Last Updated:** 2026-03-17 | **Active Project:** Pushling (Touch Bar Virtual Pet)
 
 ---
 
@@ -83,6 +83,8 @@ At these stages, Claude and Samantha MUST have explicit dialog:
 | **State Database** | `~/.local/share/pushling/state.db` — SQLite WAL mode |
 | **IPC Socket** | `/tmp/pushling.sock` — Unix domain socket |
 | **Feed Directory** | `~/.local/share/pushling/feed/` — incoming event JSON |
+| **Build Script** | `build.sh` — SPM build + .app bundle + ad-hoc codesign |
+| **Reload Script** | `reload.sh` — build + hot-reload (auto-detects new binary) |
 
 **Before writing code:** Read `PUSHLING_VISION.md` for the complete design. Check `docs/TOUCHBAR-TECHNIQUES.md` for hardware specs and what's technically proven. Review `docs/TTS-RESEARCH.md` and `docs/CREATURE-VOICE-DESIGN.md` for voice system architecture.
 
@@ -152,7 +154,7 @@ The creature is cat-esque: soft-bodied, curious, warm, occasionally aloof. It br
 ```
 pushling/
 ├── Pushling/                    # Swift app (menu-bar daemon)
-│   ├── App/                     # AppDelegate, lifecycle, LaunchAgent
+│   ├── App/                     # AppDelegate, lifecycle, LaunchAgent, HotReloadMonitor
 │   ├── TouchBar/                # NSTouchBar setup, private API integration
 │   ├── Scene/                   # SpriteKit scene, camera, layers
 │   ├── Creature/                # Creature node, animations, state machine
@@ -185,6 +187,8 @@ pushling/
 │   ├── TOUCHBAR-TECHNIQUES.md   # Touch Bar capability research
 │   ├── TTS-RESEARCH.md          # TTS engine comparison and recommendations
 │   └── CREATURE-VOICE-DESIGN.md # Creature voice character and audio pipeline
+├── build.sh                     # SPM build + .app bundle + codesign
+├── reload.sh                    # Build + hot-reload convenience script
 ├── PUSHLING_VISION.md           # Complete design specification
 ├── CLAUDE.md                    # This file
 └── README.md
@@ -212,7 +216,7 @@ The **Blend Controller** manages transitions between layers. When Claude issues 
 | **Voice/TTS** | Three-tier TTS (espeak-ng, Piper, Kokoro-82M), audio pipeline, voice evolution | `Pushling/Voice/` |
 | **Behavior** | 4-layer behavior stack, blend controller, reflex system | `Pushling/Behavior/` |
 | **State** | SQLite persistence, schema migration, crash recovery | `Pushling/State/` |
-| **IPC** | Unix socket server, command dispatch, response formatting | `Pushling/IPC/` |
+| **IPC** | Unix socket server, command dispatch, response formatting, `reload` command | `Pushling/IPC/` |
 | **Feed** | Event processing (commits, hook events), XP calculation, rate limiting | `Pushling/Feed/` |
 | **MCP** | 9 tools total (7 embodiment + 2 creation), state queries, daemon communication | `mcp/src/` |
 | **Hooks** | 7 Claude Code hooks + git post-commit, event sensing | `hooks/` |
@@ -258,6 +262,36 @@ Session lifecycle:
   → PostCompact hook → creature blinks, shakes head (memory compressed)
 ```
 
+### State Persistence & Evolution
+
+XP and growth stage are persisted to SQLite after every commit and on shutdown:
+
+- **XP column**: `creature.xp` (not `total_xp` — the column is named `xp` in Schema.swift)
+- **Persistence**: `GameCoordinator.persistXPAndStage()` (async) after every XP award; `persistXPAndStageSync()` on shutdown
+- **Evolution thresholds**: drop:100, critter:500, beast:2000, sage:8000, apex:20000 (defined in `GameCoordinator.stageThresholds`)
+- **Evolution check**: `checkEvolution()` runs after every XP persist — evolves one stage at a time to prevent animation pile-ups
+- **Shutdown save**: `GameCoordinator.shutdown()` persists XP, stage, emotions, and personality synchronously before DB close
+
+### Hot-Reload (Build → Restart)
+
+The app supports automatic hot-reload via LaunchAgent's `KeepAlive: true`:
+
+```
+Developer runs ./reload.sh (or ./build.sh):
+  → Binary rebuilt at build/Pushling.app/Contents/MacOS/Pushling
+  → HotReloadMonitor detects directory write via DispatchSource
+  → 1-second debounce (waits for codesign to finish)
+  → Calls AppDelegate.performGracefulRestart()
+  → Saves all state → dismisses Touch Bar → stops socket → exit(0)
+  → LaunchAgent relaunches with new binary
+  → App loads persisted XP/stage/emotions from SQLite — creature resumes
+```
+
+- **File**: `App/HotReloadMonitor.swift` — directory-level `DispatchSource` + 3s polling fallback
+- **IPC command**: `{"command":"reload"}` triggers graceful restart via socket
+- **Fallback**: `echo '{"command":"reload"}' | nc -U /tmp/pushling.sock`
+- **Script**: `./reload.sh [debug|release]` — builds then reports hot-reload status
+
 ### Claude Code Hooks: The Creature's Senses
 
 These hooks fire automatically during Claude Code sessions, feeding the creature sensory awareness of the developer's activity:
@@ -292,6 +326,9 @@ These hooks fire automatically during Claude Code sessions, feeding the creature
 | Embodiment session leak | Creature stays "awake" after Claude disconnects | SessionEnd hook + 60s heartbeat timeout. If no MCP call in 60s, auto-transition to dormant. |
 | Behavior stack conflicts | AI-directed and autonomous fighting | Blend Controller interpolates over ~200ms. Physics always wins. Reflexes have 500ms lease then release. |
 | Hook event flood | Too many events during rapid tool use | Rate-limit hook events: max 10/second to daemon. Batch and coalesce when possible. |
+| XP not persisting | Creature resets to egg/critter on restart | XP column is `xp` not `total_xp`. `persistXPAndStage()` must be called after every XP change. |
+| Hot-reload not triggering | Binary replaced but app doesn't restart | `HotReloadMonitor` watches directory, not file (file fd goes stale on replace). Check LaunchAgent `KeepAlive` is enabled. |
+| Evolution not firing | XP crosses threshold but no stage change | `checkEvolution()` must be called after `persistXPAndStage()`. Only evolves one stage per call — multiple thresholds crossed = multiple commits needed. |
 
 ---
 
@@ -433,8 +470,8 @@ Always use "please" and "thank you" when asking users to test or provide info.
 4. Touch Bar: 1085x30 points, 60fps SpriteKit, P3 OLED
 5. **Embodiment model**: Claude IS the creature. MCP tools are Claude's motor cortex. Hooks are Claude's senses.
 6. MCP tools: 9 `pushling_` prefixed tools (7 embodiment + 2 creation), helpful errors, non-blocking
-7. IPC: Unix socket at `/tmp/pushling.sock`, NDJSON protocol
-8. State: SQLite WAL at `~/.local/share/pushling/state.db`
+7. IPC: Unix socket at `/tmp/pushling.sock`, NDJSON protocol. `reload` command triggers graceful restart.
+8. State: SQLite WAL at `~/.local/share/pushling/state.db`. XP column is `xp` (not `total_xp`).
 9. Git hooks: must complete in <100ms. Claude Code hooks: must complete in <50ms.
 10. Voice: three-tier TTS (espeak-ng, Piper, Kokoro-82M) via sherpa-onnx, all local
 11. Behavior: 4-layer stack (Physics > Reflexes > AI-Directed > Autonomous) with blend controller
@@ -442,3 +479,5 @@ Always use "please" and "thank you" when asking users to test or provide info.
 13. The creature must ALWAYS breathe. Never static. Ever.
 14. Creation systems: `pushling_teach` (choreography notation for new tricks), `pushling_world` extended for persistent objects, `pushling_nurture` for habits/preferences/quirks/routines — all persist when Claude is offline
 15. Human interactivity: laser pointer, object flicking, petting strokes, hand-feeding, creature invitations. Touch is the foreground, not the background.
+16. Hot-reload: `./reload.sh` builds + auto-restarts via `HotReloadMonitor`. State persists across restarts.
+17. Evolution thresholds: drop:100, critter:500, beast:2000, sage:8000, apex:20000. Checked after every commit XP award.

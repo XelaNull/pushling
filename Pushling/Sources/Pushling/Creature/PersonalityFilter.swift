@@ -240,4 +240,56 @@ enum PersonalityFilter {
         let emergentMod = emergent.walkSpeedMultiplier
         return max(personalitySpeed * CGFloat(emotionMod * emergentMod), 0)
     }
+
+    // MARK: - Visual Modifiers (Phase 3.3)
+
+    /// Visual modifier struct applied during configureForStage().
+    /// Adjusts creature body proportions and expression based on personality.
+    struct VisualModifiers {
+        /// Eye openness multiplier (0.7 = sleepy, 1.3 = alert)
+        let eyeOpenness: CGFloat
+        /// Default ear angle offset in radians (negative = flattened)
+        let earAngle: CGFloat
+        /// Body height scale (0.95 = compact, 1.05 = tall)
+        let bodyHeightScale: CGFloat
+        /// Whisker spread multiplier (0.8 = tight, 1.2 = wide)
+        let whiskerSpread: CGFloat
+        /// Tail base angle offset in radians
+        let tailBaseAngle: CGFloat
+    }
+
+    /// Compute visual modifiers from personality snapshot.
+    /// These are applied once at stage build time, not per-frame.
+    static func visualModifiers(
+        personality: PersonalitySnapshot
+    ) -> VisualModifiers {
+        let energy = personality.energy     // 0-1
+        let focus = personality.focus       // 0-1
+        let discipline = personality.discipline  // 0-1
+
+        // High energy → wide eyes, perky ears, tall body
+        // Low energy → sleepy eyes, relaxed ears, compact body
+        let eyeOpenness: CGFloat = 0.85 + energy * 0.3
+
+        // High focus → ears forward (slight positive angle)
+        // Low focus → ears relaxed (neutral)
+        let earAngle: CGFloat = (focus - 0.5) * 0.15
+
+        // Discipline affects posture
+        let bodyHeightScale: CGFloat = 0.97 + discipline * 0.06
+
+        // Focus affects whisker spread
+        let whiskerSpread: CGFloat = 0.85 + focus * 0.3
+
+        // Energy affects tail carriage
+        let tailBaseAngle: CGFloat = (energy - 0.5) * 0.3
+
+        return VisualModifiers(
+            eyeOpenness: eyeOpenness,
+            earAngle: earAngle,
+            bodyHeightScale: bodyHeightScale,
+            whiskerSpread: whiskerSpread,
+            tailBaseAngle: tailBaseAngle
+        )
+    }
 }

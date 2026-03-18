@@ -308,17 +308,31 @@ final class MutationVisualsManager {
     private func updateBilingualTail(deltaTime: TimeInterval) {
         guard effectNodes[.bilingual] != nil,
               let creature = creature,
-              let tailNode = creature.childNode(withName: "tail") as? SKShapeNode else {
+              let baseSeg = creature.childNode(withName: "tail_seg_0") as? SKShapeNode else {
             return
         }
-        // Alternating two-tone effect: oscillate tail stroke color between
-        // Tide and Ember at a slow rate (3s cycle)
+        // Alternating two-tone effect: oscillate all tail segment stroke colors
+        // between Tide and Ember at a slow rate (3s cycle)
         let t = CGFloat((sin(animationTime * 2.0 / 3.0) + 1.0) / 2.0)
-        tailNode.strokeColor = PushlingPalette.lerp(
+        let color = PushlingPalette.lerp(
             from: PushlingPalette.tide,
             to: PushlingPalette.ember,
             t: t
         )
+        baseSeg.strokeColor = color
+        for child in baseSeg.children {
+            if let seg = child as? SKShapeNode,
+               let name = seg.name, name.hasPrefix("tail_seg_") {
+                seg.strokeColor = color
+                // Also color nested segments
+                for grandchild in seg.children {
+                    if let gs = grandchild as? SKShapeNode,
+                       let gn = gs.name, gn.hasPrefix("tail_seg_") {
+                        gs.strokeColor = color
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Guardian Shield Flash

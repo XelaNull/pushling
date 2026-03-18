@@ -85,6 +85,40 @@ struct BiomeConfig {
     let transitionsEnabled: Bool
 }
 
+// MARK: - Fog of War Config
+
+/// Configuration for the fog of war system at each complexity level.
+/// Controls visibility radius, gradient softness, and explored area behavior.
+struct FogOfWarConfig {
+    /// Points of clear visibility around the creature.
+    let visibilityRadius: CGFloat
+    /// Soft falloff width from clear to opaque.
+    let edgeGradientWidth: CGFloat
+    /// How visible explored-but-distant areas are (0 = invisible, 1 = fully visible).
+    let exploredAlpha: CGFloat
+    /// Whether explored areas stay partially visible.
+    let exploredEnabled: Bool
+}
+
+// MARK: - Terrain Texture Config
+
+/// Configuration for terrain texture detail overlays at each complexity level.
+/// Controls valley shadows, hilltop highlights, contour lines, and micro-detail grass blades.
+struct TerrainTextureConfig {
+    /// Alpha of valley/slope shadow overlay (0 = disabled).
+    let shadowAlpha: CGFloat
+    /// Alpha of hilltop highlight overlay (0 = disabled).
+    let highlightAlpha: CGFloat
+    /// Number of contour lines (0-3).
+    let contourLineCount: Int
+    /// Alpha of contour line and micro-detail strokes.
+    let contourAlpha: CGFloat
+    /// Points between micro-detail grass blades (0 = disabled).
+    let microDetailSpacing: CGFloat
+    /// Whether steep slopes receive shadow even at mid-height.
+    let slopeShadingEnabled: Bool
+}
+
 // MARK: - Visual Complexity Controller
 
 /// Gates world features based on creature growth stage.
@@ -113,6 +147,13 @@ final class VisualComplexityController {
     )
     private(set) var biomeConfig: BiomeConfig = BiomeConfig(
         biomesAvailable: 0, transitionsEnabled: false
+    )
+    private(set) var fogOfWarConfig: FogOfWarConfig = FogOfWarConfig(
+        visibilityRadius: 40, edgeGradientWidth: 20, exploredAlpha: 0.7, exploredEnabled: true
+    )
+    private(set) var terrainTextureConfig: TerrainTextureConfig = TerrainTextureConfig(
+        shadowAlpha: 0, highlightAlpha: 0, contourLineCount: 0,
+        contourAlpha: 0, microDetailSpacing: 0, slopeShadingEnabled: false
     )
 
     // MARK: - Feature Gates (Convenience)
@@ -158,6 +199,8 @@ final class VisualComplexityController {
         starConfig = Self.starConfigs[level]!
         weatherConfig = Self.weatherConfigs[level]!
         biomeConfig = Self.biomeConfigs[level]!
+        fogOfWarConfig = Self.fogOfWarConfigs[level]!
+        terrainTextureConfig = Self.terrainTextureConfigs[level]!
 
         NSLog("[Pushling/Complexity] Stage -> %@, complexity -> %d",
               "\(newStage)", level.rawValue)
@@ -276,5 +319,64 @@ final class VisualComplexityController {
         .thriving: BiomeConfig(biomesAvailable: 5, transitionsEnabled: true),
         .magical: BiomeConfig(biomesAvailable: 5, transitionsEnabled: true),
         .cosmic: BiomeConfig(biomesAvailable: 5, transitionsEnabled: true),
+    ]
+
+    /// Fog of war configuration per complexity level.
+    /// Spore: tiny peephole into OLED darkness. Apex: full visibility.
+    private static let fogOfWarConfigs: [ComplexityLevel: FogOfWarConfig] = [
+        .void: FogOfWarConfig(
+            visibilityRadius: 40, edgeGradientWidth: 20,
+            exploredAlpha: 0.7, exploredEnabled: true
+        ),
+        .emerging: FogOfWarConfig(
+            visibilityRadius: 100, edgeGradientWidth: 40,
+            exploredAlpha: 0.25, exploredEnabled: true
+        ),
+        .alive: FogOfWarConfig(
+            visibilityRadius: 200, edgeGradientWidth: 60,
+            exploredAlpha: 0.45, exploredEnabled: true
+        ),
+        .thriving: FogOfWarConfig(
+            visibilityRadius: 400, edgeGradientWidth: 80,
+            exploredAlpha: 0.65, exploredEnabled: true
+        ),
+        .magical: FogOfWarConfig(
+            visibilityRadius: 600, edgeGradientWidth: 100,
+            exploredAlpha: 0.85, exploredEnabled: true
+        ),
+        .cosmic: FogOfWarConfig(
+            visibilityRadius: 1200, edgeGradientWidth: 0,
+            exploredAlpha: 1.0, exploredEnabled: true
+        ),
+    ]
+
+    /// Terrain texture detail configuration per complexity level.
+    /// Spore = nothing. Drop = faint shadows. Critter = contours + sparse grass.
+    /// Beast+ = full detail with slope shading.
+    private static let terrainTextureConfigs: [ComplexityLevel: TerrainTextureConfig] = [
+        .void: TerrainTextureConfig(
+            shadowAlpha: 0, highlightAlpha: 0, contourLineCount: 0,
+            contourAlpha: 0, microDetailSpacing: 0, slopeShadingEnabled: false
+        ),
+        .emerging: TerrainTextureConfig(
+            shadowAlpha: 0.10, highlightAlpha: 0.08, contourLineCount: 0,
+            contourAlpha: 0, microDetailSpacing: 0, slopeShadingEnabled: false
+        ),
+        .alive: TerrainTextureConfig(
+            shadowAlpha: 0.15, highlightAlpha: 0.12, contourLineCount: 1,
+            contourAlpha: 0.15, microDetailSpacing: 16, slopeShadingEnabled: false
+        ),
+        .thriving: TerrainTextureConfig(
+            shadowAlpha: 0.20, highlightAlpha: 0.15, contourLineCount: 2,
+            contourAlpha: 0.18, microDetailSpacing: 10, slopeShadingEnabled: true
+        ),
+        .magical: TerrainTextureConfig(
+            shadowAlpha: 0.25, highlightAlpha: 0.18, contourLineCount: 3,
+            contourAlpha: 0.22, microDetailSpacing: 8, slopeShadingEnabled: true
+        ),
+        .cosmic: TerrainTextureConfig(
+            shadowAlpha: 0.25, highlightAlpha: 0.18, contourLineCount: 3,
+            contourAlpha: 0.22, microDetailSpacing: 8, slopeShadingEnabled: true
+        ),
     ]
 }

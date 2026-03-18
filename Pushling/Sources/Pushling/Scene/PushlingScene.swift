@@ -42,6 +42,11 @@ final class PushlingScene: SKScene {
     /// Stored per-frame in applyBehaviorOutput, applied in updateWorld.
     private var creaturePositionZ: CGFloat = 0.0
 
+    /// When true, depth-based creature counter-scaling is disabled.
+    /// Set by the CinematicSequencer so the creature can fill the frame
+    /// during dramatic zooms (e.g., evolution ceremony at 2.5x).
+    var disableCreatureCounterScaling: Bool = false
+
     // MARK: - HUD & UI (P3-T3-06, P3-T3-07)
 
     /// Cinematic HUD overlay — tap to show stats for 3 seconds.
@@ -62,6 +67,12 @@ final class PushlingScene: SKScene {
     private var idleTimeoutAccumulator: TimeInterval = 0
     private static let idleTimeoutInterval: TimeInterval = 0.5
 
+    // MARK: - Cinematic Sequencer
+
+    /// The cinematic sequencer — coordinates camera, touch, behavior,
+    /// and counter-scaling during dramatic events (evolution, etc.).
+    let cinematicSequencer = CinematicSequencer()
+
     // MARK: - Hatching Ceremony
 
     /// Whether the scene is currently in hatching mode (first launch).
@@ -78,11 +89,23 @@ final class PushlingScene: SKScene {
     weak var gameCoordinator: GameCoordinator? {
         didSet {
             // Release fallback speech coordinator now that the real one is available
-            if gameCoordinator != nil {
+            if let gc = gameCoordinator {
                 _fallbackSpeechCoordinator = nil
+
+                // Wire cinematic cancel escape hatch (triple-tap during cinematic)
+                gc.creatureTouchHandler.onCinematicCancelRequest = {
+                    [weak self] in
+                    self?.cinematicSequencer.cancel()
+                    self?.behaviorStack?.thawFromCinematic()
+                }
             }
         }
     }
+
+    // MARK: - Toggle Button
+
+    /// Callback when the [P] toggle button is tapped (minimize/restore Touch Bar).
+    var onToggleTouchBar: (() -> Void)?
 
     // MARK: - Debug Overlay
 
@@ -171,6 +194,10 @@ final class PushlingScene: SKScene {
             return
         }
 
+        // === Cinematic sequencer ===
+        cinematicSequencer.update(deltaTime: deltaTime)
+        syncCinematicState()
+
         // === Subsystem update order (normal operation) ===
         // 1. Physics — collision detection, force application
         updatePhysics(deltaTime: deltaTime)
@@ -231,9 +258,23 @@ final class PushlingScene: SKScene {
     /// World — parallax scrolling, terrain generation/recycling, biomes,
     /// visual effects, creature-dependent visuals, camera pan/zoom.
     private func updateWorld(deltaTime: TimeInterval) {
-        // Update camera controller (decay pan offset, track creature)
+        // Compute creature height for camera Y-tracking
+        let creatureHeight: CGFloat
+        if let creature = creatureNode,
+           let config = StageConfiguration.all[creature.currentStage] {
+            creatureHeight = config.size.height
+        } else {
+            creatureHeight = 6.0  // Fallback (spore size)
+        }
+
+        // Compute creature focus Y for camera Y-tracking
+        let creatureFocusY = creatureNode?.position.y ?? 15.0
+
+        // Update camera controller with full Y-tracking support
         cameraController.update(deltaTime: deltaTime,
-                                 creatureWorldX: creatureWorldX)
+                                 creatureWorldX: creatureWorldX,
+                                 creatureFocusY: creatureFocusY,
+                                 creatureHeight: creatureHeight)
 
         // Update world system with effective camera position (base + pan)
         let effectiveX = cameraController.effectiveWorldX
@@ -249,9 +290,11 @@ final class PushlingScene: SKScene {
             )
             let config = StageConfiguration.all[creature.currentStage]!
             let creatureY = terrainY + config.size.height / 2
+            // Clamp Y so creature never goes off the bottom of the screen
+            let clampedY = max(creatureY, config.size.height / 2 + 1.0)
             creature.position = CGPoint(
                 x: creatureWorldX,
-                y: creatureY
+                y: clampedY
             )
 
             // Update creature-dependent visual systems (P3-T3-04, P3-T3-05)
@@ -263,21 +306,38 @@ final class PushlingScene: SKScene {
                 deltaTime: deltaTime
             )
 
+            // Update fog of war — track creature's screen-space position
+            let zoom = cameraController.zoomLevel
+            let creatureScreenX = size.width / 2
+                + (creatureWorldX - cameraController.effectiveWorldX) * zoom
+            worldManager.updateFogOfWar(
+                creatureScreenX: creatureScreenX,
+                creatureWorldX: creatureWorldX,
+                zoom: zoom,
+                deltaTime: deltaTime
+            )
+
             // Apply depth perspective (Phase 0B)
-            // positionZ: 0.0 = foreground (full size), 1.0 = background (0.5x size)
-            let depthScale = 1.0 - z * 0.5          // 1.0 at z=0, 0.5 at z=1
-            let depthYOffset = z * 6.0               // Shift up 0-6pt (further = higher)
+            // During cinematic zoom, skip counter-scaling so the creature
+            // fills the frame at the zoomed level.
+            if disableCreatureCounterScaling {
+                creature.xScale = creature.facing.xScale
+                creature.yScale = 1.0
+                creature.zPosition = 10.0
+            } else {
+                // positionZ: 0.0 = foreground (full size), 1.0 = background (0.5x size)
+                let depthScale = 1.0 - z * 0.5
 
-            // xScale: preserve facing sign from setFacing, apply depth scale
-            creature.xScale = depthScale * creature.facing.xScale
-            // yScale: root node scale — breathing is bodyNode.yScale (child), no conflict
-            creature.yScale = depthScale
-            creature.position.y += depthYOffset
+                // xScale: preserve facing sign from setFacing, apply depth scale
+                creature.xScale = depthScale * creature.facing.xScale
+                // yScale: root node scale — breathing is bodyNode.yScale (child), no conflict
+                creature.yScale = depthScale
 
-            // Dynamic Z-ordering (Phase 0E)
-            // z=0.0 → zPosition 10 (above terrain objects)
-            // z=1.0 → zPosition -5 (behind foreground objects)
-            creature.zPosition = 10.0 - z * 15.0
+                // Dynamic Z-ordering: creature always stays in front of terrain
+                // z=0.0 → zPosition 10 (above terrain objects)
+                // z=0.8 → zPosition 0.4 (still visible above terrain at -1)
+                creature.zPosition = 10.0 - z * 12.0
+            }
         }
     }
 
@@ -293,8 +353,8 @@ final class PushlingScene: SKScene {
     /// forwarding mechanism; this is the common entry point.
     /// - Parameter scenePoint: The touch position in scene coordinates.
     func handleTouch(at scenePoint: CGPoint) {
-        // Ignore touches during hatching ceremony
-        guard !isHatching else { return }
+        // Ignore touches during hatching ceremony or cinematic sequence
+        guard !isHatching, !cinematicSequencer.isActive else { return }
 
         // Check if touch is on the creature (within creature bounds)
         if let creature = creatureNode {
@@ -404,6 +464,24 @@ final class PushlingScene: SKScene {
         )
         self.behaviorStack = stack
 
+        // Initialize camera constraints for the starting stage (no animation)
+        cameraController.updateConstraints(for: initialStage, animated: false)
+
+        // Wire cinematic sequencer to camera
+        cinematicSequencer.cameraController = cameraController
+
+        // Wire evolution callback: route through cinematic sequencer
+        creature.onEvolutionRequested = { [weak self] fromStage, toStage, startCeremony in
+            self?.beginEvolutionCinematic(
+                fromStage: fromStage,
+                toStage: toStage,
+                startCeremony: startCeremony
+            )
+        }
+
+        // Cinematic cancel escape hatch is wired in gameCoordinator.didSet
+        // (triple-tap on world during cinematic -> cancel sequence).
+
         // P4-T4-01: Diamond indicator — Claude's presence near the creature.
         // Added as child of creature so it follows automatically.
         let diamond = DiamondIndicator()
@@ -429,6 +507,9 @@ final class PushlingScene: SKScene {
     /// Called when the creature evolves to a new stage.
     /// Updates all dependent systems.
     func onCreatureStageChanged(_ newStage: GrowthStage) {
+        // Update camera constraints for the new stage
+        cameraController.updateConstraints(for: newStage)
+
         // Update world visual complexity (P3-T3-03)
         worldManager.onStageChanged(newStage)
 
@@ -449,6 +530,71 @@ final class PushlingScene: SKScene {
     /// Called after evolution ceremony completes.
     func onEvolutionCeremonyComplete() {
         evolutionProgressBar.showAfterCeremony()
+    }
+
+    // MARK: - Cinematic Integration
+
+    /// Begin a cinematic sequence for an evolution ceremony.
+    /// Called by CreatureNode's onEvolutionRequested callback.
+    private func beginEvolutionCinematic(
+        fromStage: GrowthStage,
+        toStage: GrowthStage,
+        startCeremony: @escaping () -> Void
+    ) {
+        // Evolution ceremony total duration: 5.0s
+        // (0.8 stillness + 1.2 gathering + 1.0 cocoon + 0.5 burst + 1.5 reveal)
+        let ceremonyDuration: TimeInterval = 5.0
+
+        // Freeze behavior stack before cinematic begins
+        behaviorStack?.freezeForCinematic()
+
+        let sequence = CinematicSequencer.evolutionSequence(
+            ceremonyDuration: ceremonyDuration,
+            onStartCeremony: startCeremony,
+            onComplete: { [weak self] in
+                self?.onCinematicEvolutionComplete(newStage: toStage)
+            }
+        )
+
+        cinematicSequencer.begin(sequence)
+
+        NSLog("[Pushling/Scene] Evolution cinematic started: %@ -> %@",
+              "\(fromStage)", "\(toStage)")
+    }
+
+    /// Called when the evolution cinematic sequence finishes.
+    /// Thaws behavior, triggers fog retreat, and notifies dependents.
+    private func onCinematicEvolutionComplete(newStage: GrowthStage) {
+        // Thaw behavior stack
+        behaviorStack?.thawFromCinematic()
+
+        // Update camera constraints for the new stage
+        cameraController.updateConstraints(for: newStage)
+
+        // Notify stage-dependent systems
+        onEvolutionCeremonyComplete()
+
+        NSLog("[Pushling/Scene] Evolution cinematic complete: now %@",
+              "\(newStage)")
+    }
+
+    /// Synchronize touch suppression, behavior freeze state, and
+    /// counter-scaling flags with the cinematic sequencer each frame.
+    private func syncCinematicState() {
+        let isActive = cinematicSequencer.isActive
+
+        // Touch suppression: driven by sequencer
+        gameCoordinator?.gestureRecognizer.isSuppressed =
+            isActive && cinematicSequencer.suppressesTouch
+        gameCoordinator?.creatureTouchHandler.isCinematicActive =
+            isActive && cinematicSequencer.suppressesTouch
+
+        // Counter-scaling disable
+        disableCreatureCounterScaling =
+            isActive && cinematicSequencer.disablesCounterScaling
+
+        // Behavior freeze is managed via begin/complete callbacks,
+        // not per-frame, to avoid repeated freeze/thaw calls.
     }
 
     // MARK: - XP Change Integration (P3-T3-07)
@@ -597,6 +743,8 @@ final class PushlingScene: SKScene {
         if let s = paws["br"] { creature.pawBRController?.setState(s, duration: 0) }
     }
 
+    // MARK: - Toggle Button (now handled by TouchBarView as AppKit overlay)
+
     // MARK: - Debug Overlay
 
     private func setupDebugOverlay() {
@@ -635,13 +783,42 @@ final class PushlingScene: SKScene {
         let biome = worldManager.currentBiome(at: creatureWorldX)
         let complexity = worldManager.complexityController.level.rawValue
 
-        debugOverlayNode?.text = "\(fpsStr)fps | \(frameTimeStr)ms | "
+        debugOverlayNode?.text = "v\(PushlingVersion.string) | \(fpsStr)fps | \(frameTimeStr)ms | "
             + "\(totalNodes)n | w:\(worldNodes) | \(biome.rawValue) | c\(complexity)"
     }
 
     /// Recursively counts all nodes in the scene tree.
     private func countAllNodes(in node: SKNode) -> Int {
         return 1 + node.children.reduce(0) { $0 + countAllNodes(in: $1) }
+    }
+
+    // MARK: - Screenshot Capture
+
+    /// Captures the current scene as PNG data.
+    /// Must be called on the main thread (SpriteKit rendering requirement).
+    func captureScreenshot() -> Data? {
+        guard let skView = self.view else {
+            NSLog("[Pushling/Scene] Screenshot failed — no SKView")
+            return nil
+        }
+
+        // Render the entire scene to an SKTexture
+        guard let texture = skView.texture(from: self) else {
+            NSLog("[Pushling/Scene] Screenshot failed — texture(from:) returned nil")
+            return nil
+        }
+
+        // Convert SKTexture -> CGImage (non-optional in SpriteKit)
+        let cgImage = texture.cgImage()
+
+        // Encode CGImage as PNG using NSBitmapImageRep
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        guard let pngData = rep.representation(using: .png, properties: [:]) else {
+            NSLog("[Pushling/Scene] Screenshot failed — PNG encoding failed")
+            return nil
+        }
+
+        return pngData
     }
 
     // MARK: - Debug Subsystems (stored properties for extension)

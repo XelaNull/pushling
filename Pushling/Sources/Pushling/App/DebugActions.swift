@@ -530,6 +530,46 @@ final class DebugActions {
         NSLog("[Pushling/Debug] Skipped to night (10 PM)")
     }
 
+    // MARK: - Camera
+
+    func zoomIn() {
+        guard let scene = scene else { logNoScene(); return }
+        let cam = scene.cameraController
+        cam.zoom(delta: 0.25, centerWorldX: cam.effectiveWorldX)
+        NSLog("[Pushling/Debug] Zoom in -> %.2fx", cam.zoomLevel)
+    }
+
+    func zoomOut() {
+        guard let scene = scene else { logNoScene(); return }
+        let cam = scene.cameraController
+        cam.zoom(delta: -0.25, centerWorldX: cam.effectiveWorldX)
+        NSLog("[Pushling/Debug] Zoom out -> %.2fx", cam.zoomLevel)
+    }
+
+    func zoomReset() {
+        guard let scene = scene else { logNoScene(); return }
+        scene.cameraController.recenter()
+        NSLog("[Pushling/Debug] Camera reset (zoom, pan, Y)")
+    }
+
+    func showCameraState() {
+        guard let scene = scene else { logNoScene(); return }
+        let cam = scene.cameraController
+        NSLog("[Pushling/Debug] === CAMERA STATE ===")
+        NSLog("[Pushling/Debug]   Zoom: %.2fx (range 0.5-3.0)", cam.zoomLevel)
+        NSLog("[Pushling/Debug]   Pan offset: %.1fpt", cam.panOffset)
+        NSLog("[Pushling/Debug]   Camera Y: %.1fpt", cam.cameraWorldY)
+        NSLog("[Pushling/Debug]   Base world X: %.1f", cam.baseWorldX)
+        NSLog("[Pushling/Debug]   Effective X: %.1f", cam.effectiveWorldX)
+        NSLog("[Pushling/Debug]   Lock mode: %@",
+              cam.lockMode == .unlocked ? "free" : "locked")
+        NSLog("[Pushling/Debug]   Has active pan: %@",
+              cam.hasActivePan ? "yes" : "no")
+        NSLog("[Pushling/Debug]   Has active zoom: %@",
+              cam.hasActiveZoom ? "yes" : "no")
+        NSLog("[Pushling/Debug] === END CAMERA ===")
+    }
+
     // MARK: - Info
 
     func showStats() {

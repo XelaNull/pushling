@@ -27,9 +27,9 @@ extension GameCoordinator {
 
     static func loadXP(from db: DatabaseManager) -> Int {
         let rows = (try? db.query(
-            "SELECT total_xp FROM creature WHERE id = 1"
+            "SELECT xp FROM creature WHERE id = 1"
         )) ?? []
-        return (rows.first?["total_xp"] as? Int) ?? 0
+        return (rows.first?["xp"] as? Int) ?? 0
     }
 
     static func loadCircadian(from db: DatabaseManager) -> CircadianCycle {
@@ -64,6 +64,110 @@ extension GameCoordinator {
         return (try? db.queryScalarInt(
             "SELECT COUNT(*) FROM repos"
         )) ?? 1
+    }
+}
+
+// MARK: - XP & Stage Persistence
+
+extension GameCoordinator {
+
+    /// XP thresholds for each stage transition.
+    static let stageThresholds: [GrowthStage: Int] = [
+        .drop: 100,
+        .critter: 500,
+        .beast: 2000,
+        .sage: 8000,
+        .apex: 20000
+    ]
+
+    /// Persist current XP and stage to SQLite asynchronously.
+    func persistXPAndStage() {
+        let xp = self.totalXP
+        let stage = "\(self.creatureStage)"
+        let db = stateCoordinator.database
+        db.performWriteAsync({
+            try db.execute(
+                "UPDATE creature SET xp = ?, stage = ? WHERE id = 1",
+                arguments: [xp, stage]
+            )
+        })
+    }
+
+    /// Persist current XP and stage to SQLite synchronously (for shutdown).
+    func persistXPAndStageSync() {
+        let xp = self.totalXP
+        let stage = "\(self.creatureStage)"
+        let db = stateCoordinator.database
+        try? db.execute(
+            "UPDATE creature SET xp = ?, stage = ? WHERE id = 1",
+            arguments: [xp, stage]
+        )
+    }
+
+    /// Check if current XP has crossed a stage threshold and trigger evolution.
+    func checkEvolution() {
+        let stages: [GrowthStage] = [.drop, .critter, .beast, .sage, .apex]
+        for stage in stages {
+            guard stage.rawValue > creatureStage.rawValue else { continue }
+            guard let threshold = Self.stageThresholds[stage] else { continue }
+            if totalXP >= threshold {
+                // Evolve to this stage
+                let oldStage = creatureStage
+                creatureStage = stage
+
+                NSLog("[Pushling/Coordinator] Evolution triggered: %@ -> %@ "
+                      + "(XP: %d, threshold: %d)",
+                      "\(oldStage)", "\(stage)", totalXP, threshold)
+
+                // Update scene
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.scene.onCreatureStageChanged(stage)
+                    if let creature = self.scene.creatureNode {
+                        creature.evolve(to: stage) { [weak self] in
+                            self?.scene.behaviorStack?.updateStage(stage)
+                            self?.scene.onEvolutionCeremonyComplete()
+                        }
+                    }
+
+                    // Update behavior stack
+                    self.scene.behaviorStack?.stage = stage
+
+                    // Update voice system
+                    let snap = self.personality.toSnapshot()
+                    self.voiceSystem.onStageChanged(to: stage,
+                                                     personality: snap)
+                    self.voiceIntegration.onStageChanged(to: stage,
+                                                          personality: snap)
+
+                    // Update speech coordinator
+                    self.speechCoordinator.onStageChanged(stage)
+
+                    // Update world visual complexity
+                    self.scene.worldManager.onStageChanged(stage)
+                }
+
+                // Persist immediately
+                persistXPAndStage()
+
+                // Journal
+                let db = stateCoordinator.database
+                let formatter = ISO8601DateFormatter()
+                let now = formatter.string(from: Date())
+                db.performWriteAsync({
+                    try db.execute(
+                        "INSERT INTO journal (type, summary, timestamp) "
+                        + "VALUES (?, ?, ?)",
+                        arguments: ["evolve",
+                                    "Evolved to \(stage)",
+                                    now]
+                    )
+                })
+
+                // Only evolve one stage at a time
+                break
+            }
+        }
     }
 }
 

@@ -61,20 +61,31 @@ final class AutonomousLayer: BehaviorLayer {
     /// Callback: (objectID, interactionName, satisfaction, consumed)
     var onObjectInteractionCompleted: ((String, String, Double, Bool) -> Void)?
 
+    // MARK: - Cinematic Freeze
+
+    /// When true, the autonomous layer stops state machine transitions.
+    /// The creature stays in its current state (typically idle) and does
+    /// not wander, transition, or change behavior. Set by BehaviorStack.
+    var isFrozen: Bool = false
+
     // MARK: - Internal State
 
     private(set) var state: AutonomousState = .idle
     private var stateTimer: TimeInterval = 0
     private var stateDuration: TimeInterval = 3.0
-    private var facing: Direction = .right
+    private(set) var facing: Direction = .right
     private(set) var currentX: CGFloat = SceneConstants.sceneWidth / 2
     var currentZ: CGFloat = 0.0
     private var currentWalkSpeed: CGFloat = 0
 
-    // MARK: - Depth Wandering (AutonomousLayer+DepthWandering.swift)
+    // MARK: - Destination-Based Movement (AutonomousLayer+DepthWandering.swift)
 
-    /// Target Z position for smooth depth transitions.
-    var depthTargetZ: CGFloat = 0.0
+    /// Unified destination: creature walks to (destinationX, destinationZ) diagonally.
+    var destinationX: CGFloat = SceneConstants.sceneWidth / 2
+    var destinationZ: CGFloat = 0.0
+    var isDwelling: Bool = false
+    private var dwellTimer: TimeInterval = 0
+    private var dwellDuration: TimeInterval = 5.0
 
     /// Closure to query terrain height at a given (worldX, depth).
     /// Set by GameCoordinator to wire to WorldManager.terrainHeightAtDepth.
@@ -101,6 +112,8 @@ final class AutonomousLayer: BehaviorLayer {
         self.behaviorSelector = behaviorSelector
         regenerateBlinkInterval()
         regenerateStateDuration()
+        // Start with a nearby destination so movement is visible immediately
+        destinationZ = CGFloat(Double.random(in: 0.0...0.2))
     }
 
     // MARK: - BehaviorLayer
@@ -116,6 +129,24 @@ final class AutonomousLayer: BehaviorLayer {
 
         // Update the state machine
         stateTimer += deltaTime
+
+        // Debug: log state every 5 seconds to diagnose stuck creatures
+        if Int(stateTimer * 2) % 10 == 0 {
+            let stateName: String
+            switch state {
+            case .walking: stateName = "walking"
+            case .idle: stateName = "idle"
+            case .behavior(let n): stateName = "behavior(\(n))"
+            case .taughtBehavior(let n): stateName = "taughtBehavior(\(n))"
+            case .objectInteracting(let id): stateName = "objectInteracting(\(id))"
+            case .resting: stateName = "resting"
+            }
+            NSLog("[Pushling/Autonomous] state=%@ timer=%.1f dur=%.1f frozen=%d x=%.1f z=%.3f destX=%.1f destZ=%.3f dwell=%d",
+                  stateName, stateTimer, stateDuration, isFrozen ? 1 : 0,
+                  currentX, currentZ, destinationX, destinationZ,
+                  isDwelling ? 1 : 0)
+        }
+
         updateStateMachine(deltaTime: deltaTime, currentTime: currentTime,
                            output: &output)
 
@@ -140,6 +171,22 @@ final class AutonomousLayer: BehaviorLayer {
     private func updateStateMachine(deltaTime: TimeInterval,
                                     currentTime: TimeInterval,
                                     output: inout LayerOutput) {
+        // Cinematic freeze: hold current position, skip all transitions
+        if isFrozen {
+            // Emergency unfreeze after 12 seconds — something didn't thaw
+            if stateTimer > 12.0 {
+                isFrozen = false
+                NSLog("[Pushling/Autonomous] Emergency unfreeze after 12s stuck")
+            } else {
+                output.positionX = currentX
+                output.walkSpeed = 0
+                output.bodyState = "stand"
+                output.pawStates = ["fl": "ground", "fr": "ground",
+                                    "bl": "ground", "br": "ground"]
+                return
+            }
+        }
+
         switch state {
         case .walking:
             updateWalking(deltaTime: deltaTime, output: &output)
@@ -164,16 +211,17 @@ final class AutonomousLayer: BehaviorLayer {
         }
 
         // Global check: energy-based resting (don't interrupt taught behaviors
-        // or object interactions)
+        // or object interactions). Only enter resting if we've been in the
+        // current state for at least 15 seconds to prevent rest-loop.
         if case .resting = state {
-            if emotions.energy > 40 {
-                transitionTo(.idle)
-            }
+            // Resting exits are handled by the resting timeout (10s)
         } else if case .taughtBehavior = state {
             // Let taught behaviors finish — don't interrupt for rest
         } else if case .objectInteracting = state {
             // Let object interactions finish — don't interrupt for rest
-        } else if emotions.energy < 20 {
+        } else if case .walking = state {
+            // Never interrupt walking for rest — let the walk finish
+        } else if emotions.energy < 20 && stateTimer > 15.0 {
             transitionTo(.resting)
         }
     }
@@ -182,6 +230,12 @@ final class AutonomousLayer: BehaviorLayer {
 
     private func updateWalking(deltaTime: TimeInterval,
                                output: inout LayerOutput) {
+        // Dwelling: stand still at destination before picking next
+        if isDwelling {
+            updateDwell(deltaTime: deltaTime, output: &output)
+            return
+        }
+
         // Walk speed via PersonalityFilter (personality + emotion + jitter)
         let baseSpeed = stage.baseWalkSpeed
         let filtered = PersonalityFilter.modulatedWalkSpeed(
@@ -194,11 +248,23 @@ final class AutonomousLayer: BehaviorLayer {
         // Apply depth speed scaling (further away = slower)
         currentWalkSpeed *= AutonomousLayer.depthSpeedMultiplier(z: currentZ)
 
-        // Smooth depth transition toward target
-        updateDepthWalk(deltaTime: deltaTime)
+        // Apply slope speed scaling (steep slopes = slower)
+        currentWalkSpeed *= AutonomousLayer.slopeSpeedMultiplier(
+            currentZ: currentZ, targetZ: destinationZ,
+            currentX: currentX, targetX: destinationX)
 
-        // Integrate position
-        currentX += currentWalkSpeed * (facing == .right ? 1 : -1) * CGFloat(deltaTime)
+        // Integrate X toward destination
+        let directionSign: CGFloat = facing == .right ? 1 : -1
+        let xStep = currentWalkSpeed * directionSign * CGFloat(deltaTime)
+        currentX += xStep
+
+        // Derive Z step from X progress — both axes arrive simultaneously
+        let zStep = depthStepForXStep(xStep: xStep, targetX: destinationX,
+                                      targetZ: destinationZ)
+        currentZ += zStep
+        currentZ = clamp(currentZ, min: 0.0,
+                         max: AutonomousLayer.maxDepthZ(for: stage))
+
         output.positionX = currentX
         output.walkSpeed = currentWalkSpeed
         output.bodyState = "stand"
@@ -224,22 +290,55 @@ final class AutonomousLayer: BehaviorLayer {
             output.whiskerState = "neutral"
         }
 
-        // Check for state transition
-        if stateTimer >= stateDuration {
-            // Direction change probability modulated by personality focus
-            let dirProb = PersonalityFilter.directionChangeProbability(
-                base: 0.15, personality: personality
-            )
-            if randomChance(dirProb) {
-                pendingDirectionChange = true
-            }
+        // Check arrival at destination
+        if abs(currentX - destinationX) < 3.0
+            && abs(currentZ - destinationZ) < 0.02 {
+            // Snap to destination
+            currentZ = destinationZ
+            // Enter dwell: stand still 3-8s
+            isDwelling = true
+            dwellTimer = 0
+            dwellDuration = randomRange(3.0, 8.0)
+            return
+        }
 
-            // Depth wandering: 20% chance of selecting a new Z target
-            if randomChance(0.2) {
-                depthTargetZ = selectTargetZ()
-            }
-
+        // Safety: if walking way too long, transition to idle
+        if stateTimer > stateDuration + 10.0 {
             transitionTo(.idle)
+        }
+    }
+
+    // MARK: - Dwell State (within walking)
+
+    /// Stand still at the destination for dwellDuration seconds,
+    /// then pick a new destination and resume walking.
+    private func updateDwell(deltaTime: TimeInterval,
+                             output: inout LayerOutput) {
+        output.walkSpeed = 0
+        output.bodyState = "stand"
+        output.pawStates = ["fl": "ground", "fr": "ground",
+                            "bl": "ground", "br": "ground"]
+
+        if stage >= .critter {
+            output.earLeftState = "neutral"
+            output.earRightState = "neutral"
+        }
+        if stage >= .beast {
+            output.whiskerState = "neutral"
+        }
+
+        dwellTimer += deltaTime
+
+        if dwellTimer >= dwellDuration {
+            // Pick new destination and resume walking
+            isDwelling = false
+            let dest = selectDestination()
+            destinationX = dest.targetX
+            destinationZ = dest.targetZ
+            // Face toward new destination
+            facing = destinationX > currentX ? .right : .left
+            stateTimer = 0
+            regenerateStateDuration()
         }
     }
 
@@ -260,15 +359,18 @@ final class AutonomousLayer: BehaviorLayer {
             output.whiskerState = "neutral"
         }
 
-        // High curiosity: drift toward foreground (approach camera)
-        if emotions.curiosity > 70, currentZ > 0.02 {
-            currentZ = max(currentZ - CGFloat(deltaTime * 0.15), 0.0)
-        }
+        // Creature stays at current Z while idle — no depth movement
 
         // Handle pending direction change (will be blended by BlendController)
         if pendingDirectionChange {
             facing = facing.flipped
             pendingDirectionChange = false
+        }
+
+        // Safety: force walking if idle exceeds 8 seconds
+        if stateTimer > 8.0 {
+            transitionTo(.walking)
+            return
         }
 
         // Check for state transition
@@ -339,8 +441,6 @@ final class AutonomousLayer: BehaviorLayer {
                                output: inout LayerOutput) {
         output.walkSpeed = 0
         output.bodyState = "sleep_curl"
-        // Retreat slightly into background when resting
-        currentZ = 0.15
         output.eyeLeftState = "closed"
         output.eyeRightState = "closed"
         output.tailState = "wrap"
@@ -350,6 +450,11 @@ final class AutonomousLayer: BehaviorLayer {
         }
         output.pawStates = ["fl": "tuck", "fr": "tuck",
                             "bl": "tuck", "br": "tuck"]
+
+        // Wake up after 10 seconds if energy hasn't recovered
+        if stateTimer > 10.0 {
+            transitionTo(.idle)
+        }
     }
 
     // MARK: - Blink System
@@ -425,9 +530,20 @@ final class AutonomousLayer: BehaviorLayer {
     // MARK: - State Transitions
 
     func transitionTo(_ newState: AutonomousState) {
+        guard !isFrozen else { return }
         state = newState
         stateTimer = 0
+        isDwelling = false
         regenerateStateDuration()
+
+        // Select a unified (X, Z) destination on every walk start
+        if case .walking = newState {
+            let dest = selectDestination()
+            destinationX = dest.targetX
+            destinationZ = dest.targetZ
+            // Face toward destination
+            facing = destinationX > currentX ? .right : .left
+        }
     }
 
     /// Generates a personality-influenced duration for the current state.
@@ -481,8 +597,15 @@ final class AutonomousLayer: BehaviorLayer {
     // MARK: - External Events
 
     /// Called when the creature reaches a boundary and must turn around.
+    /// Picks a new destination in the forced direction.
     func requestDirectionChange(toward direction: Direction) {
         facing = direction
+        // Pick a new destination in the new direction (unless dwelling)
+        if !isDwelling, case .walking = state {
+            let dest = selectDestination()
+            destinationX = dest.targetX
+            destinationZ = dest.targetZ
+        }
     }
 
     /// Force the creature into a specific state (e.g., for sleep sequence).

@@ -101,13 +101,13 @@ final class PuddleReflection {
         creatureStage = stage
         guard let config = StageConfiguration.all[stage] else { return }
 
-        // Rebuild reflection shape — simplified rectangle matching creature width
+        // Rebuild reflection — use CatShapes silhouette, squished to 2px tall
         let w = config.size.width * 0.8
-        let h: CGFloat = 1.0  // 1-pixel tall reflection
-
-        let path = CGMutablePath()
-        path.addRect(CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
-        reflectionNode.path = path
+        let silhouette = CatShapes.bodySilhouette(
+            width: w, height: config.size.height * 0.3, stage: stage)
+        var squish = CGAffineTransform(scaleX: 1.0, y: 0.15)
+        let squished = silhouette.copy(using: &squish)
+        reflectionNode.path = squished
         reflectionNode.fillColor = PushlingPalette.withAlpha(
             PushlingPalette.stageColor(for: stage),
             alpha: Self.reflectionAlpha

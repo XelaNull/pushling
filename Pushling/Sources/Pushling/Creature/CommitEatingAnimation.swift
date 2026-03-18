@@ -99,29 +99,50 @@ final class CommitEatingAnimation {
         // Eating speed — slower so each char is visible
         switch commitType {
         case .largeRefactor, .hugeRefactor:
-            msPerChar = 100   // Goblin mode — fast
+            msPerChar = 160   // Goblin mode — fast but readable
         case .test:
-            msPerChar = 250   // Crunchy
+            msPerChar = 400   // Crunchy
         case .lazyMessage:
-            msPerChar = 400   // Reluctant chewing
+            msPerChar = 600   // Reluctant chewing
         default:
-            // Scale with commit size: small=350ms, medium=250ms, large=150ms
+            // Scale with commit size: small=550ms, medium=400ms, large=250ms
             let lines = commit.totalLines
             if lines < 20 {
-                msPerChar = 350
+                msPerChar = 550
             } else if lines < 100 {
-                msPerChar = 250
+                msPerChar = 400
             } else {
-                msPerChar = 150
+                msPerChar = 250
             }
         }
 
-        // Create text node
+        // Create text node — larger font for bigger commits
         let textNode = CommitTextNode()
-        textNode.configure(message: commit.message, sha: commit.sha)
+        let fontSize: CGFloat
+        switch commitType {
+        case .hugeRefactor:
+            fontSize = 18
+        case .largeRefactor:
+            fontSize = 16
+        default:
+            let lines = commit.totalLines
+            if lines >= 100 {
+                fontSize = 15
+            } else if lines >= 20 {
+                fontSize = 14
+            } else {
+                fontSize = 12
+            }
+        }
+        textNode.configure(message: commit.message, sha: commit.sha, fontSize: fontSize)
 
         guard let creature = creature, let scene = scene else { return }
-        let creatureX = creature.position.x
+
+        // Convert creature position from parallax layer to scene coordinates.
+        // The creature is in the foreground parallax layer (world space) but
+        // the text node is added to the scene root (screen space).
+        let creatureScene = creatureScenePosition()
+        let creatureX = creatureScene.x
 
         // Spawn text on the OPPOSITE side from creature, so it floats toward it
         let spawnX: CGFloat
@@ -135,8 +156,10 @@ final class CommitEatingAnimation {
             eatingFromLeft = true  // Eat from the left end (closest to creature)
         }
 
-        // Position at creature's height
-        textNode.position = CGPoint(x: spawnX, y: creature.position.y + 4)
+        // Position at creature's height (in scene coordinates), clamped to Touch Bar.
+        // Larger fonts need more headroom to stay on screen.
+        let textY = min(creatureScene.y + 4, SceneConstants.sceneHeight - fontSize * 0.6 - 2)
+        textNode.position = CGPoint(x: spawnX, y: textY)
 
         // Start all characters invisible
         for charNode in textNode.charNodes {
@@ -174,11 +197,11 @@ final class CommitEatingAnimation {
     private func updateArrival(deltaTime: TimeInterval) {
         guard let textNode = textNode, let creature = creature else { return }
 
-        // Stagger character fade-in (40ms apart)
+        // Stagger character fade-in (60ms apart)
         for (i, charNode) in textNode.charNodes.enumerated() {
-            let staggerTime = Double(i) * 0.04
+            let staggerTime = Double(i) * 0.06
             if phaseTimer >= staggerTime {
-                let fadeProgress = min(1.0, (phaseTimer - staggerTime) / 0.15)
+                let fadeProgress = min(1.0, (phaseTimer - staggerTime) / 0.22)
                 charNode.alpha = CGFloat(fadeProgress)
             }
         }
@@ -189,8 +212,8 @@ final class CommitEatingAnimation {
             charNode.position.y = CGFloat(bobOffset)
         }
 
-        // Drift toward creature — slow, giving time to read
-        let creatureX = creature.position.x
+        // Drift toward creature (in scene coordinates)
+        let creatureX = creatureScenePosition().x
         let textX = textNode.position.x
         let distance = abs(textX - creatureX)
         let direction: CGFloat = textX > creatureX ? -1 : 1
@@ -198,19 +221,19 @@ final class CommitEatingAnimation {
         // Speed up as it gets closer (easing)
         let driftSpeed: CGFloat
         if commitType == .forcePush {
-            driftSpeed = 300  // Force push slams in fast
+            driftSpeed = 200  // Force push slams in fast
         } else if distance > 200 {
-            driftSpeed = 120  // Far away: moderate
+            driftSpeed = 80   // Far away: leisurely
         } else if distance > 50 {
-            driftSpeed = 60   // Getting close: slow down
+            driftSpeed = 40   // Getting close: slow down
         } else {
-            driftSpeed = 20   // Almost there: gentle approach
+            driftSpeed = 12   // Almost there: gentle approach
         }
         textNode.position.x += direction * driftSpeed * CGFloat(deltaTime)
 
         // Stop when text reaches the creature (within 40pt)
         // Text node position is its left edge, so account for text width
-        let textWidth = CGFloat(textNode.charNodes.count) * 6  // ~6pt per char
+        let textWidth = CGFloat(textNode.charNodes.count) * textNode.activeSpacing
         let effectiveDistance: CGFloat
         if eatingFromLeft {
             // Text approaching from right, creature on left — check left edge of text
@@ -224,16 +247,17 @@ final class CommitEatingAnimation {
             phaseTimer = 0
         }
 
-        // Safety timeout: if still not there after 4s, snap to creature
-        if phaseTimer >= 4.0 {
-            textNode.position.x = creatureX + (eatingFromLeft ? 30 : -30)
+        // Safety timeout: if still not there after 6s, snap to creature
+        if phaseTimer >= 6.0 {
+            let snapX = creatureScenePosition().x
+            textNode.position.x = snapX + (eatingFromLeft ? 30 : -30)
             phase = .notice
             phaseTimer = 0
         }
     }
 
     // MARK: - Phase 2: Notice (1s)
-    // Creature perks ears, eyes widen, predator crouch
+    // Creature perks ears, eyes widen, predator crouch with butt wiggle
 
     private func updateNotice(deltaTime: TimeInterval) {
         guard let creature = creature, let textNode = textNode else { return }
@@ -244,32 +268,48 @@ final class CommitEatingAnimation {
             charNode.position.y = CGFloat(bobOffset)
         }
 
-        // Creature reactions
+        // Creature reactions — predator crouch sequence
         if phaseTimer < 0.1 {
             creature.earLeftController?.setState("perk", duration: 0.1)
             creature.earRightController?.setState("perk", duration: 0.1)
             creature.eyeLeftController?.setState("wide", duration: 0.1)
             creature.eyeRightController?.setState("wide", duration: 0.1)
+
+            // Body compress 15% — predator crouch
+            if creature.currentStage >= .critter {
+                let crouch = SKAction.scaleY(to: 0.85, duration: 0.15)
+                crouch.timingMode = .easeOut
+                creature.run(crouch, withKey: "predatorCrouch")
+            }
         }
 
-        // Face toward the text (toward where it came from)
+        // Face toward the text
         if eatingFromLeft {
-            // Eating from left end = text is to creature's right → face right? No.
-            // eatingFromLeft means creature is on LEFT, text came from RIGHT
-            // Creature should face RIGHT toward the text
             creature.setFacing(.right)
         } else {
-            // Eating from right end = text is to creature's left
-            // Creature should face LEFT toward the text
             creature.setFacing(.left)
         }
 
-        // Butt wiggle for Critter+
+        // Butt wiggle for Critter+ — ±1pt lateral oscillation at 200ms
         if phaseTimer >= 0.3 && creature.currentStage >= .critter {
-            creature.tailController?.setState("sway", duration: 0)
+            creature.tailController?.setState("sway_fast", duration: 0)
+            let wigglePhase = (phaseTimer - 0.3) / 0.2
+            let wiggleOffset = sin(wigglePhase * 2.0 * .pi) * 1.0
+            creature.position.x = creature.position.x
+                + CGFloat(wiggleOffset) * CGFloat(deltaTime) * 20
         }
 
-        if phaseTimer >= 1.0 {
+        if phaseTimer >= 1.5 {
+            // Spring forward — release crouch with stretch
+            if creature.currentStage >= .critter {
+                let spring = SKAction.sequence([
+                    SKAction.scaleY(to: 1.1, duration: 0.08),
+                    SKAction.scaleY(to: 1.0, duration: 0.12)
+                ])
+                spring.timingMode = .easeOut
+                creature.run(spring, withKey: "predatorSpring")
+            }
+
             creature.tailController?.setState("sway", duration: 0.2)
             creature.mouthController?.setState("open", duration: 0)
             phase = .feast
@@ -445,15 +485,15 @@ final class CommitEatingAnimation {
 
         // Float XP label
         if let xpLabel = xpLabel {
-            xpLabel.position.y += CGFloat(deltaTime) * 6
-            xpLabel.alpha -= CGFloat(deltaTime) / 2.0
+            xpLabel.position.y += CGFloat(deltaTime) * 4
+            xpLabel.alpha -= CGFloat(deltaTime) / 3.5
             if xpLabel.alpha <= 0 {
                 xpLabel.removeFromParent()
                 self.xpLabel = nil
             }
         }
 
-        if phaseTimer >= 2.5 {
+        if phaseTimer >= 3.5 {
             textNode?.resetAll()
             textNode?.removeFromParent()
             textNode = nil
@@ -472,12 +512,26 @@ final class CommitEatingAnimation {
         label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
         let creatureH = StageConfiguration.all[creature.currentStage]?.size.height ?? 16
-        label.position = CGPoint(
-            x: creature.position.x,
-            y: creature.position.y + creatureH / 2 + 6)
+        let creatureScene = creatureScenePosition()
+        let xpY = min(creatureScene.y + creatureH / 2 + 4,
+                       SceneConstants.sceneHeight - 6)
+        label.position = CGPoint(x: creatureScene.x, y: xpY)
         label.zPosition = 38
         scene.addChild(label)
         self.xpLabel = label
+    }
+
+    // MARK: - Coordinate Helpers
+
+    /// Convert creature position from parallax layer space to scene space.
+    /// The creature is a child of the parallax foreground layer, but the text
+    /// node lives in the scene root — their coordinate spaces differ.
+    private func creatureScenePosition() -> CGPoint {
+        guard let creature = creature, let scene = scene else { return .zero }
+        if let parent = creature.parent {
+            return parent.convert(creature.position, to: scene)
+        }
+        return creature.position
     }
 
     // MARK: - Status

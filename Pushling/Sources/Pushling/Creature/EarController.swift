@@ -28,6 +28,19 @@ final class EarController: BodyPartController {
     private var twitchTimer: TimeInterval = 0
     private var isTwitching = false
 
+    /// Target world position for rotate_toward state.
+    var targetWorldPosition: CGPoint?
+
+    /// Inner ear child node (for independent inner ear movement).
+    private weak var innerEarNode: SKNode?
+
+    /// Personality snapshot for modulation.
+    var personalitySnapshot: PersonalitySnapshot = .neutral
+
+    /// Accumulated time for personality-driven random twitches.
+    private var randomTwitchAccumulator: TimeInterval = 0
+    private var nextRandomTwitchAt: TimeInterval = 5.0
+
     // MARK: - Rotation Constants Per State
 
     /// Ear rotations (radians) — positive = outward tilt.
@@ -44,14 +57,20 @@ final class EarController: BodyPartController {
     /// - Parameters:
     ///   - earNode: The SKNode representing this ear.
     ///   - isLeft: Whether this is the left ear.
-    init(earNode: SKNode, isLeft: Bool) {
+    /// - Parameters:
+    ///   - earNode: The SKNode representing this ear.
+    ///   - isLeft: Whether this is the left ear.
+    ///   - innerEarNode: Optional inner ear child for independent movement.
+    init(earNode: SKNode, isLeft: Bool, innerEarNode: SKNode? = nil) {
         self.node = earNode
         self.isLeftEar = isLeft
+        self.innerEarNode = innerEarNode
         // Left ear tilts left (negative), right ear tilts right (positive)
         self.neutralRotation = isLeft
             ? -Rotations.neutral
             :  Rotations.neutral
         applyNeutral()
+        scheduleRandomTwitch()
     }
 
     // MARK: - BodyPartController
@@ -79,11 +98,8 @@ final class EarController: BodyPartController {
             isTwitching = true
             twitchTimer = 0
         case "rotate_toward":
-            // Defaults to perk until target coordinates are implemented.
-            // rotate_toward will eventually accept a world-space target and
-            // compute the rotation angle toward it.
-            animateRotation(to: neutralAngle(Rotations.perk),
-                            duration: duration)
+            // Per-frame tracking handled in update()
+            break
         case "droop":
             animateRotation(to: neutralAngle(Rotations.droop),
                             duration: duration)
@@ -100,8 +116,18 @@ final class EarController: BodyPartController {
             updateTwitch(deltaTime: deltaTime)
         case "wild":
             updateWild(deltaTime: deltaTime)
+        case "rotate_toward":
+            updateRotateToward(deltaTime: deltaTime)
         default:
             break
+        }
+
+        // Per-state inner ear modulation
+        updateInnerEar()
+
+        // Personality-driven random micro-twitches (all states except wild)
+        if currentState != "wild" && currentState != "twitch" {
+            updateRandomTwitch(deltaTime: deltaTime)
         }
     }
 
@@ -132,6 +158,106 @@ final class EarController: BodyPartController {
         let angle = CGFloat(sin(wildTimer * 15.0)) * 0.6
             + CGFloat(cos(wildTimer * 11.0)) * 0.3
         node.zRotation = neutralAngle(0) + angle
+    }
+
+    // MARK: - Rotate Toward (Smooth Tracking)
+
+    /// Per-frame smooth tracking toward a world-space target.
+    private func updateRotateToward(deltaTime: TimeInterval) {
+        guard let target = targetWorldPosition else {
+            // No target — default to slightly perked
+            let goal = neutralAngle(Rotations.perk)
+            let current = node.zRotation
+            let lerpSpeed: CGFloat = 8.0
+            node.zRotation = current + (goal - current)
+                * min(CGFloat(deltaTime) * lerpSpeed, 1.0)
+            return
+        }
+
+        // Compute angle from ear to target in parent's coordinate space
+        guard let scene = node.scene else {
+            let goal = neutralAngle(Rotations.perk)
+            let current = node.zRotation
+            node.zRotation = current + (goal - current)
+                * min(CGFloat(deltaTime) * 8.0, 1.0)
+            return
+        }
+        let earWorldPos = node.parent?.convert(node.position, to: scene)
+            ?? node.position
+        let dx = target.x - earWorldPos.x
+        let dy = target.y - earWorldPos.y
+        let angleToTarget = atan2(dy, dx)
+
+        // Map world angle to ear rotation (ears point upward, so 90° = forward)
+        let baseAngle = angleToTarget - .pi / 2
+        let clampedAngle = clamp(baseAngle, min: -1.0, max: 1.0)
+        let earAngle = isLeftEar ? -clampedAngle : clampedAngle
+
+        // Smooth lerp toward target (8x damping for responsive tracking)
+        let current = node.zRotation
+        let lerpSpeed: CGFloat = 8.0
+        node.zRotation = current + (earAngle - current)
+            * min(CGFloat(deltaTime) * lerpSpeed, 1.0)
+    }
+
+    // MARK: - Inner Ear Movement
+
+    /// Modulate the inner ear node based on current state.
+    /// Zero extra nodes — uses the existing inner ear child.
+    private func updateInnerEar() {
+        guard let inner = innerEarNode else { return }
+
+        switch currentState {
+        case "perk":
+            // Inner ear shifts outward slightly
+            inner.zRotation = isLeftEar ? -0.05 : 0.05
+            inner.yScale = 1.0
+        case "flat":
+            // Inner ear compresses
+            inner.zRotation = 0
+            inner.yScale = 0.7
+        case "twitch":
+            // Inner ear jiggles with slight phase offset
+            let offset = CGFloat(sin(twitchTimer * .pi * 2 / 0.16 + 0.3))
+                * 0.03
+            inner.zRotation = offset
+            inner.yScale = 1.0
+        case "rotate_toward":
+            // Inner ear tilts 1.2x more aggressively than outer
+            inner.zRotation = node.zRotation * 0.2
+            inner.yScale = 1.0
+        default:
+            // Neutral
+            inner.zRotation = 0
+            inner.yScale = 1.0
+        }
+    }
+
+    // MARK: - Personality-Driven Random Twitches
+
+    private func updateRandomTwitch(deltaTime: TimeInterval) {
+        randomTwitchAccumulator += deltaTime
+        if randomTwitchAccumulator >= nextRandomTwitchAt {
+            // Quick micro-twitch: ±0.08 rad for 0.1s
+            let twitch = (isLeftEar ? -1 : 1) * CGFloat.random(in: 0.04...0.08)
+            let current = node.zRotation
+            let action = SKAction.sequence([
+                SKAction.rotate(toAngle: current + twitch, duration: 0.05,
+                                shortestUnitArc: true),
+                SKAction.rotate(toAngle: current, duration: 0.05,
+                                shortestUnitArc: true)
+            ])
+            node.run(action, withKey: "microTwitch")
+            scheduleRandomTwitch()
+        }
+    }
+
+    private func scheduleRandomTwitch() {
+        randomTwitchAccumulator = 0
+        // High energy = more frequent twitches (2-5s), low = less (5-12s)
+        let minInterval = 2.0 + (1.0 - personalitySnapshot.energy) * 3.0
+        let maxInterval = 5.0 + (1.0 - personalitySnapshot.energy) * 7.0
+        nextRandomTwitchAt = TimeInterval.random(in: minInterval...maxInterval)
     }
 
     // MARK: - Helpers

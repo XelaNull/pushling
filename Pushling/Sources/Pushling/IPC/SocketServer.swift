@@ -215,7 +215,8 @@ final class SocketServer {
             return
         }
 
-        let sessionCmds: Set<String> = ["connect", "disconnect", "ping"]
+        let sessionCmds: Set<String> = ["connect", "disconnect", "ping",
+                                        "screenshot", "debug_nodes"]
         if !sessionCmds.contains(cmd) && conn.sessionId == nil {
             writeJSON(errorDict(id: id,
                 error: "No active session. Send a 'connect' command first.",

@@ -79,6 +79,9 @@ final class GestureRecognizer: TouchTrackerDelegate {
 
     // MARK: - State
 
+    /// When true, all incoming touches are ignored (cinematic mode).
+    var isSuppressed: Bool = false
+
     /// Delegate that receives recognized gestures.
     weak var delegate: GestureRecognizerDelegate?
 
@@ -136,6 +139,8 @@ final class GestureRecognizer: TouchTrackerDelegate {
     // MARK: - TouchTrackerDelegate
 
     func touchTracker(_ tracker: TouchTracker, didProcess event: TouchEvent) {
+        guard !isSuppressed else { return }
+
         lastKnownTouchCount = event.activeTouchCount
 
         switch event.phase {
@@ -504,6 +509,7 @@ final class GestureRecognizer: TouchTrackerDelegate {
     /// Called each frame to check for long-press and sustained-touch
     /// on touches that are still held but haven't moved enough to be drags.
     func update(currentTime: TimeInterval, activeTouches: [ObjectIdentifier: TouchState]) {
+        guard !isSuppressed else { return }
         guard multiFingerCount == 0 else { return }
 
         for (id, state) in activeTouches {

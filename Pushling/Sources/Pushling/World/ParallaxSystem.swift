@@ -93,7 +93,9 @@ final class ParallaxSystem {
     /// - Parameters:
     ///   - worldX: The world-space X position to center on.
     ///   - zoom: Zoom level (1.0 = normal, 2.0 = double magnification).
-    func update(cameraWorldX worldX: CGFloat, zoom: CGFloat = 1.0) {
+    ///   - focusY: The Y position to keep centered when zoomed (creature Y).
+    func update(cameraWorldX worldX: CGFloat, zoom: CGFloat = 1.0,
+                focusY: CGFloat = 15.0, cameraWorldY: CGFloat = 0.0) {
         cameraWorldX = worldX
         zoomLevel = zoom
 
@@ -107,15 +109,18 @@ final class ParallaxSystem {
             let baseX = halfWidth - (worldX * config.scrollFactor)
 
             if zoom == 1.0 {
-                // No zoom — simple parallax
+                // No zoom — simple parallax (horizontal + vertical)
                 layerNode.position.x = baseX
+                layerNode.position.y = -cameraWorldY * config.scrollFactor
                 layerNode.setScale(1.0)
             } else {
-                // Zoom: scale layer around the scene center point.
-                // Position adjustment keeps the center point stationary.
+                // Zoom: scale layer around the creature's position.
+                // X: keep the camera center point stationary
                 layerNode.setScale(zoom)
                 layerNode.position.x = halfWidth + (baseX - halfWidth) * zoom
-                layerNode.position.y = halfWidth * (zoom - 1.0) * (Self.sceneHeight / Self.sceneWidth)
+                // Y: vertical parallax + zoom focus
+                let baseY = -cameraWorldY * config.scrollFactor
+                layerNode.position.y = baseY * zoom + focusY * (1.0 - zoom)
             }
         }
     }
@@ -146,7 +151,7 @@ final class ParallaxSystem {
 
         let effectiveX = cameraWorldX * config.scrollFactor
         // When zoomed in, the visible range shrinks (we see less world)
-        let halfWidth = (Self.sceneWidth / 2.0) / max(zoomLevel, 1.0)
+        let halfWidth = (Self.sceneWidth / 2.0) / max(zoomLevel, 0.1)
         let minX = effectiveX - halfWidth
         let maxX = effectiveX + halfWidth
         return minX...maxX

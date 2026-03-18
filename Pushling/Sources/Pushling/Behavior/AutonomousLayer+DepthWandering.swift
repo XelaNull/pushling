@@ -1,7 +1,7 @@
-// AutonomousLayer+DepthWandering.swift — Z-axis depth wandering behavior
-// The creature naturally walks between foreground and background terrain layers.
-// Z range is stage-gated (small creatures stay close, larger ones explore deeper).
-// Personality and emotions influence when and how far the creature wanders in depth.
+// AutonomousLayer+DepthWandering.swift — Purposeful depth wandering
+// The creature picks a (X, Z) destination, walks there diagonally,
+// dwells for a few seconds, then picks the next destination.
+// Z changes proportionally to X progress — smooth slope traversal.
 
 import Foundation
 import CoreGraphics
@@ -13,75 +13,56 @@ extension AutonomousLayer {
     /// Maximum Z depth the creature can wander to at each growth stage.
     /// Must remain readable on the 30pt Touch Bar at minimum scale.
     static func maxDepthZ(for stage: GrowthStage) -> CGFloat {
-        switch stage {
-        case .spore, .drop: return 0.2   // Min scale ~0.9x, ~5-6pt creature
-        case .critter:      return 0.5   // Min scale ~0.75x, ~7-8pt creature
-        case .beast, .sage: return 0.65  // Min scale ~0.68x, ~8-9pt creature
-        case .apex:         return 0.8   // Min scale ~0.6x, ~9pt (larger base)
-        }
+        return 0.8
     }
 
-    // MARK: - Depth Target Selection
+    // MARK: - Destination Selection
 
-    /// Selects a new target Z based on personality, emotions, and growth stage.
-    /// Called during walk transitions with a personality-influenced probability.
-    ///
-    /// - Returns: A target Z value within stage-gated bounds.
-    func selectTargetZ() -> CGFloat {
+    /// Picks a unified (X, Z) destination for the creature to walk toward.
+    /// X: 80-400pt away in the creature's facing direction, clamped to scene bounds.
+    /// Z: Random depth within stage-gated range.
+    func selectDestination() -> (targetX: CGFloat, targetZ: CGFloat) {
         let maxZ = Self.maxDepthZ(for: stage)
+        let targetZ = CGFloat(randomDepthRange(0.05, Double(maxZ)))
 
-        // Base: return to foreground (most common)
-        var targetZ: CGFloat = 0.0
+        let distance = CGFloat(randomDepthRange(80, 400))
+        let direction: CGFloat = facing == .right ? 1 : -1
+        var targetX = currentX + distance * direction
 
-        // Curiosity > 60 → 25% chance of deeper Z target
-        if emotions.curiosity > 60, randomDepthChance(0.25) {
-            targetZ = CGFloat(randomDepthRange(0.3, Double(maxZ)))
-        }
+        // Clamp to scene boundaries with margin
+        let margin: CGFloat = 40.0
+        targetX = clamp(targetX, min: margin,
+                        max: SceneConstants.sceneWidth - margin)
 
-        // Low energy → drift toward background (resting in hills)
-        if emotions.energy < 30 {
-            targetZ = CGFloat(randomDepthRange(0.2, Double(min(maxZ, 0.5))))
-        }
-
-        // High energy personality → wider Z swings, more frequent changes
-        if personality.energy > 0.7, randomDepthChance(0.3) {
-            targetZ = CGFloat(randomDepthRange(0.0, Double(maxZ)))
-        }
-
-        // High focus personality → prefer staying near current depth
-        if personality.focus > 0.7, randomDepthChance(0.6) {
-            targetZ = currentZ  // Stay put
-        }
-
-        return clamp(targetZ, min: 0.0, max: maxZ)
+        return (targetX: targetX, targetZ: clamp(targetZ, min: 0.0, max: maxZ))
     }
 
-    // MARK: - Smooth Depth Transition
+    // MARK: - Slope-Based Z Step
 
-    /// Smoothly interpolates the creature's Z position toward the target.
-    /// Rate: ~0.15 Z-units/sec (full foreground-to-deep takes ~5s).
-    ///
-    /// - Parameter deltaTime: Time since last frame.
-    func updateDepthWalk(deltaTime: TimeInterval) {
-        let target = depthTargetZ
-        let current = currentZ
-        let diff = target - current
-
-        guard abs(diff) > 0.005 else {
-            // Close enough — snap to target
-            currentZ = target
-            return
+    /// Derives Z change from X change so both axes arrive simultaneously.
+    /// ratio = (targetZ - currentZ) / (targetX - currentX); returns ratio * xStep.
+    func depthStepForXStep(xStep: CGFloat, targetX: CGFloat,
+                           targetZ: CGFloat) -> CGFloat {
+        let remainingX = targetX - currentX
+        guard abs(remainingX) > 0.5 else {
+            // Almost there — snap Z directly
+            return targetZ - currentZ
         }
+        let ratio = (targetZ - currentZ) / remainingX
+        return ratio * xStep
+    }
 
-        // Smooth approach: 0.15 Z-units per second
-        let speed: CGFloat = 0.15
-        let step = speed * CGFloat(deltaTime)
+    // MARK: - Slope Speed Multiplier
 
-        if diff > 0 {
-            currentZ = min(current + step, target)
-        } else {
-            currentZ = max(current - step, target)
-        }
+    /// Steep slopes slow horizontal speed. Slope = abs(dZ) / abs(dX).
+    /// Returns 0.3x minimum on steep climbs, 1.0x on flat terrain.
+    static func slopeSpeedMultiplier(currentZ: CGFloat, targetZ: CGFloat,
+                                     currentX: CGFloat,
+                                     targetX: CGFloat) -> CGFloat {
+        let dX = abs(targetX - currentX)
+        guard dX > 1.0 else { return 1.0 }
+        let slope = abs(targetZ - currentZ) / dX
+        return max(1.0 - slope * 50.0, 0.3)
     }
 
     // MARK: - Walk Speed Depth Scaling
@@ -99,9 +80,5 @@ extension AutonomousLayer {
 
     private func randomDepthRange(_ min: Double, _ max: Double) -> Double {
         Double.random(in: min...max)
-    }
-
-    private func randomDepthChance(_ probability: Double) -> Bool {
-        Double.random(in: 0...1) < probability
     }
 }

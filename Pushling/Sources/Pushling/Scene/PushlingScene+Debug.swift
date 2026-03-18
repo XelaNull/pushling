@@ -369,4 +369,75 @@ extension PushlingScene {
             $0 + debugCountAllNodes(in: $1)
         }
     }
+
+    // MARK: - Node Tree Dump (debug_nodes IPC command)
+
+    /// Recursively walks the scene graph and returns info about visible nodes.
+    /// Stops at `maxDepth` to keep output manageable.
+    /// Only includes nodes with alpha > 0.01 and !isHidden.
+    /// Results sorted by zPosition (rendering order).
+    func dumpNodeTree() -> [[String: Any]] {
+        var results: [[String: Any]] = []
+        collectVisibleNodes(node: self, depth: 0, maxDepth: 4,
+                            results: &results)
+        // Sort by zPosition so output reflects rendering order
+        results.sort { ($0["z_position"] as? Double ?? 0)
+            < ($1["z_position"] as? Double ?? 0) }
+        return results
+    }
+
+    private func collectVisibleNodes(
+        node: SKNode, depth: Int, maxDepth: Int,
+        results: inout [[String: Any]]
+    ) {
+        guard depth <= maxDepth else { return }
+        // Skip hidden or fully transparent nodes (but always include scene root)
+        if depth > 0 {
+            if node.isHidden || node.alpha < 0.01 { return }
+        }
+
+        // Convert position to scene coordinates
+        let scenePos: CGPoint
+        if let parent = node.parent {
+            scenePos = convert(node.position, from: parent)
+        } else {
+            scenePos = node.position
+        }
+
+        let frame = node.calculateAccumulatedFrame()
+        let typeName = String(describing: type(of: node))
+
+        var info: [String: Any] = [
+            "name": node.name ?? "(unnamed)",
+            "type": typeName,
+            "position_x": round(scenePos.x * 10) / 10,
+            "position_y": round(scenePos.y * 10) / 10,
+            "z_position": round(Double(node.zPosition) * 10) / 10,
+            "alpha": round(Double(node.alpha) * 100) / 100,
+            "is_hidden": node.isHidden,
+            "width": round(frame.width * 10) / 10,
+            "height": round(frame.height * 10) / 10,
+            "children_count": node.children.count,
+            "depth": depth
+        ]
+
+        // Add extra context for common node types
+        if let sprite = node as? SKSpriteNode {
+            info["texture"] = sprite.texture?.description ?? "none"
+        } else if let shape = node as? SKShapeNode {
+            info["fill_color"] = shape.fillColor.description
+        } else if let label = node as? SKLabelNode {
+            info["text"] = label.text ?? ""
+        } else if let emitter = node as? SKEmitterNode {
+            info["particle_birth_rate"] = emitter.particleBirthRate
+        }
+
+        results.append(info)
+
+        // Recurse into children
+        for child in node.children {
+            collectVisibleNodes(node: child, depth: depth + 1,
+                                maxDepth: maxDepth, results: &results)
+        }
+    }
 }

@@ -91,6 +91,11 @@ final class BehaviorStack {
         }
     }
 
+    /// Whether the behavior stack is frozen for a cinematic sequence.
+    /// When frozen, autonomous state transitions stop and reflexes are
+    /// suppressed. Physics (breathing) always continues.
+    private(set) var isCinematicFrozen: Bool = false
+
     /// The default creature state (stage-dependent resting values).
     private var defaultState: ResolvedCreatureState
 
@@ -327,13 +332,16 @@ final class BehaviorStack {
     // MARK: - External API
 
     /// Triggers a reflex (called by input handlers, commit processors, etc.).
+    /// Suppressed during cinematic freeze.
     func triggerReflex(_ definition: ReflexDefinition,
                        at currentTime: TimeInterval) {
+        guard !isCinematicFrozen else { return }
         reflexes.trigger(definition, at: currentTime)
     }
 
-    /// Triggers a named reflex.
+    /// Triggers a named reflex. Suppressed during cinematic freeze.
     func triggerReflex(named name: String, at currentTime: TimeInterval) {
+        guard !isCinematicFrozen else { return }
         reflexes.trigger(named: name, at: currentTime)
     }
 
@@ -371,6 +379,24 @@ final class BehaviorStack {
         defaultState = ResolvedCreatureState.defaultState(stage: newStage)
         NSLog("[Pushling/Behavior] Stage updated to %@",
               String(describing: newStage))
+    }
+
+    /// Freeze the behavior stack for a cinematic sequence.
+    /// Autonomous layer stops state transitions; reflexes are suppressed.
+    /// Physics (breathing) always continues.
+    func freezeForCinematic() {
+        isCinematicFrozen = true
+        autonomous.isFrozen = true
+        reflexes.clearAll()
+        NSLog("[Pushling/Behavior] Frozen for cinematic")
+    }
+
+    /// Thaw the behavior stack after a cinematic sequence.
+    /// Autonomous layer resumes normal state transitions.
+    func thawFromCinematic() {
+        isCinematicFrozen = false
+        autonomous.isFrozen = false
+        NSLog("[Pushling/Behavior] Thawed from cinematic")
     }
 
     /// Resets the behavior stack to initial state.

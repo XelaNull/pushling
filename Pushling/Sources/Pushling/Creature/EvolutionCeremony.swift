@@ -186,17 +186,29 @@ final class EvolutionCeremony {
     private func updateGathering(progress: Double) {
         let t = CGFloat(progress)
 
-        // Particles converge toward center
+        // Spiral convergence — particles spiral inward with accelerating rotation
         for (i, particle) in gatherParticles.enumerated() {
-            let angle = CGFloat(i) / CGFloat(gatherParticles.count)
-                * 2.0 * .pi
+            let baseAngle = CGFloat(i) / CGFloat(gatherParticles.count) * 2.0 * .pi
             let startRadius: CGFloat = 40.0
-            let currentRadius = startRadius * (1.0 - t)
+            // Spiral: radius shrinks, angle accelerates
+            let spiralTurns: CGFloat = 2.5
+            let currentRadius = startRadius * (1.0 - t * t)  // Quadratic ease-in
+            let currentAngle = baseAngle + t * spiralTurns * 2.0 * .pi
             particle.position = CGPoint(
-                x: cos(angle + t * 2.0) * currentRadius,
-                y: sin(angle + t * 2.0) * currentRadius
+                x: cos(currentAngle) * currentRadius,
+                y: sin(currentAngle) * currentRadius
+            )
+
+            // Ash → Gilt color shift as particles converge
+            particle.fillColor = PushlingPalette.lerp(
+                from: PushlingPalette.ash,
+                to: PushlingPalette.gilt,
+                t: t
             )
             particle.alpha = CGFloat(0.3 + progress * 0.7)
+
+            // Scale up as they get closer
+            particle.setScale(0.8 + t * 0.6)
         }
 
         // Creature begins to glow
@@ -242,8 +254,37 @@ final class EvolutionCeremony {
 
     private func updateCocoon(progress: Double) {
         let t = CGFloat(progress)
-        cocoonOrb?.setScale(1.0 + t * 0.5)
+
+        // Sine-wave pulse on cocoon orb
+        let pulse = 1.0 + sin(t * .pi * 6) * 0.15  // 3 full pulses
+        cocoonOrb?.setScale((1.0 + t * 0.5) * pulse)
         cocoonOrb?.alpha = 0.6 + t * 0.4
+
+        // 3 orbiting Dusk circles
+        if let container = ceremonyContainer {
+            for i in 0..<3 {
+                let orbitName = "orbit_\(i)"
+                let orbitNode: SKShapeNode
+                if let existing = container.childNode(withName: orbitName) as? SKShapeNode {
+                    orbitNode = existing
+                } else {
+                    orbitNode = SKShapeNode(circleOfRadius: 1.5)
+                    orbitNode.fillColor = PushlingPalette.dusk
+                    orbitNode.strokeColor = .clear
+                    orbitNode.name = orbitName
+                    orbitNode.zPosition = 115
+                    container.addChild(orbitNode)
+                }
+
+                let orbitAngle = t * .pi * 4 + CGFloat(i) * (.pi * 2 / 3)
+                let orbitRadius: CGFloat = 12.0 - t * 4.0  // Tightens over time
+                orbitNode.position = CGPoint(
+                    x: cos(orbitAngle) * orbitRadius,
+                    y: sin(orbitAngle) * orbitRadius
+                )
+                orbitNode.alpha = 0.6 + t * 0.3
+            }
+        }
 
         // Ground cracks fade in
         ceremonyContainer?.children
@@ -257,23 +298,47 @@ final class EvolutionCeremony {
         guard let container = ceremonyContainer,
               let creature = creature else { return }
 
-        // Remove cocoon orb
+        // Remove cocoon orb and orbit circles
         cocoonOrb?.removeFromParent()
         cocoonOrb = nil
+        for i in 0..<3 {
+            container.childNode(withName: "orbit_\(i)")?.removeFromParent()
+        }
 
-        // Full-screen white flash using an emitter for the particle burst
-        // (Use a single emitter node instead of 200 individual nodes)
+        // Additive blend flash
         let flash = SKShapeNode(rectOf: CGSize(width: 200, height: 60))
         flash.fillColor = PushlingPalette.bone
         flash.strokeColor = .clear
         flash.alpha = 0.9
+        flash.blendMode = .add
         flash.name = "flash"
         flash.zPosition = 200
         container.addChild(flash)
         flashOverlay = flash
 
+        // 8 radial light rays
+        for i in 0..<8 {
+            let angle = CGFloat(i) / 8.0 * 2.0 * .pi
+            let rayPath = CGMutablePath()
+            rayPath.move(to: .zero)
+            rayPath.addLine(to: CGPoint(x: cos(angle) * 60,
+                                         y: sin(angle) * 30))
+            let ray = SKShapeNode(path: rayPath)
+            ray.strokeColor = PushlingPalette.gilt
+            ray.lineWidth = 1.5
+            ray.alpha = 0.8
+            ray.blendMode = .add
+            ray.name = "ray_\(i)"
+            ray.zPosition = 160
+            container.addChild(ray)
+
+            // Rays expand and fade
+            let expand = SKAction.scale(to: 1.5, duration: 0.3)
+            let fade = SKAction.fadeOut(withDuration: 0.4)
+            ray.run(SKAction.group([expand, fade]))
+        }
+
         // Burst particles — use an SKEmitterNode for efficiency
-        // (stays well under 120 node count)
         let emitter = createBurstEmitter()
         emitter.name = "burst_emitter"
         emitter.zPosition = 150
@@ -321,31 +386,64 @@ final class EvolutionCeremony {
         scaleDown.timingMode = .easeOut
         creature.run(scaleDown, withKey: "revealScale")
 
-        // Stage name banner
-        let banner = SKLabelNode(fontNamed: "Menlo-Bold")
-        banner.fontSize = 8
-        banner.fontColor = PushlingPalette.gilt
-        banner.text = String(describing: toStage).uppercased()
-        banner.horizontalAlignmentMode = .center
-        banner.verticalAlignmentMode = .center
-        banner.position = CGPoint(x: 40, y: 0)
-        banner.alpha = 0
-        banner.name = "stage_banner"
-        banner.zPosition = 120
-        container.addChild(banner)
-        stageBanner = banner
+        // Glow halo around creature
+        let halo = SKShapeNode(circleOfRadius: 12)
+        halo.fillColor = PushlingPalette.gilt
+        halo.strokeColor = .clear
+        halo.alpha = 0.15
+        halo.blendMode = .add
+        halo.name = "reveal_halo"
+        halo.zPosition = 5
+        creature.addChild(halo)
+        halo.run(SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.25, duration: 0.5),
+            SKAction.fadeAlpha(to: 0.0, duration: 1.0),
+            SKAction.removeFromParent()
+        ]))
 
-        // Slide in from right
-        let fadeIn = SKAction.fadeIn(withDuration: 0.2)
-        let moveIn = SKAction.moveBy(x: -30, y: 0, duration: 0.3)
+        // Letter-by-letter stage name reveal
+        let stageName = String(describing: toStage).uppercased()
+        let bannerContainer = SKNode()
+        bannerContainer.position = CGPoint(x: 30, y: 0)
+        bannerContainer.name = "stage_banner"
+        bannerContainer.zPosition = 120
+        container.addChild(bannerContainer)
+
+        let charWidth: CGFloat = 5.5
+        let totalWidth = CGFloat(stageName.count) * charWidth
+        let startX = -totalWidth / 2
+
+        for (i, char) in stageName.enumerated() {
+            let letter = SKLabelNode(fontNamed: "Menlo-Bold")
+            letter.fontSize = 8
+            letter.fontColor = PushlingPalette.gilt
+            letter.text = String(char)
+            letter.horizontalAlignmentMode = .center
+            letter.verticalAlignmentMode = .center
+            letter.position = CGPoint(x: startX + CGFloat(i) * charWidth, y: 0)
+            letter.alpha = 0
+            letter.name = "letter_\(i)"
+            bannerContainer.addChild(letter)
+
+            // Stagger letter appearance (80ms apart)
+            let delay = SKAction.wait(forDuration: Double(i) * 0.08)
+            let fadeIn = SKAction.fadeIn(withDuration: 0.1)
+            let popScale = SKAction.sequence([
+                SKAction.scale(to: 1.3, duration: 0.05),
+                SKAction.scale(to: 1.0, duration: 0.1)
+            ])
+            letter.run(SKAction.sequence([
+                delay,
+                SKAction.group([fadeIn, popScale])
+            ]))
+        }
+
+        // Slide the whole banner in from right
+        let moveIn = SKAction.moveBy(x: -20, y: 0, duration: 0.3)
         moveIn.timingMode = .easeOut
         let hold = SKAction.wait(forDuration: 0.8)
         let fadeOut = SKAction.fadeOut(withDuration: 0.2)
-        banner.run(SKAction.sequence([
-            SKAction.group([fadeIn, moveIn]),
-            hold,
-            fadeOut
-        ]))
+        bannerContainer.run(SKAction.sequence([moveIn, hold, fadeOut]))
 
         // Re-enable creature systems
         creature.setTailSwayActive(true)

@@ -134,6 +134,16 @@ done
 echo "    [5/5] Ad-hoc code signing..."
 codesign --force --sign - --deep "${APP_BUNDLE}" 2>&1
 
+# --- Step 6: Deploy to /Applications if installed there ---
+INSTALLED_APP="/Applications/Pushling.app"
+if [ -d "${INSTALLED_APP}" ]; then
+    echo "    [6/6] Deploying to ${INSTALLED_APP}..."
+    rsync -a --delete "${APP_BUNDLE}/" "${INSTALLED_APP}/"
+    echo "    Deployed — hot-reload should trigger automatically"
+else
+    echo "    [6/6] No installed copy at ${INSTALLED_APP} — skipping deploy"
+fi
+
 # --- Done ---
 echo ""
 echo "==> Build complete: ${APP_BUNDLE}"

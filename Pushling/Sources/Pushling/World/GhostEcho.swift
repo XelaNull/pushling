@@ -129,15 +129,11 @@ final class GhostEchoNode {
     private func rebuildGhostShape() {
         guard let config = StageConfiguration.all[ghostStage] else { return }
 
-        // Simple ellipse at the ghost stage's size
-        let path = CGPath(
-            ellipseIn: CGRect(
-                x: -config.size.width / 2,
-                y: -config.size.height / 2,
-                width: config.size.width,
-                height: config.size.height
-            ),
-            transform: nil
+        // Use CatShapes Bezier silhouette instead of a simple ellipse
+        let path = CatShapes.bodySilhouette(
+            width: config.size.width,
+            height: config.size.height,
+            stage: ghostStage
         )
         ghostBody.path = path
         ghostBody.fillColor = PushlingPalette.withAlpha(PushlingPalette.ash,
@@ -196,6 +192,11 @@ final class GhostEchoNode {
             // Match creature facing
             ghostNode.xScale = abs(ghostNode.xScale)
                 * creatureFacing.xScale
+
+            // Ghost's own breathing — desynced at 3.0s period
+            let ghostBreath = 1.0 + 0.02
+                * CGFloat(sin(2.0 * .pi * accumulatedTime / 3.0))
+            ghostBody.yScale = ghostBreath
 
         } else {
             // Cooldown phase

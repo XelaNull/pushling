@@ -10,7 +10,7 @@ extension WorldManager {
     // MARK: - Depth Zone Constants
 
     /// Z boundaries between terrain layers.
-    private static let midZoneStart: CGFloat = 0.3   // Fore → Mid transition begins
+    private static let midZoneStart: CGFloat = 0.05  // Fore → Mid transition begins (nearly immediate)
     private static let farZoneStart: CGFloat = 0.7   // Mid → Far transition begins
 
     /// Background layer scroll factors (must match ParallaxSystem/TerrainRecycler).
@@ -48,12 +48,21 @@ extension WorldManager {
             return TerrainGenerator.baselineY
         }
 
-        // Zone 1: Pure foreground (Z 0.0 - 0.3)
+        // Zone 1: Pure foreground (Z 0.0 - 0.05)
         if depth <= Self.midZoneStart {
             return generator.heightAt(worldX: worldX)
         }
 
         let foreHeight = generator.heightAt(worldX: worldX)
+
+        // Depth height reduction: creature walks lower as it moves deeper.
+        // At max depth (0.8), drops ~10pt — pushes creature toward bottom.
+        let depthDrop = depth * 12.0
+
+        // Micro-terrain: gentle sine waves instead of integer noise.
+        // Two overlapping frequencies create organic undulation without jitter.
+        let microBump = sin(worldX * 0.05 + depth * 3.0) * 0.2
+                      + sin(worldX * 0.12 + depth * 7.0) * 0.1  // ±0.3pt
 
         // Convert worldX to mid-layer coordinate space
         let midWorldX = worldX * Self.midScrollFactor + Self.midXOffset
@@ -67,10 +76,10 @@ extension WorldManager {
             seedOffset: Self.midSeedOffset
         )
 
-        // Zone 2: Fore ↔ Mid interpolation (Z 0.3 - 0.7)
+        // Zone 2: Fore ↔ Mid interpolation (Z 0.05 - 0.7)
         if depth <= Self.farZoneStart {
             let t = (depth - Self.midZoneStart) / (Self.farZoneStart - Self.midZoneStart)
-            return lerp(foreHeight, midHeight, CGFloat(t))
+            return lerp(foreHeight, midHeight, CGFloat(t)) - depthDrop + microBump
         }
 
         // Convert worldX to far-layer coordinate space
@@ -87,7 +96,7 @@ extension WorldManager {
 
         // Zone 3: Mid ↔ Far interpolation (Z 0.7 - 1.0)
         let t = (depth - Self.farZoneStart) / (1.0 - Self.farZoneStart)
-        return lerp(midHeight, farHeight, CGFloat(t))
+        return lerp(midHeight, farHeight, CGFloat(t)) - depthDrop + microBump
     }
 
     // MARK: - Background Height Point Query

@@ -16,6 +16,9 @@ protocol TouchBarProvider: AnyObject {
     /// Dismiss our Touch Bar and restore the system default.
     func dismiss()
 
+    /// Toggle between Pushling scene and system Touch Bar.
+    func toggleVisibility()
+
     /// Enable or disable the debug FPS overlay.
     func setDebugOverlay(enabled: Bool)
 }

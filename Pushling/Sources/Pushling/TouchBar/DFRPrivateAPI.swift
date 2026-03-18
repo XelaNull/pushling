@@ -10,6 +10,7 @@
 // Private API symbols used:
 //   - DFRSystemModalShowsCloseBoxWhenFrontMost(BOOL)
 //   - DFRElementSetControlStripPresenceForIdentifier(NSTouchBarItemIdentifier, BOOL)
+//   - NSTouchBarItem.addSystemTrayItem(_:)  (registers item with system tray)
 //   - NSTouchBar.presentSystemModalTouchBar(_:placement:systemTrayItemIdentifier:)
 //   - NSTouchBar.minimizeSystemModalTouchBar(_:)
 //   - NSTouchBar.dismissSystemModalTouchBar(_:)
@@ -178,5 +179,51 @@ extension NSTouchBar {
         let imp = method_getImplementation(method)
         let minimize = unsafeBitCast(imp, to: MinimizeFunc.self)
         minimize(NSTouchBar.self, selector, self)
+    }
+}
+
+// MARK: - NSTouchBarItem Private API Extension
+
+extension NSTouchBarItem {
+
+    /// Register this item with the system tray (control strip).
+    /// Must be called BEFORE DFRElementSetControlStripPresenceForIdentifier.
+    /// Without this call, the presence flag has no item to display.
+    static func addSystemTrayItem(_ item: NSTouchBarItem) {
+        let selector = NSSelectorFromString("addSystemTrayItem:")
+
+        guard NSTouchBarItem.responds(to: selector) else {
+            NSLog("[Pushling] NSTouchBarItem.addSystemTrayItem not available")
+            return
+        }
+
+        guard let method = class_getClassMethod(NSTouchBarItem.self, selector) else {
+            NSLog("[Pushling] Could not get class method for addSystemTrayItem")
+            return
+        }
+
+        typealias AddFunc = @convention(c) (
+            AnyClass, Selector, NSTouchBarItem
+        ) -> Void
+
+        let imp = method_getImplementation(method)
+        let add = unsafeBitCast(imp, to: AddFunc.self)
+        add(NSTouchBarItem.self, selector, item)
+    }
+
+    /// Remove this item from the system tray.
+    static func removeSystemTrayItem(_ item: NSTouchBarItem) {
+        let selector = NSSelectorFromString("removeSystemTrayItem:")
+
+        guard NSTouchBarItem.responds(to: selector) else { return }
+        guard let method = class_getClassMethod(NSTouchBarItem.self, selector) else { return }
+
+        typealias RemoveFunc = @convention(c) (
+            AnyClass, Selector, NSTouchBarItem
+        ) -> Void
+
+        let imp = method_getImplementation(method)
+        let remove = unsafeBitCast(imp, to: RemoveFunc.self)
+        remove(NSTouchBarItem.self, selector, item)
     }
 }
