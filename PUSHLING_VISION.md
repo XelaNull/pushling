@@ -1,6 +1,6 @@
 # PUSHLING: Virtual Pet for the MacBook Touch Bar
 
-**A spirit creature born from your commits, rendered at 60fps on OLED, inhabited by AI.**
+**A spirit creature born from your commits, rendered at 60fps on OLED, inhabited by Claude.**
 
 > You glance at your Touch Bar and something is breathing. It has tiny ears. It blinks at you — slow, deliberate, the way a cat does when it trusts you. Your last commit drifts in as glowing text and it pounces, eating the characters one by one. You feel a small, irrational warmth. It knows you. Welcome to Pushling.
 
