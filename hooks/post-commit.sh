@@ -250,6 +250,24 @@ main() {
         fi
     fi
 
+    # Detect tags pointing at HEAD (release detection)
+    local tags_on_head=""
+    local tag_list
+    tag_list=$(git tag --points-at HEAD 2>/dev/null) || tag_list=""
+    if [[ -n "$tag_list" ]]; then
+        # Build JSON array: ["v1.0.0", "release-2024"]
+        local tag_json=""
+        while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            local escaped_tag
+            escaped_tag="$(pushling_json_escape "$tag")"
+            tag_json="${tag_json:+$tag_json, }\"${escaped_tag}\""
+        done <<< "$tag_list"
+        tags_on_head="[${tag_json}]"
+    else
+        tags_on_head="[]"
+    fi
+
     # ── Build JSON ─────────────────────────────────────────────────────
 
     local json_data
@@ -269,7 +287,8 @@ main() {
   "is_merge": ${is_merge},
   "is_revert": ${is_revert},
   "is_force_push": ${is_force_push},
-  "branch": "${branch}"
+  "branch": "${branch}",
+  "tags": ${tags_on_head}
 }
 JSONEOF
 )

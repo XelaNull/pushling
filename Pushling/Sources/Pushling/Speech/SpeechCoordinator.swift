@@ -496,6 +496,11 @@ final class SpeechCoordinator {
         renderSpeech(text: fragment, style: .dream, stage: currentStage)
     }
 
+    /// Called when TTS audio playback finishes. Signals readiness for next utterance.
+    func onAudioPlaybackComplete() {
+        NSLog("[Pushling/Speech] Audio playback complete — ready for next utterance")
+    }
+
     // MARK: - Autonomous Speech
 
     /// Trigger autonomous commit reaction speech.

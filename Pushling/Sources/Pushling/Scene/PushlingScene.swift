@@ -378,9 +378,13 @@ final class PushlingScene: SKScene {
         }
     }
 
+    /// Emotional visual controller — maps mood to creature body language.
+    var emotionalVisualController: EmotionalVisualController?
+
     /// Render — creature per-frame animations (breathing, blink, tail sway).
     private func updateRender(deltaTime: TimeInterval) {
         creatureNode?.update(deltaTime: deltaTime)
+        emotionalVisualController?.update()
     }
 
     // MARK: - Touch Handling (P3-T3-06)
@@ -532,6 +536,19 @@ final class PushlingScene: SKScene {
             reflexLayer: stack.reflexes,
             aiDirectedLayer: stack.aiDirected
         )
+        reactions.onShowDreamBubble = { [weak self] in
+            self?.gameCoordinator?.speechCoordinator.showDreamBubble()
+        }
+        reactions.onJournalEntry = { [weak self] type, data in
+            guard let gc = self?.gameCoordinator else { return }
+            let summary = (data["summary"] as? String) ?? "\(type)"
+            gc.stateCoordinator.database.performWriteAsync({
+                try gc.stateCoordinator.database.execute(
+                    "INSERT INTO journal (type, summary, timestamp) VALUES (?, ?, ?)",
+                    arguments: [type, summary, ISO8601DateFormatter().string(from: Date())]
+                )
+            })
+        }
         self.sessionReactions = reactions
 
         NSLog("[Pushling/Scene] Creature node active — %d nodes | Behavior stack ready"

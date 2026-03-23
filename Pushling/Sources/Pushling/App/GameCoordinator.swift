@@ -20,6 +20,7 @@ final class GameCoordinator {
     internal var creatureStage: GrowthStage = .critter
     internal var creatureName: String = "Pushling"
     internal var totalXP: Int = 0
+    internal var visualTraits: VisualTraits = .neutral
 
     // MARK: - Subsystems
 
@@ -96,6 +97,7 @@ final class GameCoordinator {
 
         // --- A. Load Personality from DB ---
         self.personality = PersonalityPersistence.load(from: db)
+        self.visualTraits = PersonalityPersistence.loadVisualTraits(from: db)
         self.creatureStage = Self.loadStage(from: db)
         self.creatureName = Self.loadCreatureName(from: db)
         self.totalXP = Self.loadXP(from: db)
@@ -171,6 +173,7 @@ final class GameCoordinator {
         wireVoice()
         wireCommandRouter()
         wireEatingAnimation()
+        wireEmotionalVisuals()
         wireNurture()
         wireTaughtBehaviors()
 
@@ -292,6 +295,7 @@ final class GameCoordinator {
         let repoCount = Self.loadRepoCount(from: stateCoordinator.database)
         scene.creatureNode?.repoCount = repoCount
 
+        scene.creatureNode?.visualTraits = visualTraits
         scene.creatureNode?.configureForStage(creatureStage)
 
         // Update world visual complexity for the real stage (Gap 6)
@@ -349,7 +353,9 @@ final class GameCoordinator {
                         filesChanged: commitData["files_changed"] as? Int ?? 0,
                         linesAdded: linesAdded, linesRemoved: linesRemoved,
                         languages: [], isMerge: isMerge, isRevert: isRevert,
-                        isForcePush: isForcePush, branch: nil,
+                        isForcePush: isForcePush,
+                        tags: commitData["tags"] as? [String] ?? [],
+                        branch: nil,
                         timestamp: Date()
                     )
                     let commitType = CommitTypeDetector.detect(
@@ -559,6 +565,9 @@ final class GameCoordinator {
 
         // Wire camera controller to touch handler
         creatureTouchHandler.cameraController = scene.cameraController
+
+        // Wire milestone tracker for gesture progression unlocks
+        gestureRecognizer.milestoneTracker = creatureTouchHandler.milestoneTracker
 
         // Contentment changes from touch -> emotional state
         creatureTouchHandler.onContentmentChange = { [weak self] delta in

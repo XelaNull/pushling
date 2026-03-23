@@ -26,6 +26,9 @@ final class SessionLifecycleReactions {
     /// Callback for journal logging. Invoked with session summary data.
     var onJournalEntry: ((_ type: String, _ data: [String: Any]) -> Void)?
 
+    /// Callback to show a dream bubble on wake after long absence.
+    var onShowDreamBubble: (() -> Void)?
+
     /// Provides absence information for wake animations.
     /// Returns (AbsenceCategory, seconds elapsed, GrowthStage).
     var absenceProvider: (() -> (category: AbsenceCategory,
@@ -122,6 +125,20 @@ final class SessionLifecycleReactions {
                 )
                 reflexLayer?.trigger(reflex, at: t + keyframe.time)
             }
+            // Show dream bubble after wake animation for 8+ hour absences
+            if absence.seconds >= 8 * 3600 {
+                let lastKeyframeTime = keyframes.last?.time ?? 3.0
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + lastKeyframeTime + 1.5
+                ) { [weak self] in
+                    self?.onShowDreamBubble?()
+                    self?.onJournalEntry?("dream", [
+                        "timestamp": ISO8601DateFormatter().string(from: Date()),
+                        "absent_hours": Int(absence.seconds / 3600)
+                    ])
+                }
+            }
+
             NSLog("[Pushling/Reactions] Session started — %@ wake "
                   + "animation (%d keyframes, absent %.0fs)",
                   absence.category.journalDescription,

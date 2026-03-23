@@ -75,7 +75,7 @@ final class VoiceSystem {
 
     private let modelManager = ModelManager()
     private let bridge = SherpaOnnxBridge()
-    private let audioPlayer = AudioPlayer()
+    let audioPlayer = AudioPlayer()
 
     // MARK: - Threading
 

@@ -37,7 +37,8 @@ enum StageRenderer {
     ///   - stage: The target growth stage.
     ///   - repoCount: Number of tracked repos (drives Apex multi-tail count).
     /// - Returns: All body part nodes configured for this stage.
-    static func build(stage: GrowthStage, repoCount: Int = 1) -> StageNodes {
+    static func build(stage: GrowthStage, repoCount: Int = 1,
+                       visualTraits: VisualTraits = .neutral) -> StageNodes {
         guard let config = StageConfiguration.all[stage] else {
             fatalError("[Pushling] Unknown stage: \(stage)")
         }
@@ -45,21 +46,33 @@ enum StageRenderer {
         let w = config.size.width
         let h = config.size.height
 
+        // Compute body color from visual traits — each creature has unique hue
+        let bodyColor = SKColor(
+            hue: CGFloat(visualTraits.baseColorHue),
+            saturation: 0.25, brightness: 0.95, alpha: 1.0
+        )
+
+        // Apply body proportion scaling
+        let propScale = CGFloat(visualTraits.bodyProportion)
+        let wScaled = w * (0.9 + propScale * 0.2)   // 0.9x (lean) to 1.1x (round)
+        let hScaled = h * (1.05 - propScale * 0.1)   // 1.05x (lean) to 0.95x (round)
+
         switch stage {
-        case .spore:   return buildSpore(w: w, h: h)
-        case .drop:    return buildDrop(w: w, h: h)
-        case .critter: return buildCritter(w: w, h: h)
-        case .beast:   return buildBeast(w: w, h: h)
-        case .sage:    return buildSage(w: w, h: h)
-        case .apex:    return buildApex(w: w, h: h, repoCount: repoCount)
+        case .spore:   return buildSpore(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .drop:    return buildDrop(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .critter: return buildCritter(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .beast:   return buildBeast(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .sage:    return buildSage(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .apex:    return buildApex(w: wScaled, h: hScaled, repoCount: repoCount, bodyColor: bodyColor)
         }
     }
 
     // MARK: - Spore (6x6) — Glowing Orb
 
-    private static func buildSpore(w: CGFloat, h: CGFloat) -> StageNodes {
+    private static func buildSpore(w: CGFloat, h: CGFloat,
+                                     bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
         let body = SKShapeNode(circleOfRadius: w / 2)
-        body.fillColor = PushlingPalette.bone
+        body.fillColor = bodyColor
         body.strokeColor = .clear
         body.alpha = 0.9
         body.name = "body"
@@ -113,8 +126,9 @@ enum StageRenderer {
 
     // MARK: - Drop (10x12) — Teardrop with Eyes
 
-    private static func buildDrop(w: CGFloat, h: CGFloat) -> StageNodes {
-        let body = makeTeardrop(width: w, height: h)
+    private static func buildDrop(w: CGFloat, h: CGFloat,
+                                    bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        let body = makeTeardrop(width: w, height: h, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -173,8 +187,9 @@ enum StageRenderer {
 
     // MARK: - Critter (14x16) — Small Kitten
 
-    private static func buildCritter(w: CGFloat, h: CGFloat) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.6)
+    private static func buildCritter(w: CGFloat, h: CGFloat,
+                                       bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        let body = makeCatBody(width: w, height: h * 0.6, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -199,10 +214,10 @@ enum StageRenderer {
 
         let earL = makeEar(size: CGSize(width: 3, height: 4),
                            position: CGPoint(x: -w * 0.2, y: w * 0.25),
-                           name: "ear_left", isLeft: true)
+                           name: "ear_left", isLeft: true, color: bodyColor)
         let earR = makeEar(size: CGSize(width: 3, height: 4),
                            position: CGPoint(x: w * 0.2, y: w * 0.25),
-                           name: "ear_right", isLeft: false)
+                           name: "ear_right", isLeft: false, color: bodyColor)
         head.addChild(earL)
         head.addChild(earR)
 
@@ -261,8 +276,9 @@ enum StageRenderer {
 
     // MARK: - Beast (18x20) — Confident Cat
 
-    private static func buildBeast(w: CGFloat, h: CGFloat) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.55)
+    private static func buildBeast(w: CGFloat, h: CGFloat,
+                                     bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        let body = makeCatBody(width: w, height: h * 0.55, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -279,10 +295,10 @@ enum StageRenderer {
 
         let earL = makeEar(size: CGSize(width: 4, height: 5),
                            position: CGPoint(x: -w * 0.18, y: w * 0.22),
-                           name: "ear_left", isLeft: true)
+                           name: "ear_left", isLeft: true, color: bodyColor)
         let earR = makeEar(size: CGSize(width: 4, height: 5),
                            position: CGPoint(x: w * 0.18, y: w * 0.22),
-                           name: "ear_right", isLeft: false)
+                           name: "ear_right", isLeft: false, color: bodyColor)
         head.addChild(earL)
         head.addChild(earR)
 
@@ -347,8 +363,9 @@ enum StageRenderer {
 
     // MARK: - Sage (22x24) — Wise Cat Spirit
 
-    private static func buildSage(w: CGFloat, h: CGFloat) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.5)
+    private static func buildSage(w: CGFloat, h: CGFloat,
+                                    bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        let body = makeCatBody(width: w, height: h * 0.5, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -379,10 +396,10 @@ enum StageRenderer {
 
         let earL = makeEar(size: CGSize(width: 5, height: 6),
                            position: CGPoint(x: -w * 0.16, y: w * 0.2),
-                           name: "ear_left", isLeft: true)
+                           name: "ear_left", isLeft: true, color: bodyColor)
         let earR = makeEar(size: CGSize(width: 5, height: 6),
                            position: CGPoint(x: w * 0.16, y: w * 0.2),
-                           name: "ear_right", isLeft: false)
+                           name: "ear_right", isLeft: false, color: bodyColor)
         head.addChild(earL)
         head.addChild(earR)
 
@@ -448,8 +465,9 @@ enum StageRenderer {
     // MARK: - Apex (25x28) — Transcendent Spirit
 
     private static func buildApex(w: CGFloat, h: CGFloat,
-                                    repoCount: Int = 1) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.5)
+                                    repoCount: Int = 1,
+                                    bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        let body = makeCatBody(width: w, height: h * 0.5, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
         body.alpha = 0.85 // semi-ethereal
@@ -489,10 +507,10 @@ enum StageRenderer {
 
         let earL = makeEar(size: CGSize(width: 5, height: 7),
                            position: CGPoint(x: -w * 0.15, y: w * 0.18),
-                           name: "ear_left", isLeft: true)
+                           name: "ear_left", isLeft: true, color: bodyColor)
         let earR = makeEar(size: CGSize(width: 5, height: 7),
                            position: CGPoint(x: w * 0.15, y: w * 0.18),
-                           name: "ear_right", isLeft: false)
+                           name: "ear_right", isLeft: false, color: bodyColor)
         head.addChild(earL)
         head.addChild(earR)
 

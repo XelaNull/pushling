@@ -14,6 +14,7 @@ import Foundation
 /// The 15 commit eating animation types, ordered by priority.
 enum CommitType: String, CaseIterable {
     case forcePush     = "force_push"      // Text SLAMS in, knocks creature
+    case release       = "release"          // Tagged release — celebration!
     case revert        = "revert"           // Characters come back OUT
     case merge         = "merge"            // Text from both sides
     case newRepo       = "new_repo"         // First commit from this repo
@@ -34,6 +35,7 @@ enum CommitType: String, CaseIterable {
     var speechReaction: String {
         switch self {
         case .forcePush:     return "WHOOSH!"
+        case .release:       return "We shipped it!"
         case .revert:        return "...deja vu"
         case .merge:         return "from both sides!"
         case .newRepo:       return "NEW FLAVOR!"
@@ -56,6 +58,7 @@ enum CommitType: String, CaseIterable {
     var critterReaction: String {
         switch self {
         case .forcePush:     return "EEK!"
+        case .release:       return "SHIPPED!"
         case .revert:        return "huh?"
         case .merge:         return "wow!"
         case .newRepo:       return "NEW!"
@@ -78,6 +81,7 @@ enum CommitType: String, CaseIterable {
     var dropSymbolEmotion: SpeechEmotion {
         switch self {
         case .forcePush:     return .warning
+        case .release:       return .exclaiming
         case .revert:        return .questioning
         case .merge:         return .exclaiming
         case .newRepo:       return .exclaiming
@@ -101,6 +105,7 @@ enum CommitType: String, CaseIterable {
         switch self {
         case .hugeRefactor, .largeRefactor: return 60    // Goblin mode
         case .forcePush:                    return 40    // Slam speed
+        case .release:                      return 400   // Celebratory pace
         case .docs:                         return 250   // Careful reading
         case .lateNight:                    return 225   // Sleepy
         case .buildConfig:                  return 200   // Methodical
@@ -123,6 +128,7 @@ struct CommitData {
     let isMerge: Bool
     let isRevert: Bool
     let isForcePush: Bool
+    let tags: [String]         // Git tags on this commit (release detection)
     let branch: String?
     let timestamp: Date
 
@@ -150,7 +156,10 @@ enum CommitTypeDetector {
         // Priority 1: Force push
         if commit.isForcePush { return .forcePush }
 
-        // Priority 2: Revert
+        // Priority 2: Release (tagged commit)
+        if !commit.tags.isEmpty { return .release }
+
+        // Priority 3: Revert
         if commit.isRevert { return .revert }
 
         // Priority 3: Merge

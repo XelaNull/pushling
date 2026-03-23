@@ -71,10 +71,11 @@ final class GitHistoryScanner {
     static let timeoutSeconds: TimeInterval = 30.0
 
     /// Directories to search for git repos.
+    /// Avoids ~/Desktop, ~/Documents, ~/Downloads, and ~ (home) which
+    /// trigger macOS TCC permission prompts. Uses developer-convention paths.
     static let searchDirs: [String] = [
-        "~", "~/Documents", "~/Projects", "~/Developer",
-        "~/code", "~/github", "~/repos", "~/src", "~/work",
-        "~/Desktop"
+        "~/Projects", "~/Developer",
+        "~/code", "~/github", "~/repos", "~/src", "~/work"
     ]
 
     /// Maximum depth when searching for .git directories.

@@ -10,32 +10,35 @@ extension StageRenderer {
 
     /// Make a teardrop body shape (for Drop stage).
     static func makeTeardrop(width: CGFloat,
-                              height: CGFloat) -> SKShapeNode {
+                              height: CGFloat,
+                              color: SKColor = PushlingPalette.bone) -> SKShapeNode {
         let path = CatShapes.teardropBody(width: width, height: height)
         let shape = SKShapeNode(path: path)
-        shape.fillColor = PushlingPalette.bone
+        shape.fillColor = color
         shape.strokeColor = .clear
         return shape
     }
 
     /// Make a cat body shape using CatShapes Bezier paths.
     static func makeCatBody(width: CGFloat, height: CGFloat,
-                             stage: GrowthStage = .beast) -> SKShapeNode {
+                             stage: GrowthStage = .beast,
+                             color: SKColor = PushlingPalette.bone) -> SKShapeNode {
         let path = CatShapes.catBody(width: width, height: height, stage: stage)
         let body = SKShapeNode(path: path)
-        body.fillColor = PushlingPalette.bone
+        body.fillColor = color
         body.strokeColor = .clear
         return body
     }
 
     /// Make an ear shape with rounded tips and inner ear detail.
     static func makeEar(size: CGSize, position: CGPoint,
-                         name: String, isLeft: Bool) -> SKShapeNode {
+                         name: String, isLeft: Bool,
+                         color: SKColor = PushlingPalette.bone) -> SKShapeNode {
         let (outerPath, innerPath) = CatShapes.catEar(
             width: size.width, height: size.height, isLeft: isLeft)
 
         let ear = SKShapeNode(path: outerPath)
-        ear.fillColor = PushlingPalette.bone
+        ear.fillColor = color
         ear.strokeColor = .clear
         ear.position = position
         ear.name = name

@@ -421,6 +421,12 @@ extension GameCoordinator {
             )
         }
 
+        voiceSystem.audioPlayer.onPlaybackComplete = { [weak self] in
+            DispatchQueue.main.async {
+                self?.speechCoordinator.onAudioPlaybackComplete()
+            }
+        }
+
         NSLog("[Pushling/Coordinator] Voice system wired")
     }
 
@@ -434,6 +440,15 @@ extension GameCoordinator {
                                      fogController: scene.worldManager.fogOfWar)
         }
         NSLog("[Pushling/Coordinator] Eating animation wired")
+    }
+
+    func wireEmotionalVisuals() {
+        if let creature = scene.creatureNode {
+            scene.emotionalVisualController = EmotionalVisualController(
+                creature: creature, emotionalState: emotionalState
+            )
+        }
+        NSLog("[Pushling/Coordinator] Emotional visuals wired")
     }
 }
 

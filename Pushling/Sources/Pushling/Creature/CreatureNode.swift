@@ -37,6 +37,11 @@ final class CreatureNode: SKNode {
     private(set) var pawBLController: PawController?
     private(set) var pawBRController: PawController?
 
+    // MARK: - Visual Traits (Git History → Appearance)
+
+    /// Visual traits from git history — determines body color, eye shape, etc.
+    var visualTraits: VisualTraits = .neutral
+
     // MARK: - Breathing State (Per-Frame — NEVER an SKAction)
 
     /// Accumulated time for breathing sine wave.
@@ -47,6 +52,9 @@ final class CreatureNode: SKNode {
     private let breathAmplitudeSleep: CGFloat = 0.02   // 1.0 to 1.02
     private let breathPeriodAwake: TimeInterval = 2.5   // seconds
     private let breathPeriodSleep: TimeInterval = 3.5   // deeper, slower
+
+    /// Emotional override for breathing period. Set by EmotionalVisualController.
+    var breathPeriodOverride: TimeInterval?
 
     // MARK: - Blink System
 
@@ -132,7 +140,8 @@ final class CreatureNode: SKNode {
         clearControllers()
 
         currentStage = stage
-        let nodes = StageRenderer.build(stage: stage, repoCount: repoCount)
+        let nodes = StageRenderer.build(stage: stage, repoCount: repoCount,
+                                        visualTraits: visualTraits)
 
         // Add all nodes to the tree
         addBodyParts(nodes)
@@ -209,9 +218,9 @@ final class CreatureNode: SKNode {
         let amplitude = isSleeping
             ? breathAmplitudeSleep
             : breathAmplitudeAwake
-        let period = isSleeping
+        let period = breathPeriodOverride ?? (isSleeping
             ? breathPeriodSleep
-            : breathPeriodAwake
+            : breathPeriodAwake)
 
         let breathScale = 1.0 + amplitude
             * CGFloat(sin(2.0 * .pi * breathingTime / period))

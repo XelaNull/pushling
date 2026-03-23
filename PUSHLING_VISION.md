@@ -137,7 +137,7 @@ Yields 144 names: **Pipo, Zepus, Moxa, Ruxon, Fenum, Daxis**... Renameable via M
 
 **Historical seeding**: On first install, the daemon scans all repos and counts historical commits. This history shapes the creature's **appearance and personality** from birth — a developer with 10,000 PHP commits gets a purple-hued cat spirit with web-specialist traits. But the creature still starts at **0 XP with 0 eaten commits**. History determines who it *is*, not how far along it is. The creature is a newborn that already has its parent's eyes.
 
-During the ~30-second "hatching ceremony," the user sees a rapid montage of their git history scrolling past — repo names, language badges, commit counts — while the Spore materializes with colors and features derived from that history. The creature is born knowing you, but still tiny.
+During the ~30-second "hatching ceremony," the user sees a rapid montage of their git history scrolling past — repo names, language badges, commit counts. Then the P button shoots in from the right edge of the Touch Bar, wobbling and tumbling across a fully-revealed landscape, trailing gold sparkles. It crashes at the left side with an impact flash and bounce. The P button disappears and a SpriteKit egg takes its place — wobbling with increasing intensity before cracking open with a flash and jagged shell halves drifting apart. The creature emerges from the egg, breathing its first breath, cycling through colors before settling on its personality hue. It meanders slightly to the right — its first tiny steps — while the camera slowly pans to follow. The P button fades in where the egg landed, and fog of war kicks in, leaving only the creature's immediate surroundings visible. The creature is born knowing you, but still tiny, starting its life on the left edge of the Touch Bar with an entire world to explore to the right.
 
 ### Visual Form: Cat-Esque Spirit Creature
 
@@ -399,7 +399,7 @@ A new player's Touch Bar is **sparse and quiet**. A veteran's is **rich and aliv
 
 Every commit becomes a 10-second micro-movie. The developer watches their own words get eaten, character by character, by a tiny cat. Each commit type produces a unique piece of theater — merge commits arrive from both sides, reverts come back out, force pushes knock the cat over. The developer learns to *anticipate* what their creature will do.
 
-**What appears on screen**: The commit message (first 20 chars) or SHA hash materializes as glowing text at one edge of the bar.
+**What appears on screen**: The commit message in monospace font (SFMono-Bold) formatted as `commit# {7-char SHA}: {message}` — up to 40 characters total. The text spawns at the fog-of-war edge on whichever side has more visible space, emerging from the darkness like a gift from the void.
 
 **Phase 1 — The Arrival** (2s):
 Text materializes character by character in Tide (`#00D4FF`), bobbing gently with a sine-wave float. Each character fades in left-to-right with a 60ms stagger. The text drifts slowly toward the creature. If the creature is far away, the text drifts further into the scene; if close, it stops nearby.
@@ -411,15 +411,19 @@ Cat ears perk — both snap forward simultaneously. Head snaps toward the text. 
 The creature pounces toward the text (or the text arrives if closer). It eats the text character by character from the nearest end:
 - Each character: creature opens mouth, character shrinks to 50% over 80ms, flashes white, emits 3-5 crumb particles, disappears into mouth
 - Between each character: a tiny 120ms chewing animation (jaw bobs up and down twice)
-- Speed varies by commit size:
-  - Small commit (<20 lines): Polite nibbles. 200ms per character. Refined.
-  - Medium commit (20-100 lines): Steady munching. 150ms per character.
-  - Large commit (100-200 lines): Enthusiastic chomping. 100ms per character. Slight forward lean.
-  - Huge commit (200+ lines): **Goblin mode.** 60ms per character. Screen shake. Particles everywhere. Creature's eyes go wide. Crumbs fly. The bar vibrates.
+- Speed varies by commit size (savored, not rushed — commits may be rare):
+  - Small commit (<20 lines): Polite nibbles. 1200ms per character. Savored.
+  - Medium commit (20-100 lines): Steady munching. 900ms per character.
+  - Large commit (100+ lines): Enthusiastic chomping. 600ms per character.
+  - Huge refactor (200+ lines): **Goblin mode.** 400ms per character. Particles everywhere.
+  - Tests: Crunchy. 1000ms per character.
+  - Lazy message: Reluctant chewing. 1400ms per character.
+  - Release (tagged commit): Celebratory pace. 400ms. "We shipped it!"
+- As each letter disappears, the remaining text slides toward the creature to stay close — like slurping a noodle.
 - After every 5th character, a tiny swallow animation (throat bob)
 
-**Phase 4 — The Reaction** (2-3s):
-Final swallow gulp. XP number floats up in Gilt (`#FFD700`) with a gentle rise-and-fade. Then a type-specific reaction animation (see table below). The creature either licks its lips, grooms a paw, or does a satisfied stretch depending on personality.
+**Phase 4 — The Reaction** (12s):
+Final swallow gulp. Commit stats float up first (e.g., "3 files +42 -15") in Tide cyan at 9pt, drifting upward at 0.8pt/s and fading over 10 seconds. After 5 seconds, XP number floats up in Gilt (`#FFD700`) at 10pt with the same gentle drift-and-fade. Then a type-specific speech reaction. Both labels linger long enough to read at a glance.
 
 **XP formula**:
 ```
@@ -1470,6 +1474,108 @@ Voice model memory: sherpa-onnx runtime ~18MB resident. Active model (Kokoro at 
 
 ---
 
+## The P Button: Control Strip Gateway
+
+The P button is an AppKit overlay on the Touch Bar SKView — always visible above the SpriteKit fog of war. It serves as both a progress indicator and a menu gateway.
+
+### Progress Indicator (Gas Gauge Border)
+The P button's border traces a rounded rectangle path using `CAShapeLayer.strokeEnd`. A dim track shows the full border, while a bright tide-cyan progress layer fills clockwise from the bottom-center as the creature gains XP toward its next evolution. Progress animates smoothly over 1.5 seconds with easeOut — like water filling a glass.
+
+### Menu System
+Tapping the P button triggers a choreographed sequence:
+1. Border and background flash white (0.4s)
+2. Button expands from 24x22 to 30x30 (full Touch Bar height) with easeOut
+3. Label morphs from subtle "P" (9pt, 40% alpha) to bold "M" (12pt, 80% alpha)
+4. Menu drawer slides out from underneath: **Sound toggle** (♪) and **Stats** buttons at full height
+5. Everything slowly fades over 20 seconds; pressing any button restores full brightness and restarts the timer
+6. When fade completes (or P is tapped again), M reverts to subtle P and collapses
+
+**M button**: Shows the default MacBook Touch Bar (brightness, volume, etc.)
+**Stats popup**: 280x30 overlay showing stage, XP progress, satisfaction hearts, streak days, with [X] close button.
+**Sound toggle**: ♪ symbol dims to red when muted, white when active.
+
+---
+
+## Emotional Visual Feedback
+
+The creature's emotional state (4 axes updated per-frame) is now **visually manifest** through body language:
+
+| Emotion State | Body Part | Visual Effect |
+|--------------|-----------|---------------|
+| Low satisfaction (<30) | Tail | Droops low |
+| Low satisfaction (<30) | Ears | Droop |
+| High curiosity (>70) | Ears | Perk forward |
+| High curiosity (>70) | Eyes | Widen |
+| High energy (>70) | Breathing | Faster period (2.0s) |
+| Low energy (<30) | Breathing | Slower period (3.5s) |
+| Low energy (<30) | Eyes | Half-closed (sleepy) |
+| High contentment (>75) | Tail | Happy sway |
+| Hangry (sat<25 + energy>40) | Ears | Flatten back |
+| Hangry | Tail | Twitch tip (annoyed) |
+
+Uses hysteresis (5-point margin) to prevent flickering at thresholds. The `EmotionalVisualController` bridges the quantitative emotional system to the creature's body part controllers every frame.
+
+---
+
+## Dream Journal
+
+When the creature wakes after 8+ hours of absence, it mumbles about its dreams. The existing `SpeechCoordinator.showDreamBubble()` renders a dream-styled speech bubble (dusk color, wavy text, 70% alpha) with a fragment from the speech cache — 1-3 middle words wrapped in "..." from a previous session's utterance.
+
+Example: If the creature once said "I refactored the authentication module", its dream might say "...the authentication..."
+
+The dream appears 1.5 seconds after the wake animation completes. A `"dream"` journal entry is logged.
+
+---
+
+## Release Celebrations
+
+The post-commit hook detects git tags on HEAD via `git tag --points-at HEAD`. When tags are present, the commit is classified as `.release` — highest priority after force push.
+
+| Stage | Reaction |
+|-------|----------|
+| Drop | `!!!` |
+| Critter | `SHIPPED!` |
+| Beast+ | `We shipped it!` |
+
+Release commits eat at a celebratory 400ms/char pace. The creature's biggest moments — shipping code — are now its biggest celebrations.
+
+---
+
+## Future Feature Roadmap
+
+### Tier 1: Quick Wins
+- **Streak counter on HUD** — show consecutive commit days (already tracked in DB)
+- **Language-specific eating particles** — CSS = glitter, Rust = sparks, Python = blue swirls
+- **Morning greeting variation** — different speech based on absence duration
+
+### Tier 2: Engagement Loops
+- **Achievement badges gallery** — visible list of earned mutations + milestones in Stats popup
+- **Offline dream sequences** — brief dream replay of highlights on wake after 8+ hours
+- **Seasonal biome events** — spring flowers, autumn leaves, winter snow on terrain
+- **Creature photo booth** — tap-hold to capture creature state as shareable image
+
+### Tier 3: Developer Workflow Integration
+- **Build status awareness** — watch build directory, creature celebrates green / worries at red
+- **Debugging pattern detection** — rapid commit-revert cycles trigger empathetic reactions
+- **Language affinity drift** — personality specialty shifts based on 30-day rolling commit languages
+- **Break reminders** — creature yawns after 2+ hours sustained commits
+- **PR merge reactions** — detect merges to main, celebrate collaboration
+
+### Tier 4: Deep Engagement
+- **Creature scrapbook** — visual timeline of milestones, first word, evolution, biggest commits
+- **Secret evolution variants** — specific personality + mutation combos unlock rare visual traits
+- **Accelerometer integration** — tilt laptop = creature tumbles
+- **Ambient light sensor** — lights dim = creature gets sleepy
+- **Prestige/legacy system** — after Apex + 1 year, creature ascends, leaves traits for next generation
+
+### Tier 5: Community & Social
+- **Creature card export** — shareable image with creature stats and personality
+- **Multi-machine sync** — iCloud sync so creature follows developer across devices
+- **Creature visiting** — opt-in brief visits to other developers' Touch Bars
+- **Global surprise events** — rare events for all Pushling users simultaneously
+
+---
+
 ## What Makes This Different
 
 | Aspect | Old Design | Pushling |
@@ -1485,7 +1591,12 @@ Voice model memory: sherpa-onnx runtime ~18MB resident. Active model (Kokoro at 
 | Speech | Static text bubbles | Stage-gated evolution from symbols to fluency, with TTS voice |
 | Commit eating | Golden orb absorption | Character-by-character predator hunt with 4 phases |
 | Hook awareness | 2 hooks (commit, session) | 7 hooks — full dev session awareness |
-| Surprises | 30 designed | 75+ surprises across 8 categories |
+| Surprises | 30 designed | 78 surprises across 8 categories |
+| First launch | Instant spawn | 30s ceremony: P button flies in, cracks open, creature emerges |
+| Mood visibility | Hidden stats | Tail droops, ears perk, breathing changes with 4 emotional axes |
+| Dreams | None | Dream bubble on wake after 8+ hours with speech cache fragments |
+| Releases | No awareness | Git tag detection triggers celebration with speech reactions |
+| P button | Static toggle | Gas gauge border progress, expanding menu with stats/sound/MacBook toggle |
 | Voice | None | 3-tier local TTS (espeak-ng -> Piper -> Kokoro) |
 | Sound | `afplay` only | Full audio: TTS voice, ambient, effects |
 | Control | Simple state machine | 4-layer behavior stack with blend controller |

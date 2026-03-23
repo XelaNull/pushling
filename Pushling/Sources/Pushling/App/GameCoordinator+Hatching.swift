@@ -98,6 +98,7 @@ extension GameCoordinator {
         // 1. Update in-memory state
         self.creatureName = name
         self.personality = personality
+        self.visualTraits = visualTraits
         self.creatureStage = .spore
         self.totalXP = 0
         self.isHatched = true
@@ -107,6 +108,7 @@ extension GameCoordinator {
                              visualTraits: visualTraits)
 
         // 3. Configure creature node for spore stage and position near P button
+        scene.creatureNode?.visualTraits = visualTraits
         scene.creatureNode?.configureForStage(.spore)
         scene.creatureNode?.position = CGPoint(x: 54, y: SceneConstants.groundY)
 
@@ -181,6 +183,7 @@ extension GameCoordinator {
                     fur_pattern = ?,
                     tail_shape = ?,
                     eye_shape = ?,
+                    favorite_language = ?,
                     hatched = 1,
                     created_at = ?
                 WHERE id = 1
@@ -197,6 +200,7 @@ extension GameCoordinator {
                     visualTraits.furPattern.rawValue,
                     visualTraits.tailShape.rawValue,
                     visualTraits.eyeShape.rawValue,
+                    personality.specialty.rawValue,
                     now
                 ]
             )

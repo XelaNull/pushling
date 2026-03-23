@@ -48,7 +48,7 @@ final class DebugActions {
             filesChanged: 1, linesAdded: 5, linesRemoved: 5,
             languages: ["md"],
             isMerge: false, isRevert: false, isForcePush: false,
-            branch: "main", timestamp: Date()
+            tags: [], branch: "main", timestamp: Date()
         )
         scene.debugFeedCommit(commit: commit, type: .normal)
     }
@@ -62,7 +62,7 @@ final class DebugActions {
             filesChanged: 12, linesAdded: 150, linesRemoved: 80,
             languages: ["swift", "swift", "swift"],
             isMerge: false, isRevert: false, isForcePush: false,
-            branch: "feature/auth", timestamp: Date()
+            tags: [], branch: "feature/auth", timestamp: Date()
         )
         scene.debugFeedCommit(commit: commit, type: .largeRefactor)
     }
@@ -76,7 +76,7 @@ final class DebugActions {
             filesChanged: 3, linesAdded: 45, linesRemoved: 10,
             languages: ["swift", "test"],
             isMerge: false, isRevert: false, isForcePush: false,
-            branch: "main", timestamp: Date()
+            tags: [], branch: "main", timestamp: Date()
         )
         scene.debugFeedCommit(commit: commit, type: .test)
     }
@@ -98,7 +98,7 @@ final class DebugActions {
                     linesRemoved: Int.random(in: 0...20),
                     languages: ["swift"],
                     isMerge: false, isRevert: false, isForcePush: false,
-                    branch: "main", timestamp: Date()
+                    tags: [], branch: "main", timestamp: Date()
                 )
                 scene.debugFeedCommit(commit: commit, type: .normal)
             }
