@@ -30,7 +30,7 @@ final class HatchingCeremony {
     // MARK: - State
 
     private(set) var phase: Phase = .notStarted
-    private var elapsed: TimeInterval = 0
+    private(set) var elapsed: TimeInterval = 0
     private var isRunning = false
 
     /// The scene to add ceremony nodes to.
@@ -284,7 +284,29 @@ final class HatchingCeremony {
         spark.run(SKAction.sequence([fade, remove]))
     }
 
-    // MARK: - Materialization Phase (20-27s)
+    // MARK: - Materialization Phase (20-27s) — Egg Crash & Emergence
+    //
+    // Egg shoots in from the right side of the Touch Bar, arcing downward
+    // like a meteor crashing. It lands at the P button position, wobbles
+    // from the impact, cracks open, creature emerges, meanders right.
+
+    /// Egg shell nodes (top/bottom halves after crack).
+    private var eggNode: SKShapeNode?
+    private var eggTopHalf: SKShapeNode?
+    private var eggBottomHalf: SKShapeNode?
+    private var hasCracked = false
+    private var hasEmerged = false
+    private var hasLanded = false
+
+    /// P button position in scene coordinates (landing spot).
+    private static let eggOrigin = CGPoint(x: 14, y: 15)
+    /// Flight launch X (off-screen right).
+    private static let launchX: CGFloat = 1100
+
+    /// Current screen-space X of the flying P button. Non-nil during flight.
+    /// The scene reads this per-frame to position the AppKit P button and
+    /// update the fog of war. Set to nil when flight ends.
+    private(set) var flightScreenX: CGFloat?
 
     private func transitionToMaterialization() {
         phase = .materialization
@@ -296,56 +318,149 @@ final class HatchingCeremony {
         ]))
         montageContainer = nil
 
-        // Create the initial pixel of light
-        guard let scene = scene else { return }
-        let centerX = scene.size.width / 2
-        let centerY = scene.size.height / 2
+        // Start the P button flight from the right side
+        flightScreenX = Self.launchX
 
-        let spore = SKShapeNode(circleOfRadius: 0.5)
-        spore.fillColor = PushlingPalette.bone
-        spore.strokeColor = .clear
-        spore.position = CGPoint(x: centerX, y: centerY)
-        spore.zPosition = 100
-        spore.alpha = 0.8
-        spore.name = "hatch_spore"
-        scene.addChild(spore)
-        self.sporeNode = spore
+        hasCracked = false
+        hasEmerged = false
+        hasLanded = false
 
-        NSLog("[Pushling/Hatch] Materialization phase")
+        NSLog("[Pushling/Hatch] Materialization phase — P button incoming!")
     }
 
     private func updateMaterialization(deltaTime: TimeInterval) {
-        guard let spore = sporeNode else { return }
-
         let matElapsed = elapsed - Self.montageDuration
         let progress = matElapsed / Self.materializationDuration
 
-        // Grow the spore: 0.5px -> 3px radius over 7 seconds
-        let radius = 0.5 + progress * 2.5
+        if progress < 0.3 && !hasLanded {
+            // Phase A (0-30%): P button flies from right to left
+            // flightScreenX drives the AppKit P button position (read by scene)
+            let flyProgress = progress / 0.3
 
-        // Recreate the shape (SKShapeNode path can't be resized smoothly)
-        let path = CGMutablePath()
-        path.addEllipse(in: CGRect(
-            x: -radius, y: -radius,
-            width: radius * 2, height: radius * 2
-        ))
-        spore.path = path
+            // Cubic ease-out for dramatic deceleration (fast → slow)
+            let easeOut = 1.0 - pow(1.0 - flyProgress, 3.0)
+            let dx = Self.launchX - Self.eggOrigin.x
+            let currentX = Self.launchX - CGFloat(dx) * CGFloat(easeOut)
 
-        // Breathing from the start — this is the first breath!
-        let breathScale = 1.0 + 0.03
-            * CGFloat(sin(2.0 * .pi * matElapsed / 2.5))
-        spore.yScale = breathScale
+            // Wave up and down as it flies (sinusoidal wobble in Y)
+            // The scene converts this to AppKit Y offset for the P button
+            flightScreenX = currentX
 
-        // Color shift: cycle through palette before settling
-        if progress < 0.7 {
-            // Cycling colors
-            let huePhase = matElapsed * 0.8
-            let hue = CGFloat(huePhase.truncatingRemainder(dividingBy: 1.0))
-            spore.fillColor = SKColor(hue: hue, saturation: 0.6,
-                                       brightness: 1.0, alpha: 1.0)
-        } else {
-            // Settling toward creature's base color
-            let settleProgress = (progress - 0.7) / 0.3
+        } else if progress >= 0.3 && !hasLanded {
+            // Landing! P button has arrived
+            hasLanded = true
+            flightScreenX = nil  // Stop driving P button position
+
+            // Impact flash in SpriteKit
+            if let scene = scene {
+                let impact = SKShapeNode(circleOfRadius: 8)
+                impact.fillColor = PushlingPalette.bone
+                impact.strokeColor = .clear
+                impact.position = Self.eggOrigin
+                impact.zPosition = 99
+                impact.alpha = 0.5
+                scene.addChild(impact)
+                impact.run(SKAction.sequence([
+                    SKAction.group([
+                        SKAction.scale(to: 2.0, duration: 0.3),
+                        SKAction.fadeOut(withDuration: 0.3)
+                    ]),
+                    SKAction.removeFromParent()
+                ]))
+            }
+
+            // Create the SpriteKit egg at landing position for crack sequence
+            if let scene = scene {
+                let egg = SKShapeNode(ellipseOf: CGSize(width: 10, height: 13))
+                egg.fillColor = PushlingPalette.bone
+                egg.strokeColor = SKColor(white: 0.7, alpha: 0.8)
+                egg.lineWidth = 0.5
+                egg.position = Self.eggOrigin
+                egg.zPosition = 100
+                egg.name = "hatch_egg"
+                scene.addChild(egg)
+                self.eggNode = egg
+
+                // Squash bounce on landing
+                egg.run(SKAction.sequence([
+                    SKAction.scaleY(to: 0.7, duration: 0.08),
+                    SKAction.scaleY(to: 1.15, duration: 0.1),
+                    SKAction.scaleY(to: 0.9, duration: 0.06),
+                    SKAction.scaleY(to: 1.0, duration: 0.08)
+                ]))
+            }
+
+        } else if progress >= 0.3 && progress < 0.55 {
+            // Phase B (30-55%): Egg wobbles from impact with increasing intensity
+            guard let egg = eggNode else { return }
+            let wobbleElapsed = matElapsed - Self.materializationDuration * 0.3
+            let wobbleIntensity = (progress - 0.3) / 0.25
+            let wobble = sin(wobbleElapsed * 10.0) * wobbleIntensity * 5.0
+            egg.zRotation = CGFloat(wobble * .pi / 180.0)
+            egg.alpha = CGFloat(0.8 + 0.2 * sin(matElapsed * 4.0))
+
+        } else if progress >= 0.55 && !hasCracked {
+            // Phase C (55%): Egg cracks open!
+            hasCracked = true
+            crackEgg()
+
+        } else if progress >= 0.55 && progress < 0.75 {
+            // Phase D (55-75%): Shell halves drift apart, creature emerges
+            if !hasEmerged {
+                hasEmerged = true
+                spawnCreatureFromEgg()
+            }
+
+            // Shell halves drift and fade
+            let shellProgress = (progress - 0.55) / 0.2
+            eggTopHalf?.position.y = Self.eggOrigin.y + 4
+                + CGFloat(shellProgress) * 8
+            eggTopHalf?.alpha = CGFloat(max(0, 1.0 - shellProgress * 1.5))
+            eggTopHalf?.zRotation = CGFloat(shellProgress * 0.3)
+            eggBottomHalf?.position.y = Self.eggOrigin.y - 4
+                - CGFloat(shellProgress) * 6
+            eggBottomHalf?.alpha = CGFloat(max(0, 1.0 - shellProgress * 1.5))
+            eggBottomHalf?.zRotation = CGFloat(-shellProgress * 0.2)
+
+            // Creature breathes and pulses color
+            if let spore = sporeNode {
+                let breathScale = 1.0 + 0.03
+                    * CGFloat(sin(2.0 * .pi * matElapsed / 2.5))
+                spore.yScale = breathScale
+
+                let huePhase = matElapsed * 0.8
+                let hue = CGFloat(huePhase.truncatingRemainder(dividingBy: 1.0))
+                spore.fillColor = SKColor(hue: hue, saturation: 0.6,
+                                           brightness: 1.0, alpha: 1.0)
+            }
+
+        } else if progress >= 0.75 {
+            // Phase E (75-100%): Creature meanders to the right, color settles
+            // Remove shell remnants
+            eggTopHalf?.removeFromParent()
+            eggTopHalf = nil
+            eggBottomHalf?.removeFromParent()
+            eggBottomHalf = nil
+
+            guard let spore = sporeNode else { return }
+
+            // Meander just slightly to the right of the P button
+            let targetX = Self.eggOrigin.x + 40  // Just a short stroll
+            let meanderProgress = (progress - 0.75) / 0.25
+            let dx = targetX - Self.eggOrigin.x
+            spore.position.x = Self.eggOrigin.x + dx * CGFloat(meanderProgress)
+
+            // Gentle vertical bob while walking
+            spore.position.y = Self.eggOrigin.y
+                + CGFloat(sin(matElapsed * 3.0)) * 1.5
+
+            // Breathing
+            let breathScale = 1.0 + 0.03
+                * CGFloat(sin(2.0 * .pi * matElapsed / 2.5))
+            spore.yScale = breathScale
+
+            // Color settling toward creature's base
+            let settleProgress = meanderProgress
             let targetHue = CGFloat(visualTraits.baseColorHue)
             let currentHue = CGFloat(
                 matElapsed.truncatingRemainder(dividingBy: 1.0)
@@ -356,20 +471,109 @@ final class HatchingCeremony {
                 hue: finalHue, saturation: 0.5,
                 brightness: 1.0, alpha: 0.9
             )
-        }
 
-        // Faint particle halo in the middle
-        if progress > 0.3 && progress < 0.8 {
-            spawnMaterializationParticle(around: spore)
+            // Grow slightly as it walks
+            let radius = 2.0 + CGFloat(meanderProgress) * 1.0
+            let path = CGMutablePath()
+            path.addEllipse(in: CGRect(
+                x: -radius, y: -radius,
+                width: radius * 2, height: radius * 2
+            ))
+            spore.path = path
         }
-
-        // Alpha pulsing
-        spore.alpha = CGFloat(0.7 + 0.3 * sin(matElapsed * 3.0))
     }
 
-    private func spawnMaterializationParticle(around node: SKNode) {
-        guard let scene = scene,
-              Double.random(in: 0...1) < 0.3 else { return }
+    /// Split the egg into top and bottom halves with a crack flash.
+    private func crackEgg() {
+        guard let scene = scene else { return }
+
+        // Flash effect
+        let flash = SKShapeNode(rect: CGRect(
+            x: 0, y: 0, width: scene.size.width, height: scene.size.height
+        ))
+        flash.fillColor = PushlingPalette.bone
+        flash.strokeColor = .clear
+        flash.alpha = 0.6
+        flash.zPosition = 150
+        scene.addChild(flash)
+        flash.run(SKAction.sequence([
+            SKAction.fadeOut(withDuration: 0.3),
+            SKAction.removeFromParent()
+        ]))
+
+        // Remove whole egg
+        eggNode?.removeFromParent()
+        eggNode = nil
+
+        // Create top half (upper arc)
+        let topHalf = SKShapeNode()
+        let topPath = CGMutablePath()
+        topPath.addArc(center: .zero, radius: 5, startAngle: 0,
+                       endAngle: .pi, clockwise: false)
+        topPath.addLine(to: CGPoint(x: -5, y: 0))
+        // Jagged crack edge
+        topPath.addLine(to: CGPoint(x: -3, y: -1.5))
+        topPath.addLine(to: CGPoint(x: -1, y: 0.5))
+        topPath.addLine(to: CGPoint(x: 1, y: -1))
+        topPath.addLine(to: CGPoint(x: 3, y: 0.5))
+        topPath.addLine(to: CGPoint(x: 5, y: 0))
+        topPath.closeSubpath()
+        topHalf.path = topPath
+        topHalf.fillColor = PushlingPalette.bone
+        topHalf.strokeColor = SKColor(white: 0.6, alpha: 0.6)
+        topHalf.lineWidth = 0.5
+        topHalf.position = CGPoint(x: Self.eggOrigin.x, y: Self.eggOrigin.y + 2)
+        topHalf.zPosition = 101
+        scene.addChild(topHalf)
+        self.eggTopHalf = topHalf
+
+        // Create bottom half (lower arc)
+        let bottomHalf = SKShapeNode()
+        let botPath = CGMutablePath()
+        botPath.addArc(center: .zero, radius: 5, startAngle: .pi,
+                       endAngle: 2 * .pi, clockwise: false)
+        botPath.addLine(to: CGPoint(x: 5, y: 0))
+        // Matching jagged crack edge
+        botPath.addLine(to: CGPoint(x: 3, y: 0.5))
+        botPath.addLine(to: CGPoint(x: 1, y: -1))
+        botPath.addLine(to: CGPoint(x: -1, y: 0.5))
+        botPath.addLine(to: CGPoint(x: -3, y: -1.5))
+        botPath.addLine(to: CGPoint(x: -5, y: 0))
+        botPath.closeSubpath()
+        bottomHalf.path = botPath
+        bottomHalf.fillColor = PushlingPalette.bone
+        bottomHalf.strokeColor = SKColor(white: 0.6, alpha: 0.6)
+        bottomHalf.lineWidth = 0.5
+        bottomHalf.position = CGPoint(x: Self.eggOrigin.x, y: Self.eggOrigin.y - 2)
+        bottomHalf.zPosition = 101
+        scene.addChild(bottomHalf)
+        self.eggBottomHalf = bottomHalf
+
+        NSLog("[Pushling/Hatch] Egg cracked!")
+    }
+
+    /// Spawn the creature spore from inside the cracked egg.
+    private func spawnCreatureFromEgg() {
+        guard let scene = scene else { return }
+
+        let spore = SKShapeNode(circleOfRadius: 2.0)
+        spore.fillColor = PushlingPalette.bone
+        spore.strokeColor = .clear
+        spore.position = Self.eggOrigin
+        spore.zPosition = 100
+        spore.alpha = 0
+        spore.name = "hatch_spore"
+        scene.addChild(spore)
+        self.sporeNode = spore
+
+        // Fade in from the crack
+        spore.run(SKAction.fadeIn(withDuration: 0.4))
+    }
+
+    /// Spawn a faint particle drifting toward the creature during emergence.
+    private func spawnEmergenceParticle() {
+        guard let scene = scene, let spore = sporeNode,
+              Double.random(in: 0...1) < 0.2 else { return }
 
         let particle = SKShapeNode(circleOfRadius: 0.3)
         particle.fillColor = PushlingPalette.gilt
@@ -379,14 +583,13 @@ final class HatchingCeremony {
         let angle = CGFloat.random(in: 0...(2 * .pi))
         let dist = CGFloat.random(in: 5...15)
         particle.position = CGPoint(
-            x: node.position.x + cos(angle) * dist,
-            y: node.position.y + sin(angle) * dist
+            x: spore.position.x + cos(angle) * dist,
+            y: spore.position.y + sin(angle) * dist
         )
         particle.zPosition = 99
         scene.addChild(particle)
 
-        // Drift toward center and fade
-        let moveAction = SKAction.move(to: node.position, duration: 1.5)
+        let moveAction = SKAction.move(to: spore.position, duration: 1.5)
         let fadeAction = SKAction.fadeOut(withDuration: 1.5)
         let group = SKAction.group([moveAction, fadeAction])
         let remove = SKAction.removeFromParent()
@@ -460,6 +663,9 @@ final class HatchingCeremony {
         // Clean up ceremony nodes
         nameLabel?.removeFromParent()
         dataSparkEmitter?.removeFromParent()
+        eggNode?.removeFromParent()
+        eggTopHalf?.removeFromParent()
+        eggBottomHalf?.removeFromParent()
         // Spore node is left — it becomes the actual creature
 
         NSLog("[Pushling/Hatch] Ceremony complete — '%@' is born",

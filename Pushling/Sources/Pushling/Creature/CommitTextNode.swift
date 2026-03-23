@@ -24,8 +24,8 @@ final class CommitTextNode: SKNode {
     /// Active character spacing (set during configure).
     private(set) var activeSpacing: CGFloat = 5
 
-    /// Pool of reusable character nodes (max 20).
-    private static let poolSize = 20
+    /// Pool of reusable character nodes (max 40).
+    private static let poolSize = 40
     private var nodePool: [SKLabelNode] = []
 
     // MARK: - Initialization
@@ -37,7 +37,7 @@ final class CommitTextNode: SKNode {
 
         // Pre-create the node pool
         for i in 0..<Self.poolSize {
-            let label = SKLabelNode(fontNamed: "SFProText-Bold")
+            let label = SKLabelNode(fontNamed: "SFMono-Bold")
             label.fontSize = 7.5
             label.fontColor = PushlingPalette.tide
             label.horizontalAlignmentMode = .center
@@ -63,33 +63,30 @@ final class CommitTextNode: SKNode {
     func configure(message: String, sha: String, fontSize: CGFloat = 7.5) {
         self.activeFontSize = fontSize
         self.activeSpacing = fontSize * 0.67
-        // Select text: first 20 chars of message
-        var text = message.trimmingCharacters(in: .whitespaces)
+        // Build display: "commit# {SHA}: {message}"
+        var msg = message.trimmingCharacters(in: .whitespaces)
 
         // Strip conventional commit prefixes
         let prefixes = ["feat:", "fix:", "chore:", "docs:", "style:",
                         "refactor:", "test:", "ci:", "perf:", "build:"]
         for prefix in prefixes {
-            if text.lowercased().hasPrefix(prefix) {
-                text = String(text.dropFirst(prefix.count))
+            if msg.lowercased().hasPrefix(prefix) {
+                msg = String(msg.dropFirst(prefix.count))
                     .trimmingCharacters(in: .whitespaces)
                 break
             }
         }
 
-        // Pad short messages with SHA
-        if text.count < 8 {
-            let padding = String(sha.prefix(8 - text.count))
-            text = text + " " + padding
+        // Capitalize first character of message
+        if let first = msg.first {
+            msg = first.uppercased() + String(msg.dropFirst())
         }
 
-        // Capitalize first character
-        if let first = text.first {
-            text = first.uppercased() + String(text.dropFirst())
-        }
-
-        // Truncate to 20 chars
-        text = String(text.prefix(20))
+        // Format: "commit# {7-char SHA}: {message}"
+        let shortSHA = String(sha.prefix(7))
+        let prefix = "commit# \(shortSHA): "
+        let maxMsgChars = Self.poolSize - prefix.count
+        let text = prefix + String(msg.prefix(maxMsgChars))
         displayText = text
 
         // Configure character nodes

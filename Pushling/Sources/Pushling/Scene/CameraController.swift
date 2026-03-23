@@ -132,7 +132,8 @@ final class CameraController {
     // MARK: - X-Tracking State
 
     /// The creature-tracking base position. Updated each frame.
-    private(set) var baseWorldX: CGFloat = 542.5
+    /// Internal setter needed for hatching ceremony camera sync.
+    var baseWorldX: CGFloat = 542.5
 
     /// User pan offset (added to base). Decays after inactivity.
     private(set) var panOffset: CGFloat = 0
@@ -229,9 +230,21 @@ final class CameraController {
     ///   - creatureWorldX: The creature's current world-X position.
     ///   - creatureFocusY: The creature's current world-Y center position.
     ///   - creatureHeight: The creature's height in points (for margin calc).
+    /// Smooth follow duration remaining after hatching (seconds).
+    /// When > 0, the camera lerps toward the creature instead of snapping.
+    var smoothFollowRemaining: TimeInterval = 0
+    private static let smoothFollowDuration: TimeInterval = 5.0
+
     func update(deltaTime: TimeInterval, creatureWorldX: CGFloat,
                 creatureFocusY: CGFloat, creatureHeight: CGFloat) {
-        baseWorldX = creatureWorldX
+        if smoothFollowRemaining > 0 {
+            // Lerp camera toward creature over several seconds
+            smoothFollowRemaining -= deltaTime
+            let t = CGFloat(deltaTime * 1.5)  // Smooth catch-up rate
+            baseWorldX += (creatureWorldX - baseWorldX) * min(t, 1.0)
+        } else {
+            baseWorldX = creatureWorldX
+        }
 
         // Cinematic mode: sequencer drives zoom/pan, skip decay and constraints
         if isCinematicActive {

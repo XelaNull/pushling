@@ -26,9 +26,17 @@ final class TouchBarView: SKView {
 
     // MARK: - Toggle Button (AppKit overlay — above SpriteKit fog of war)
 
-    /// Native AppKit button overlaid on the SKView. Renders above all
+    /// Native AppKit progress button overlaid on the SKView. Renders above all
     /// SpriteKit content including fog of war (.replace blend panels).
-    private var toggleButton: NSButton?
+    /// Shows evolution progress as a border fill.
+    private var toggleButton: ProgressButtonView?
+
+    // MARK: - Menu Overlay (AppKit — above SpriteKit fog of war)
+
+    private var menuStrip: MenuStripView?
+    private var statsPopup: StatsPopupView?
+    private var isMenuOpen = false
+    private var isStatsOpen = false
 
     // MARK: - Gesture Recognizer References
 
@@ -91,21 +99,35 @@ final class TouchBarView: SKView {
             self.oneFingerPanGesture = pan
         }
 
-        // Add the [P] toggle button as a native AppKit overlay
+        // Add the [P] progress button as a native AppKit overlay
         if toggleButton == nil {
-            let btn = NSButton(frame: NSRect(x: 2, y: 4, width: 24, height: 22))
-            btn.title = "P"
-            btn.bezelStyle = .recessed
-            btn.isBordered = true
-            btn.font = NSFont.boldSystemFont(ofSize: 11)
-            btn.contentTintColor = .white
-            btn.target = self
-            btn.action = #selector(toggleButtonTapped)
-            btn.wantsLayer = true
-            btn.layer?.cornerRadius = 4
-            btn.layer?.backgroundColor = NSColor(white: 0.15, alpha: 0.85).cgColor
+            let btn = ProgressButtonView(frame: NSRect(x: 2, y: 4, width: 24, height: 22))
+            btn.onTap = { [weak self] in self?.toggleButtonTapped() }
             addSubview(btn)
             self.toggleButton = btn
+        }
+
+        // Slide-out menu strip (initially collapsed, hidden)
+        // Positioned at x=30 (right edge of expanded P button), full Touch Bar height
+        if menuStrip == nil {
+            let menu = MenuStripView(frame: NSRect(x: 30, y: 0, width: 0, height: 30))
+            menu.isHidden = true
+            menu.onStatsTap = { [weak self] in self?.menuStatsTapped() }
+            menu.onSoundToggle = { [weak self] muted in
+                guard let scene = self?.scene as? PushlingScene else { return }
+                scene.worldManager.soundSystem.isMuted = muted
+            }
+            addSubview(menu)
+            self.menuStrip = menu
+        }
+
+        // Stats popup (initially hidden)
+        if statsPopup == nil {
+            let popup = StatsPopupView(frame: NSRect(x: 30, y: 0, width: 280, height: 30))
+            popup.isHidden = true
+            popup.onClose = { [weak self] in self?.closeStats() }
+            addSubview(popup)
+            self.statsPopup = popup
         }
 
         // Become first responder for touch delivery
@@ -143,8 +165,83 @@ final class TouchBarView: SKView {
     // MARK: - Toggle Button Handler
 
     @objc private func toggleButtonTapped() {
+        if isStatsOpen {
+            closeStats()
+            return
+        }
+        if isMenuOpen {
+            // Button shows "M" — pressing it shows MacBook default Touch Bar
+            closeMenu()
+            guard let scene = self.scene as? PushlingScene else { return }
+            scene.onToggleTouchBar?()
+        } else {
+            // Button shows "P" — pressing it opens menu, P becomes M
+            openMenu()
+        }
+    }
+
+    // MARK: - Menu Handlers
+
+    private func openMenu() {
+        isMenuOpen = true
+        // Flash the P button bright before transforming
+        toggleButton?.flash()
+        toggleButton?.setLabel("M")
+        // Step 1: Expand P button to full-height M
+        toggleButton?.expand { [weak self] in
+            // Step 2: Slide menu drawer out from underneath expanded button
+            self?.menuStrip?.show()
+            // Step 3: Fade the M button in sync with the menu (20s)
+            self?.toggleButton?.fadeOut(duration: MenuStripView.fadeDuration)
+        }
+        menuStrip?.onFadeComplete = { [weak self] in
+            self?.closeMenu()
+        }
+        menuStrip?.onRestoreBrightness = { [weak self] in
+            // Restore M button brightness when a menu button is pressed
+            self?.toggleButton?.cancelFadeOut()
+            self?.toggleButton?.fadeOut(duration: MenuStripView.fadeDuration)
+        }
+    }
+
+    private func closeMenu() {
+        menuStrip?.hide(animated: false)
+        toggleButton?.cancelFadeOut()
+        toggleButton?.setLabel("P")
+        toggleButton?.collapse()
+        isMenuOpen = false
+    }
+
+    private func menuStatsTapped() {
+        closeMenu()
+        showStats()
+    }
+
+    private func showStats() {
         guard let scene = self.scene as? PushlingScene else { return }
-        scene.onToggleTouchBar?()
+        let state = scene.hudOverlay.currentState
+
+        // Convert SKColor to NSColor for AppKit
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        let rgb = state.stageColor.usingColorSpace(.sRGB) ?? NSColor.white
+        rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let stageNSColor = NSColor(displayP3Red: r, green: g, blue: b, alpha: a)
+
+        statsPopup?.update(
+            stage: state.stageName,
+            currentXP: state.currentXP,
+            xpToNext: state.xpToNext,
+            satisfaction: state.satisfaction,
+            streakDays: state.streakDays,
+            stageColor: stageNSColor
+        )
+        statsPopup?.isHidden = false
+        isStatsOpen = true
+    }
+
+    private func closeStats() {
+        statsPopup?.isHidden = true
+        isStatsOpen = false
     }
 
     // MARK: - Click (Tap) Handler
@@ -257,6 +354,53 @@ final class TouchBarView: SKView {
         }
     }
 
+    // MARK: - Evolution Progress
+
+    /// Update the P button's evolution progress fill.
+    func updateEvolutionProgress(_ fraction: CGFloat) {
+        toggleButton?.progress = fraction
+    }
+
+    // MARK: - Hatching Flight
+
+    /// Move the P button to a specific screen X during the flight sequence.
+    /// yOffset adds sinusoidal wobble for the crashing arc effect.
+    func movePButton(toX screenX: CGFloat, yOffset: CGFloat = 0) {
+        let btnWidth: CGFloat = 24
+        let btnHeight: CGFloat = 22
+        let x = max(0, screenX - btnWidth / 2)
+        let y = max(0, min(8, 4 + yOffset))
+        toggleButton?.frame = NSRect(x: x, y: y, width: btnWidth, height: btnHeight)
+        toggleButton?.rebuildLayers()
+    }
+
+    /// Reset P button to its normal collapsed position.
+    func resetPButtonPosition() {
+        toggleButton?.frame = NSRect(x: 2, y: 4, width: 24, height: 22)
+        toggleButton?.rebuildLayers()
+    }
+
+    // MARK: - Hatching Visibility
+
+    /// Hide or show the P button (hidden during hatching ceremony).
+    /// Set `instant` to true to skip the fade-in animation.
+    func setPButtonHidden(_ hidden: Bool, instant: Bool = false) {
+        if hidden {
+            toggleButton?.isHidden = true
+        } else if instant {
+            toggleButton?.alphaValue = 1.0
+            toggleButton?.isHidden = false
+        } else {
+            toggleButton?.alphaValue = 0
+            toggleButton?.isHidden = false
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 1.0
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                self.toggleButton?.animator().alphaValue = 1.0
+            }
+        }
+    }
+
     // MARK: - Coordinate Conversion
 
     /// Converts a view-space X position to world-space X position.
@@ -267,5 +411,243 @@ final class TouchBarView: SKView {
         let zoom = scene.cameraController.zoomLevel
         // View offset from center, scaled inversely by zoom, plus camera world position
         return scene.cameraController.effectiveWorldX + (viewX - sceneCenter) / max(zoom, 0.1)
+    }
+}
+
+// MARK: - Progress Button View
+
+/// P button with a border that fills like a gas gauge to show evolution
+/// progress. Uses CAShapeLayer strokeEnd for GPU-accelerated border tracing.
+/// Tap handled via NSClickGestureRecognizer (mouseDown doesn't fire on Touch Bar).
+final class ProgressButtonView: NSView {
+
+    /// Evolution progress fraction (0.0 to 1.0).
+    /// Animates smoothly like water filling a glass.
+    var progress: CGFloat = 0 {
+        didSet {
+            let clamped = min(max(progress, 0), 1)
+            let anim = CABasicAnimation(keyPath: "strokeEnd")
+            anim.fromValue = progressLayer.presentation()?.strokeEnd
+                ?? progressLayer.strokeEnd
+            anim.toValue = clamped
+            anim.duration = 1.5
+            anim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            anim.fillMode = .forwards
+            anim.isRemovedOnCompletion = false
+            progressLayer.add(anim, forKey: "progressFill")
+            // Update model value so future animations start from correct position
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            progressLayer.strokeEnd = clamped
+            CATransaction.commit()
+        }
+    }
+
+    /// Called when the button is tapped.
+    var onTap: (() -> Void)?
+
+    private let trackLayer = CAShapeLayer()
+    private let progressLayer = CAShapeLayer()
+    private let textLayer = CATextLayer()
+    private let cornerRadius: CGFloat = 4
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.cornerRadius = cornerRadius
+        layer?.backgroundColor = NSColor(white: 0.12, alpha: 0.85).cgColor
+
+        setupLayers()
+
+        let click = NSClickGestureRecognizer(
+            target: self, action: #selector(handleTap(_:))
+        )
+        click.allowedTouchTypes = [.direct]
+        click.buttonMask = 0
+        addGestureRecognizer(click)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) not implemented")
+    }
+
+    private func setupLayers() {
+        guard let root = layer else { return }
+        let path = makeBorderPath()
+
+        // Dim track — full border outline (the "empty gauge")
+        trackLayer.path = path
+        trackLayer.strokeColor = NSColor(white: 0.25, alpha: 1.0).cgColor
+        trackLayer.fillColor = nil
+        trackLayer.lineWidth = 1.0
+        trackLayer.strokeEnd = 1.0
+        root.addSublayer(trackLayer)
+
+        // Bright progress — partial border (the "filled gauge")
+        progressLayer.path = path
+        progressLayer.strokeColor = NSColor(
+            displayP3Red: 0, green: 0.831, blue: 1.0, alpha: 0.8
+        ).cgColor
+        progressLayer.fillColor = nil
+        progressLayer.lineWidth = 1.5
+        progressLayer.strokeEnd = 0
+        progressLayer.lineCap = .round
+        root.addSublayer(progressLayer)
+
+        // Subtle "P" text
+        textLayer.string = "P"
+        textLayer.font = NSFont.boldSystemFont(ofSize: 9)
+        textLayer.fontSize = 9
+        textLayer.foregroundColor = NSColor(white: 1.0, alpha: 0.4).cgColor
+        textLayer.alignmentMode = .center
+        textLayer.contentsScale = 2.0
+        let textH: CGFloat = 12
+        textLayer.frame = CGRect(
+            x: 0, y: (bounds.height - textH) / 2,
+            width: bounds.width, height: textH
+        )
+        root.addSublayer(textLayer)
+    }
+
+    /// Rounded rect path starting at bottom-center, traced clockwise.
+    /// strokeEnd traces this path like a gas gauge filling up.
+    private func makeBorderPath() -> CGPath {
+        let rect = bounds.insetBy(dx: 1, dy: 1)
+        let r = cornerRadius
+        let path = CGMutablePath()
+
+        // Start at bottom-center
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        // Bottom-right corner
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY),
+                    tangent2End: CGPoint(x: rect.maxX, y: rect.minY + r),
+                    radius: r)
+        // Right side up, top-right corner
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
+                    tangent2End: CGPoint(x: rect.maxX - r, y: rect.maxY),
+                    radius: r)
+        // Top side left, top-left corner
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
+                    tangent2End: CGPoint(x: rect.minX, y: rect.maxY - r),
+                    radius: r)
+        // Left side down, bottom-left corner
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY),
+                    tangent2End: CGPoint(x: rect.minX + r, y: rect.minY),
+                    radius: r)
+        // Back to bottom-center
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+
+        return path
+    }
+
+    /// Change the button label (e.g. "P" ↔ "M").
+    func setLabel(_ text: String) {
+        textLayer.string = text
+    }
+
+    /// Flash the border bright momentarily before a transition.
+    func flash() {
+        let flashAnim = CABasicAnimation(keyPath: "strokeColor")
+        flashAnim.fromValue = NSColor.white.cgColor
+        flashAnim.toValue = progressLayer.strokeColor
+        flashAnim.duration = 0.4
+        flashAnim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        progressLayer.add(flashAnim, forKey: "flash")
+        trackLayer.add(flashAnim, forKey: "flash")
+
+        // Also flash background
+        let bgFlash = CABasicAnimation(keyPath: "backgroundColor")
+        bgFlash.fromValue = NSColor(white: 0.4, alpha: 0.9).cgColor
+        bgFlash.toValue = layer?.backgroundColor
+        bgFlash.duration = 0.4
+        bgFlash.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer?.add(bgFlash, forKey: "bgFlash")
+    }
+
+    /// Fade the entire button to 0 alpha over the given duration.
+    func fadeOut(duration: TimeInterval) {
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .linear)
+            self.animator().alphaValue = 0
+        }
+    }
+
+    /// Cancel any in-progress fade and restore full opacity.
+    func cancelFadeOut() {
+        NSAnimationContext.beginGrouping()
+        NSAnimationContext.current.duration = 0
+        animator().alphaValue = 1.0
+        NSAnimationContext.endGrouping()
+        alphaValue = 1.0
+    }
+
+    // MARK: - Expand / Collapse Animation
+
+    private static let collapsedFrame = NSRect(x: 2, y: 4, width: 24, height: 22)
+    private static let expandedFrame = NSRect(x: 0, y: 0, width: 30, height: 30)
+
+    /// Expand from subtle P to full-height M button with spring animation.
+    func expand(completion: (() -> Void)? = nil) {
+        let target = Self.expandedFrame
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.35
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().frame = target
+        }, completionHandler: { [weak self] in
+            self?.rebuildLayers()
+            // Text gets bigger and brighter for M mode
+            self?.textLayer.fontSize = 12
+            self?.textLayer.foregroundColor = NSColor(white: 1.0, alpha: 0.8).cgColor
+            let textH: CGFloat = 15
+            self?.textLayer.frame = CGRect(
+                x: 0, y: (target.height - textH) / 2,
+                width: target.width, height: textH
+            )
+            completion?()
+        })
+    }
+
+    /// Collapse back to subtle P button size.
+    func collapse() {
+        let target = Self.collapsedFrame
+        // Shrink text first
+        textLayer.fontSize = 9
+        textLayer.foregroundColor = NSColor(white: 1.0, alpha: 0.4).cgColor
+        let textH: CGFloat = 12
+        textLayer.frame = CGRect(
+            x: 0, y: (target.height - textH) / 2,
+            width: target.width, height: textH
+        )
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.25
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            self.animator().frame = target
+        }, completionHandler: { [weak self] in
+            self?.rebuildLayers()
+        })
+    }
+
+    /// Rebuild shape layers to match current bounds after resize.
+    func rebuildLayers() {
+        let path = makeBorderPath()
+        let currentStroke = progressLayer.presentation()?.strokeEnd
+            ?? progressLayer.strokeEnd
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        trackLayer.path = path
+        progressLayer.path = path
+        progressLayer.strokeEnd = currentStroke
+        CATransaction.commit()
+    }
+
+    @objc private func handleTap(_ gesture: NSClickGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        onTap?()
     }
 }

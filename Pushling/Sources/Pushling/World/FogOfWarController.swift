@@ -506,6 +506,34 @@ final class FogOfWarController {
         )
     }
 
+    // MARK: - Ceremony Visibility
+
+    /// Hide or show all fog panels for ceremonies (hatching, evolution).
+    /// When hidden, the entire Touch Bar landscape is visible.
+    func setHiddenForCeremony(_ hidden: Bool) {
+        leftPanel.isHidden = hidden
+        rightPanel.isHidden = hidden
+        leftGradient.isHidden = hidden
+        rightGradient.isHidden = hidden
+        leftDim.isHidden = hidden
+        rightDim.isHidden = hidden
+    }
+
+    // MARK: - Visibility Query
+
+    /// Returns the screen-space X range currently visible around the creature.
+    /// Used by CommitEatingAnimation to spawn text at the fog edge.
+    func visibleScreenRange(creatureScreenX: CGFloat) -> (left: CGFloat, right: CGFloat) {
+        guard !isFogDisabled else {
+            return (left: 0, right: FogOfWarController.sceneWidth)
+        }
+        let visRadius = config.visibilityRadius * currentZoom
+        return (
+            left: creatureScreenX - visRadius,
+            right: creatureScreenX + visRadius
+        )
+    }
+
     // MARK: - Node Count
 
     var nodeCount: Int {

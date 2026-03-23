@@ -164,6 +164,7 @@ final class AutonomousLayer: BehaviorLayer {
     /// Sync position from external source (e.g., after physics boundary clamping)
     func syncPosition(_ x: CGFloat) {
         currentX = x
+        destinationX = x
     }
 
     // MARK: - State Machine

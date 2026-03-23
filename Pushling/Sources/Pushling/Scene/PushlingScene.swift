@@ -79,6 +79,10 @@ final class PushlingScene: SKScene {
     /// During hatching, normal creature behaviors are suppressed and the
     /// HatchingCeremony drives the scene update loop instead.
     private(set) var isHatching: Bool = false
+    /// Tracks whether we've hidden the P button after flight (prevents repeated calls).
+    private var hatchPButtonHidden = false
+    /// Tracks whether the P button flight has started (show it at flight start).
+    private var hatchFlightStarted = false
 
     /// The active hatching ceremony, if running.
     private(set) var hatchingCeremony: HatchingCeremony?
@@ -169,6 +173,10 @@ final class PushlingScene: SKScene {
             streakDays: 0,
             stageColor: PushlingPalette.stageColor(for: hudStage)
         ))
+
+        // Set initial P button progress
+        let initFraction = CGFloat(hudXP % 100) / 100.0
+        (self.view as? TouchBarView)?.updateEvolutionProgress(initFraction)
     }
 
     // MARK: - Update Loop
@@ -190,6 +198,35 @@ final class PushlingScene: SKScene {
         // During hatching, only pump the ceremony — suppress all normal systems.
         if isHatching {
             hatchingCeremony?.update(deltaTime: deltaTime)
+
+            if let flightX = hatchingCeremony?.flightScreenX {
+                let tbView = self.view as? TouchBarView
+
+                // Show P button and hide fog at flight start
+                if !hatchFlightStarted {
+                    hatchFlightStarted = true
+                    tbView?.movePButton(toX: flightX, yOffset: 0)
+                    tbView?.setPButtonHidden(false, instant: true)
+                    // Hide fog entirely — full landscape visible during flight.
+                    // The P button (AppKit) flies above the scene as a lit beacon.
+                    worldManager.fogOfWar?.setHiddenForCeremony(true)
+                }
+
+                // P button is flying — move it with wobble
+                let elapsed = hatchingCeremony?.elapsed ?? 0
+                let yWobble = sin(elapsed * 5.0) * 4.0
+                tbView?.movePButton(toX: flightX, yOffset: CGFloat(yWobble))
+
+            } else if !hatchPButtonHidden && hatchFlightStarted {
+                // Flight just ended — hide P button for crack sequence.
+                // Fog stays hidden so crack/emergence is fully visible.
+                hatchPButtonHidden = true
+                let tbView = self.view as? TouchBarView
+                tbView?.setPButtonHidden(true)
+            }
+            // Fog stays hidden through all hatching phases (flight, crack,
+            // emergence, naming). Restored in exitHatchingMode().
+
             frameBudgetMonitor.endFrame()
             return
         }
@@ -612,6 +649,11 @@ final class PushlingScene: SKScene {
         state.currentXP = currentXP
         state.xpToNext = xpToNext
         hudOverlay.updateState(state)
+
+        // Update P button progress fill
+        let fraction = xpToNext > 0
+            ? CGFloat(currentXP) / CGFloat(xpToNext) : 0
+        (self.view as? TouchBarView)?.updateEvolutionProgress(fraction)
     }
 
     // MARK: - Satisfaction Change Integration (P3-T3-08)
@@ -628,6 +670,8 @@ final class PushlingScene: SKScene {
     /// Called by GameCoordinator when no creature is hatched.
     func enterHatchingMode() {
         isHatching = true
+        hatchPButtonHidden = false
+        hatchFlightStarted = false
 
         // Hide creature node — it shouldn't be visible during the ceremony
         creatureNode?.isHidden = true
@@ -637,15 +681,25 @@ final class PushlingScene: SKScene {
         evolutionProgressBar.hideForCeremony()
         diamondIndicator?.isHidden = true
 
+        // Hide P button during montage — it will fly in during materialization
+        (self.view as? TouchBarView)?.setPButtonHidden(true)
+
         // Create and store the ceremony
         let ceremony = HatchingCeremony(scene: self)
         self.hatchingCeremony = ceremony
 
-        // Darken background to void (it's already black for OLED)
-        // World should not scroll or render terrain during hatching
-        worldManager.parallax.farLayer?.isHidden = true
-        worldManager.parallax.midLayer?.isHidden = true
-        worldManager.parallax.foreLayer?.isHidden = true
+        // Reset explored ranges so everything starts as total darkness.
+        worldManager.fogOfWar?.exploredRanges.reset()
+
+        // Force fog to cover everything: position at scene center with
+        // visibility radius 0 effectively. Use the scene midpoint so both
+        // panels extend fully off-screen in their respective directions.
+        worldManager.updateFogOfWar(
+            creatureScreenX: size.width / 2,
+            creatureWorldX: size.width / 2,
+            zoom: 0.001,  // Near-zero zoom = near-zero visibility radius
+            deltaTime: 0
+        )
 
         NSLog("[Pushling/Scene] Entered hatching mode")
     }
@@ -662,8 +716,15 @@ final class PushlingScene: SKScene {
             sporeNode.removeFromParent()
         }
 
-        // Show creature node
+        // Show creature node at the left side (near P button)
         creatureNode?.isHidden = false
+        creatureWorldX = 54  // Near P button, not center
+
+        // Start camera at center so creature appears at screen-left.
+        // Smooth follow will gradually pan the camera to center on the
+        // creature over 5 seconds — the creature "explores" from left to center.
+        cameraController.baseWorldX = size.width / 2
+        cameraController.smoothFollowRemaining = 5.0
 
         // Restore HUD and progress bar
         hudOverlay.rootNode.isHidden = false
@@ -674,6 +735,15 @@ final class PushlingScene: SKScene {
         worldManager.parallax.farLayer?.isHidden = false
         worldManager.parallax.midLayer?.isHidden = false
         worldManager.parallax.foreLayer?.isHidden = false
+
+        // Restore fog panels and reset explored ranges
+        worldManager.fogOfWar?.setHiddenForCeremony(false)
+        worldManager.fogOfWar?.exploredRanges.reset()
+
+        // Reset P button to normal position and show with fade-in
+        let tbView = self.view as? TouchBarView
+        tbView?.resetPButtonPosition()
+        tbView?.setPButtonHidden(false)
 
         // Clear ceremony reference
         hatchingCeremony = nil

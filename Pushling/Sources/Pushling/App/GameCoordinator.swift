@@ -335,7 +335,8 @@ final class GameCoordinator {
                 // Trigger eating animation
                 if let creature = self.scene.creatureNode {
                     self.eatingAnimation.configure(creature: creature,
-                                                     scene: self.scene)
+                                                     scene: self.scene,
+                                                     fogController: self.scene.worldManager.fogOfWar)
                     let sha = commitData["sha"] as? String ?? "unknown"
                     let message = commitData["message"] as? String ?? ""
                     let repo = commitData["repo_name"] as? String ?? "unknown"

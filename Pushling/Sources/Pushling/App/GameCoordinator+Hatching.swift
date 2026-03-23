@@ -106,16 +106,18 @@ extension GameCoordinator {
         saveHatchedCreature(name: name, personality: personality,
                              visualTraits: visualTraits)
 
-        // 3. Configure creature node for spore stage
+        // 3. Configure creature node for spore stage and position near P button
         scene.creatureNode?.configureForStage(.spore)
+        scene.creatureNode?.position = CGPoint(x: 54, y: SceneConstants.groundY)
 
         // 4. Update behavior stack for spore stage
         if let stack = scene.behaviorStack {
             stack.personality = personality.toSnapshot()
             stack.stage = .spore
+            // Start creature near the P button (left edge) where it emerged
             stack.reset(
                 stage: .spore,
-                position: CGPoint(x: 542.5, y: SceneConstants.groundY),
+                position: CGPoint(x: 54, y: SceneConstants.groundY),
                 facing: .right
             )
         }

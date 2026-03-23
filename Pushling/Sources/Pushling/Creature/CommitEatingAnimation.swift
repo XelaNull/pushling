@@ -45,7 +45,9 @@ final class CommitEatingAnimation {
 
     private weak var creature: CreatureNode?
     private weak var scene: SKScene?
+    private weak var fogController: FogOfWarController?
     private var crumbEmitter: SKEmitterNode?
+    private var statsLabel: SKLabelNode?
     private var xpLabel: SKLabelNode?
 
     // MARK: - Callbacks
@@ -57,9 +59,11 @@ final class CommitEatingAnimation {
 
     init() {}
 
-    func configure(creature: CreatureNode, scene: SKScene) {
+    func configure(creature: CreatureNode, scene: SKScene,
+                   fogController: FogOfWarController? = nil) {
         self.creature = creature
         self.scene = scene
+        self.fogController = fogController
 
         let emitter = SKEmitterNode()
         emitter.particleLifetime = 0.4
@@ -96,23 +100,23 @@ final class CommitEatingAnimation {
         self.eatTimer = 0
         self.charsEatenSinceSwallow = 0
 
-        // Eating speed — slower so each char is visible
+        // Eating speed — savored, not rushed. Commits may be rare; make them last.
         switch commitType {
         case .largeRefactor, .hugeRefactor:
-            msPerChar = 160   // Goblin mode — fast but readable
+            msPerChar = 400   // Goblin mode — fast but readable
         case .test:
-            msPerChar = 400   // Crunchy
+            msPerChar = 1000  // Crunchy
         case .lazyMessage:
-            msPerChar = 600   // Reluctant chewing
+            msPerChar = 1400  // Reluctant chewing
         default:
-            // Scale with commit size: small=550ms, medium=400ms, large=250ms
+            // Scale with commit size: small=1200ms, medium=900ms, large=600ms
             let lines = commit.totalLines
             if lines < 20 {
-                msPerChar = 550
+                msPerChar = 1200
             } else if lines < 100 {
-                msPerChar = 400
+                msPerChar = 900
             } else {
-                msPerChar = 250
+                msPerChar = 600
             }
         }
 
@@ -144,16 +148,21 @@ final class CommitEatingAnimation {
         let creatureScene = creatureScenePosition()
         let creatureX = creatureScene.x
 
-        // Spawn text on the OPPOSITE side from creature, so it floats toward it
+        // Spawn text from the side with more visible space so it's readable.
+        // When the fog of war is small this ensures maximum float distance.
+        // Letters always eat from the side closest to the creature.
+        let fogRange = fogController?.visibleScreenRange(creatureScreenX: creatureX)
+        let leftSpace = creatureX - (fogRange?.left ?? 0)
+        let rightSpace = (fogRange?.right ?? SceneConstants.sceneWidth) - creatureX
         let spawnX: CGFloat
-        if creatureX > SceneConstants.sceneWidth / 2 {
-            // Creature is on the RIGHT — text spawns from LEFT, creature eats from RIGHT end
-            spawnX = -10
-            eatingFromLeft = false  // Eat from the right end (closest to creature)
+        if rightSpace >= leftSpace {
+            // More room on the right — text spawns from RIGHT fog edge, floats left
+            spawnX = fogRange?.right ?? (SceneConstants.sceneWidth + 10)
+            eatingFromLeft = true  // Eat from left end (closest to creature)
         } else {
-            // Creature is on the LEFT — text spawns from RIGHT, creature eats from LEFT end
-            spawnX = SceneConstants.sceneWidth + 10
-            eatingFromLeft = true  // Eat from the left end (closest to creature)
+            // More room on the left — text spawns from LEFT fog edge, floats right
+            spawnX = fogRange?.left ?? -10
+            eatingFromLeft = false  // Eat from right end (closest to creature)
         }
 
         // Position at creature's height (in scene coordinates), clamped to Touch Bar.
@@ -231,7 +240,7 @@ final class CommitEatingAnimation {
         }
         textNode.position.x += direction * driftSpeed * CGFloat(deltaTime)
 
-        // Stop when text reaches the creature (within 40pt)
+        // Stop when text is right next to the creature (within 15pt)
         // Text node position is its left edge, so account for text width
         let textWidth = CGFloat(textNode.charNodes.count) * textNode.activeSpacing
         let effectiveDistance: CGFloat
@@ -242,7 +251,7 @@ final class CommitEatingAnimation {
             // Text approaching from left, creature on right — check right edge of text
             effectiveDistance = abs((textNode.position.x + textWidth) - creatureX)
         }
-        if effectiveDistance < 40 {
+        if effectiveDistance < 15 {
             phase = .notice
             phaseTimer = 0
         }
@@ -250,7 +259,7 @@ final class CommitEatingAnimation {
         // Safety timeout: if still not there after 6s, snap to creature
         if phaseTimer >= 6.0 {
             let snapX = creatureScenePosition().x
-            textNode.position.x = snapX + (eatingFromLeft ? 30 : -30)
+            textNode.position.x = snapX + (eatingFromLeft ? 12 : -12)
             phase = .notice
             phaseTimer = 0
         }
@@ -374,14 +383,14 @@ final class CommitEatingAnimation {
                 creature.run(swallow, withKey: "swallow")
             }
 
-            // Shake remaining text toward creature
+            // Slide remaining text toward creature to stay close
             if let textNode = self.textNode {
-                let shakeDir: CGFloat = eatingFromLeft ? -1 : 1
-                let shake = SKAction.sequence([
-                    .moveBy(x: shakeDir * 2, y: 0, duration: 0.03),
-                    .moveBy(x: shakeDir * -2, y: 0, duration: 0.03)
-                ])
-                textNode.run(shake, withKey: "eatShake")
+                let slideDir: CGFloat = eatingFromLeft ? -1 : 1
+                let charWidth = textNode.activeSpacing
+                let slide = SKAction.moveBy(x: slideDir * charWidth,
+                                            y: 0, duration: 0.15)
+                slide.timingMode = .easeOut
+                textNode.run(slide, withKey: "eatSlide")
             }
         }
 
@@ -446,7 +455,9 @@ final class CommitEatingAnimation {
         }
     }
 
-    // MARK: - Phase 4: Reaction (2.5s)
+    // MARK: - Phase 4: Reaction
+    // Sequence: gulp → stats float up → XP float up → speech → done
+    // Total duration ~12s for a leisurely post-meal moment.
 
     private func updateReaction(deltaTime: TimeInterval) {
         guard let creature = creature, let scene = scene else { return }
@@ -460,17 +471,22 @@ final class CommitEatingAnimation {
             creature.run(gulp, withKey: "finalSwallow")
         }
 
-        // XP float at 0.3s
+        // Commit stats float at 0.3s
         if phaseTimer >= 0.3 && phaseTimer - deltaTime < 0.3 {
-            showXPFloat(scene: scene)
+            showStatsFloat(scene: scene)
             creature.eyeLeftController?.setState("open", duration: 0.2)
             creature.eyeRightController?.setState("open", duration: 0.2)
+        }
+
+        // XP float at 5.0s (after stats have had time to linger)
+        if phaseTimer >= 5.0 && phaseTimer - deltaTime < 5.0 {
+            showXPFloat(scene: scene)
             creature.earLeftController?.setState("neutral", duration: 0.3)
             creature.earRightController?.setState("neutral", duration: 0.3)
         }
 
-        // Speech reaction at 0.6s
-        if phaseTimer >= 0.6 && phaseTimer - deltaTime < 0.6 {
+        // Speech reaction at 5.5s
+        if phaseTimer >= 5.5 && phaseTimer - deltaTime < 5.5 {
             let reaction: String
             if creature.currentStage >= .beast {
                 reaction = commitType.speechReaction
@@ -483,17 +499,31 @@ final class CommitEatingAnimation {
             onSpeechReaction?(reaction)
         }
 
-        // Float XP label
+        // Float stats label — gentle rise and slow fade
+        if let statsLabel = statsLabel {
+            statsLabel.position.y += CGFloat(deltaTime) * 0.8
+            statsLabel.alpha -= CGFloat(deltaTime) / 10.0
+            if statsLabel.alpha <= 0 {
+                statsLabel.removeFromParent()
+                self.statsLabel = nil
+            }
+        }
+
+        // Float XP label — gentle rise and slow fade
         if let xpLabel = xpLabel {
-            xpLabel.position.y += CGFloat(deltaTime) * 4
-            xpLabel.alpha -= CGFloat(deltaTime) / 3.5
+            xpLabel.position.y += CGFloat(deltaTime) * 0.8
+            xpLabel.alpha -= CGFloat(deltaTime) / 10.0
             if xpLabel.alpha <= 0 {
                 xpLabel.removeFromParent()
                 self.xpLabel = nil
             }
         }
 
-        if phaseTimer >= 3.5 {
+        if phaseTimer >= 12.0 {
+            statsLabel?.removeFromParent()
+            statsLabel = nil
+            xpLabel?.removeFromParent()
+            xpLabel = nil
             textNode?.resetAll()
             textNode?.removeFromParent()
             textNode = nil
@@ -503,10 +533,43 @@ final class CommitEatingAnimation {
         }
     }
 
+    private func showStatsFloat(scene: SKScene) {
+        guard let commit = commitData, let creature = creature else { return }
+
+        // Build stats string: "3 files +42 -15"
+        var parts: [String] = []
+        if commit.filesChanged > 0 {
+            let noun = commit.filesChanged == 1 ? "file" : "files"
+            parts.append("\(commit.filesChanged) \(noun)")
+        }
+        if commit.linesAdded > 0 {
+            parts.append("+\(commit.linesAdded)")
+        }
+        if commit.linesRemoved > 0 {
+            parts.append("-\(commit.linesRemoved)")
+        }
+        guard !parts.isEmpty else { return }
+
+        let label = SKLabelNode(fontNamed: "SFProText-Bold")
+        label.fontSize = 9
+        label.fontColor = PushlingPalette.tide
+        label.text = parts.joined(separator: " ")
+        label.horizontalAlignmentMode = .center
+        label.verticalAlignmentMode = .center
+        let creatureH = StageConfiguration.all[creature.currentStage]?.size.height ?? 16
+        let creatureScene = creatureScenePosition()
+        let statsY = min(creatureScene.y + creatureH / 2 + 4,
+                         SceneConstants.sceneHeight - 5)
+        label.position = CGPoint(x: creatureScene.x, y: statsY)
+        label.zPosition = 38
+        scene.addChild(label)
+        self.statsLabel = label
+    }
+
     private func showXPFloat(scene: SKScene) {
         guard let xpResult = xpResult, let creature = creature else { return }
         let label = SKLabelNode(fontNamed: "SFProText-Bold")
-        label.fontSize = 7
+        label.fontSize = 10
         label.fontColor = PushlingPalette.gilt
         label.text = xpResult.displayString
         label.horizontalAlignmentMode = .center
@@ -543,6 +606,8 @@ final class CommitEatingAnimation {
         textNode?.removeFromParent()
         textNode = nil
         crumbEmitter?.removeFromParent()
+        statsLabel?.removeFromParent()
+        statsLabel = nil
         xpLabel?.removeFromParent()
         xpLabel = nil
         phase = .idle

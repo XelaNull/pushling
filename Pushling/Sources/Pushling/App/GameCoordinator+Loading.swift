@@ -430,7 +430,8 @@ extension GameCoordinator {
 
     func wireEatingAnimation() {
         if let creature = scene.creatureNode {
-            eatingAnimation.configure(creature: creature, scene: scene)
+            eatingAnimation.configure(creature: creature, scene: scene,
+                                     fogController: scene.worldManager.fogOfWar)
         }
         NSLog("[Pushling/Coordinator] Eating animation wired")
     }

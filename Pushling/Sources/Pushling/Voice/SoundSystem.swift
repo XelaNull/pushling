@@ -77,6 +77,9 @@ final class SoundSystem {
     /// Whether the sound engine is running.
     private(set) var isRunning: Bool = false
 
+    /// Whether all sound is muted. When true, play() calls are silently ignored.
+    var isMuted: Bool = false
+
     /// Whether any sound is currently playing.
     var isPlaying: Bool {
         lock.lock()
@@ -141,6 +144,7 @@ final class SoundSystem {
     /// Play an ambient sound. If already playing (looping), does nothing.
     /// For one-shot sounds, re-triggers from the beginning.
     func play(_ type: SoundType, action: SoundAction = .play) {
+        guard !isMuted || action == .stop else { return }
         switch action {
         case .play:
             startSound(type)
