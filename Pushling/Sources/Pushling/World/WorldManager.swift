@@ -27,7 +27,7 @@ struct WorldConfig {
     var initialCreatureX: CGFloat = 542.5
 
     /// Initial creature stage (for visual complexity gating).
-    var creatureStage: GrowthStage = .spore
+    var creatureStage: GrowthStage = .egg
 }
 
 // MARK: - WorldManager

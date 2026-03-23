@@ -262,7 +262,7 @@ final class CommandRouter {
     func buildCreatureSnapshot() -> [String: Any] {
         guard let gc = gameCoordinator else {
             return [
-                "name": "Pushling", "stage": "spore", "xp": 0,
+                "name": "Pushling", "stage": "egg", "xp": 0,
                 "personality": ["energy": 0.5, "verbosity": 0.5,
                                 "focus": 0.5, "discipline": 0.5,
                                 "specialty": "unknown"] as [String: Any],

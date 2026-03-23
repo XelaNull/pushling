@@ -241,7 +241,7 @@ extension CommandRouter {
         let xp = gc.totalXP
 
         let thresholds: [GrowthStage: Int] = [
-            .spore: 0, .drop: 100, .critter: 500,
+            .egg: 0, .drop: 100, .critter: 500,
             .beast: 2000, .sage: 8000, .apex: 20000
         ]
 

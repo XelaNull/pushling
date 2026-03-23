@@ -248,7 +248,7 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
             // Stage-specific easter egg
             let secret: String
             switch creatureStage {
-            case .spore:   secret = "pulse"
+            case .egg:   secret = "pulse"
             case .drop:    secret = "belly_expose"
             case .critter: secret = "zoomies"
             case .beast:   secret = "map_reveal"

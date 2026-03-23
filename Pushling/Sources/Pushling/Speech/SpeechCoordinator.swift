@@ -60,7 +60,7 @@ final class SpeechCoordinator {
 
     // MARK: - State
 
-    private(set) var currentStage: GrowthStage = .spore
+    private(set) var currentStage: GrowthStage = .egg
     private var personality: PersonalitySnapshot = .neutral
     private var creatureName: String = "Pushling"
 
@@ -122,7 +122,7 @@ final class SpeechCoordinator {
     /// This is the primary API for all speech operations.
     func speak(_ request: SpeechRequest) -> SpeechResponse {
         // Gate: Spore cannot speak
-        if currentStage == .spore {
+        if currentStage == .egg {
             return SpeechResponse(
                 ok: false, spoken: "", intended: request.text,
                 filtered: false, contentLossPercent: 0,

@@ -528,7 +528,7 @@ final class EvolutionCeremony {
             creature.eyeLeftController?.setState("wide", duration: 0.3)
             creature.eyeRightController?.setState("wide", duration: 0.3)
 
-        case .spore:
+        case .egg:
             break // Can't evolve TO spore
         }
     }

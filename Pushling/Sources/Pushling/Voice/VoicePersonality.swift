@@ -18,7 +18,7 @@ enum VoiceTier: String, Codable {
     /// Tier for a given growth stage.
     static func forStage(_ stage: GrowthStage) -> VoiceTier? {
         switch stage {
-        case .spore:   return nil         // Silent
+        case .egg:   return nil         // Silent
         case .drop:    return .babble
         case .critter: return .emerging
         case .beast, .sage, .apex: return .speaking
@@ -175,7 +175,7 @@ enum VoicePersonalityCalculator {
         stage: GrowthStage
     ) -> Double {
         switch stage {
-        case .spore, .drop: return 0.0   // No EQ for chirps
+        case .egg, .drop: return 0.0   // No EQ for chirps
         case .critter:      return 2.0
         case .beast:        return 3.0
         case .sage:         return 3.5   // Warmer, deeper

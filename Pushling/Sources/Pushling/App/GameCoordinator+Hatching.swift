@@ -42,7 +42,8 @@ extension GameCoordinator {
         self.activeHatchingCeremony = ceremony
         ceremony.begin()
 
-        // 3. Wire completion handler BEFORE starting scan
+        // 3. Wire completion handler — egg hatches with neutral personality
+        // (real personality computed later from commits via EggAccumulator)
         ceremony.onComplete = { [weak self] name, personality, visualTraits in
             guard let self = self else { return }
             self.completeHatching(
@@ -52,34 +53,13 @@ extension GameCoordinator {
             )
         }
 
-        // 4. Launch git scanner on background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = GitHistoryScanner.scan()
-
-            // Feed results back on the main thread (SpriteKit requirement)
-            DispatchQueue.main.async {
-                guard let self = self,
-                      let ceremony = self.activeHatchingCeremony else {
-                    return
-                }
-
-                // Don't feed if ceremony already completed
-                guard !ceremony.isComplete else { return }
-
-                if result.totalCommits > 0 {
-                    ceremony.feedScanResult(result)
-                } else {
-                    ceremony.feedEmptyResult()
-                }
-
-                NSLog("[Pushling/Coordinator] Git scan results fed to "
-                      + "ceremony — %d repos, %d commits",
-                      result.repoCount, result.totalCommits)
-            }
-        }
+        // No git scanner — personality will be learned progressively
+        // from commits during the egg stage via EggAccumulator.
+        // Initialize the accumulator for the egg stage.
+        self.eggAccumulator = EggAccumulator()
 
         NSLog("[Pushling/Coordinator] Hatching ceremony started — "
-              + "git scanner running in background")
+              + "egg will learn from commits")
     }
 }
 
@@ -99,7 +79,7 @@ extension GameCoordinator {
         self.creatureName = name
         self.personality = personality
         self.visualTraits = visualTraits
-        self.creatureStage = .spore
+        self.creatureStage = .egg
         self.totalXP = 0
         self.isHatched = true
 
@@ -109,29 +89,29 @@ extension GameCoordinator {
 
         // 3. Configure creature node for spore stage and position near P button
         scene.creatureNode?.visualTraits = visualTraits
-        scene.creatureNode?.configureForStage(.spore)
+        scene.creatureNode?.configureForStage(.egg)
         scene.creatureNode?.position = CGPoint(x: 54, y: SceneConstants.groundY)
 
         // 4. Update behavior stack for spore stage
         if let stack = scene.behaviorStack {
             stack.personality = personality.toSnapshot()
-            stack.stage = .spore
+            stack.stage = .egg
             // Start creature near the P button (left edge) where it emerged
             stack.reset(
-                stage: .spore,
+                stage: .egg,
                 position: CGPoint(x: 54, y: SceneConstants.groundY),
                 facing: .right
             )
         }
 
         // 5. Update world for spore stage
-        scene.worldManager.onStageChanged(.spore)
+        scene.worldManager.onStageChanged(.egg)
 
         // 6. Reconfigure speech coordinator with real creature data
         if let creature = scene.creatureNode {
             speechCoordinator.configure(
                 creature: creature,
-                stage: .spore,
+                stage: .egg,
                 personality: personality.toSnapshot(),
                 creatureName: name,
                 speechCache: speechCache,
@@ -140,14 +120,14 @@ extension GameCoordinator {
         }
 
         // 7. Update voice system for spore (silent tier)
-        voiceSystem.initialize(stage: .spore,
+        voiceSystem.initialize(stage: .egg,
                                 personality: personality.toSnapshot())
-        voiceIntegration.configure(stage: .spore,
+        voiceIntegration.configure(stage: .egg,
                                      personality: personality.toSnapshot(),
                                      commitsEaten: 0)
 
         // 8. Update HUD with real data
-        scene.onCreatureStageChanged(.spore)
+        scene.onCreatureStageChanged(.egg)
 
         // 9. Tell scene to exit hatching mode
         scene.exitHatchingMode()
@@ -170,7 +150,7 @@ extension GameCoordinator {
             try db.execute("""
                 UPDATE creature SET
                     name = ?,
-                    stage = 'spore',
+                    stage = 'egg',
                     commits_eaten = 0,
                     xp = 0,
                     energy_axis = ?,
@@ -245,5 +225,63 @@ extension GameCoordinator {
         completeHatching(name: name,
                           personality: personality,
                           visualTraits: visualTraits)
+    }
+
+    // MARK: - Egg → Drop Evolution
+
+    /// Called when the egg has absorbed enough commits (5) to hatch into a
+    /// styled Drop. Computes personality and visual traits from accumulated
+    /// commit data, then triggers the evolution ceremony.
+    func hatchEggIntoDrop() {
+        guard let accumulator = eggAccumulator else {
+            NSLog("[Pushling/Coordinator] hatchEggIntoDrop called but no accumulator")
+            return
+        }
+
+        NSLog("[Pushling/Coordinator] Egg ready to hatch — %d commits absorbed",
+              accumulator.commitCount)
+
+        // Compute personality and traits from accumulated commits
+        let personality = accumulator.computePersonality()
+        let visualTraits = accumulator.computeVisualTraits()
+
+        // Update in-memory state
+        self.personality = personality
+        self.visualTraits = visualTraits
+        self.creatureStage = .drop
+
+        // Save to SQLite
+        PersonalityPersistence.save(personality, to: stateCoordinator.database)
+        PersonalityPersistence.saveVisualTraits(
+            visualTraits, to: stateCoordinator.database)
+
+        // Update creature appearance for Drop stage
+        scene.creatureNode?.visualTraits = visualTraits
+        scene.creatureNode?.configureForStage(.drop)
+
+        // Update behavior stack
+        if let stack = scene.behaviorStack {
+            stack.personality = personality.toSnapshot()
+            stack.stage = .drop
+        }
+
+        // Update all subsystems for new stage
+        scene.worldManager.onStageChanged(.drop)
+        scene.onCreatureStageChanged(.drop)
+
+        // Update voice for Drop stage
+        voiceSystem.initialize(stage: .drop,
+                                personality: personality.toSnapshot())
+
+        // Clear the accumulator — no longer needed
+        eggAccumulator = nil
+
+        // Persist stage change
+        persistXPAndStage()
+
+        NSLog("[Pushling/Coordinator] Egg hatched into Drop — "
+              + "specialty: %@, hue: %.2f",
+              personality.specialty.rawValue,
+              visualTraits.baseColorHue)
     }
 }

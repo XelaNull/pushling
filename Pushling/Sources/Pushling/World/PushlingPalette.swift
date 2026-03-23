@@ -129,7 +129,7 @@ enum PushlingPalette {
     /// Used for evolution progress bars, stage-specific UI accents.
     static func stageColor(for stage: GrowthStage) -> SKColor {
         switch stage {
-        case .spore:   return bone
+        case .egg:   return bone
         case .drop:    return tide
         case .critter: return moss
         case .beast:   return ember

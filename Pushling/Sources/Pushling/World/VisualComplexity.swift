@@ -29,7 +29,7 @@ enum ComplexityLevel: Int, Comparable {
     /// Map a GrowthStage to its complexity level.
     static func from(stage: GrowthStage) -> ComplexityLevel {
         switch stage {
-        case .spore:   return .void
+        case .egg:   return .void
         case .drop:    return .emerging
         case .critter: return .alive
         case .beast:   return .thriving
@@ -132,7 +132,7 @@ final class VisualComplexityController {
     private(set) var level: ComplexityLevel = .void
 
     /// The current creature stage.
-    private(set) var stage: GrowthStage = .spore
+    private(set) var stage: GrowthStage = .egg
 
     // MARK: - Cached Configurations
 

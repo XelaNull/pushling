@@ -148,7 +148,7 @@ final class PushlingScene: SKScene {
         var config = WorldConfig()
         config.specialty = "polyglot"
         config.initialCreatureX = creatureWorldX
-        config.creatureStage = gameCoordinator?.creatureStage ?? .spore
+        config.creatureStage = gameCoordinator?.creatureStage ?? .egg
         worldManager.setup(scene: self, config: config,
                           db: DatabaseManager.shared)
     }
@@ -163,7 +163,7 @@ final class PushlingScene: SKScene {
         evolutionProgressBar.addToScene(self)
 
         // Set initial HUD state from coordinator (or defaults for first launch)
-        let hudStage = gameCoordinator?.creatureStage ?? .spore
+        let hudStage = gameCoordinator?.creatureStage ?? .egg
         let hudXP = gameCoordinator?.totalXP ?? 0
         hudOverlay.updateState(HUDState(
             satisfaction: gameCoordinator?.emotionalState.satisfaction ?? 50.0,
@@ -478,7 +478,7 @@ final class PushlingScene: SKScene {
         let creature = CreatureNode()
 
         // Read stage from coordinator, falling back to spore for initial setup
-        let initialStage = gameCoordinator?.creatureStage ?? .spore
+        let initialStage = gameCoordinator?.creatureStage ?? .egg
         creature.configureForStage(initialStage)
 
         creature.position = CGPoint(x: creatureWorldX, y: 15)

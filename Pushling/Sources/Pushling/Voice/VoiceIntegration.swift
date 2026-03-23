@@ -37,7 +37,7 @@ final class VoiceIntegration {
     // MARK: - State
 
     /// Current growth stage (determines audio behavior).
-    private(set) var currentStage: GrowthStage = .spore
+    private(set) var currentStage: GrowthStage = .egg
 
     /// Current personality snapshot.
     private var personality: PersonalitySnapshot = .neutral
@@ -117,7 +117,7 @@ final class VoiceIntegration {
 
         // Stage-gated behavior
         switch stage {
-        case .spore:
+        case .egg:
             // Silent — no audio
             return
 

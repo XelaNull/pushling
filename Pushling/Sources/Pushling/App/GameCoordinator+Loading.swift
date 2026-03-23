@@ -484,7 +484,7 @@ extension GameCoordinator {
                 id: UUID().uuidString, name: name, trigger: trigger,
                 behavior: behavior, behaviorVariant: nil,
                 frequency: freq, variation: variation,
-                energyCost: 0.1, stageMin: .spore,
+                energyCost: 0.1, stageMin: .egg,
                 priority: 5, strength: strength,
                 reinforcementCount: reinforcement,
                 personalityConflict: false, lastFiredAt: nil,

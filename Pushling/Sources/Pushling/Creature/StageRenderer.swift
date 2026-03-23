@@ -58,7 +58,7 @@ enum StageRenderer {
         let hScaled = h * (1.05 - propScale * 0.1)   // 1.05x (lean) to 0.95x (round)
 
         switch stage {
-        case .spore:   return buildSpore(w: wScaled, h: hScaled, bodyColor: bodyColor)
+        case .egg:   return buildEgg(w: wScaled, h: hScaled, bodyColor: bodyColor)
         case .drop:    return buildDrop(w: wScaled, h: hScaled, bodyColor: bodyColor)
         case .critter: return buildCritter(w: wScaled, h: hScaled, bodyColor: bodyColor)
         case .beast:   return buildBeast(w: wScaled, h: hScaled, bodyColor: bodyColor)
@@ -67,45 +67,40 @@ enum StageRenderer {
         }
     }
 
-    // MARK: - Spore (6x6) — Glowing Orb
+    // MARK: - Egg (9x11) — Bouncy Oval
 
-    private static func buildSpore(w: CGFloat, h: CGFloat,
-                                     bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
-        let body = SKShapeNode(circleOfRadius: w / 2)
+    private static func buildEgg(w: CGFloat, h: CGFloat,
+                                   bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
+        // Egg shape — smooth oval, taller than wide, no features
+        let body = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
         body.fillColor = bodyColor
-        body.strokeColor = .clear
-        body.alpha = 0.9
+        body.strokeColor = SKColor(white: 0.7, alpha: 0.3)
+        body.lineWidth = 0.5
+        body.alpha = 0.95
         body.name = "body"
         body.zPosition = 10
 
-        // Spore has minimal features — faint eyes and proto-ear nubs
+        // Subtle inner glow — the life growing inside
+        let coreGlow = SKShapeNode(
+            ellipseOf: CGSize(width: w * 0.4, height: h * 0.4)
+        )
+        coreGlow.fillColor = bodyColor.withAlphaComponent(0.3)
+        coreGlow.strokeColor = .clear
+        coreGlow.name = "core_glow"
+        coreGlow.zPosition = 5
+        body.addChild(coreGlow)
+
+        // No head, eyes, ears, tail — just an egg
         let head = SKNode()
         head.name = "head"
         head.zPosition = 20
 
-        let (eyeL, eyeLShape) = makeEye(radius: 0.5, xOff: -1.0,
+        let (eyeL, eyeLShape) = makeEye(radius: 0.3, xOff: 0,
                                           yOff: 0, name: "eye_left")
-        eyeL.alpha = 0.3  // barely visible in spore
-        let (eyeR, eyeRShape) = makeEye(radius: 0.5, xOff: 1.0,
+        eyeL.alpha = 0  // invisible on egg
+        let (eyeR, eyeRShape) = makeEye(radius: 0.3, xOff: 0,
                                           yOff: 0, name: "eye_right")
-        eyeR.alpha = 0.3
-
-        head.addChild(eyeL)
-        head.addChild(eyeR)
-
-        // Proto-ear nubs — tiny circles hinting at future ears
-        let protoEarL = makeProtoEar(
-            radius: 0.5,
-            position: CGPoint(x: -1.5, y: w / 2 - 0.5),
-            alpha: 0.15
-        )
-        let protoEarR = makeProtoEar(
-            radius: 0.5,
-            position: CGPoint(x: 1.5, y: w / 2 - 0.5),
-            alpha: 0.15
-        )
-        head.addChild(protoEarL)
-        head.addChild(protoEarR)
+        eyeR.alpha = 0  // invisible on egg
 
         let particles = SKNode()
         particles.name = "particles"

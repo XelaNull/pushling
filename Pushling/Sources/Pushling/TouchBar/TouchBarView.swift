@@ -354,6 +354,29 @@ final class TouchBarView: SKView {
         }
     }
 
+    // MARK: - GitHub Consent Popup
+
+    private var githubPopup: GitHubConsentPopupView?
+
+    /// Show the GitHub consent popup on the Touch Bar.
+    func showGitHubConsent(onConsent: @escaping () -> Void,
+                           onDecline: @escaping () -> Void) {
+        let popup = GitHubConsentPopupView(
+            frame: NSRect(x: 30, y: 0, width: 330, height: 30))
+        popup.onConsent = { [weak self] in
+            onConsent()
+            self?.githubPopup?.removeFromSuperview()
+            self?.githubPopup = nil
+        }
+        popup.onDecline = { [weak self] in
+            onDecline()
+            self?.githubPopup?.removeFromSuperview()
+            self?.githubPopup = nil
+        }
+        addSubview(popup)
+        self.githubPopup = popup
+    }
+
     // MARK: - Evolution Progress
 
     /// Update the P button's evolution progress fill.

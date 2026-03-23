@@ -564,7 +564,7 @@ final class HatchingCeremony {
         spore.alpha = 0
         spore.name = "hatch_spore"
         scene.addChild(spore)
-        self.sporeNode = spore
+        self.eggNode = spore
 
         // Fade in from the crack
         spore.run(SKAction.fadeIn(withDuration: 0.4))

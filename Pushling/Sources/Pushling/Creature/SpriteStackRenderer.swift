@@ -57,7 +57,7 @@ final class SpriteStackRenderer {
     private var bodyHeight: CGFloat = 0
 
     /// The current growth stage.
-    private var stage: GrowthStage = .spore
+    private var stage: GrowthStage = .egg
 
     /// The resting Y position offset for each layer (no breath modulation).
     private var restOffsets: [CGFloat] = []
@@ -208,7 +208,7 @@ final class SpriteStackRenderer {
     /// - Returns: Total layer count (0, 3, 5, or 7).
     static func totalLayers(for stage: GrowthStage) -> Int {
         switch stage {
-        case .spore, .drop:
+        case .egg, .drop:
             return 0
         case .critter:
             return 3

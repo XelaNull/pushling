@@ -170,7 +170,7 @@ enum MigrationManager {
                 satisfaction, curiosity, contentment, emotional_energy,
                 streak_days, touch_count, hatched, created_at
             ) VALUES (
-                1, ?, 'spore', 0, 0, 100,
+                1, ?, 'egg', 0, 0, 100,
                 1.0,
                 0.5, 0.5, 0.5, 0.5,
                 'polyglot',

@@ -9,7 +9,7 @@ final class CreatureNode: SKNode {
 
     // MARK: - Current State
 
-    private(set) var currentStage: GrowthStage = .spore
+    private(set) var currentStage: GrowthStage = .egg
     private(set) var facing: Direction = .right
     private(set) var isSleeping = false
 

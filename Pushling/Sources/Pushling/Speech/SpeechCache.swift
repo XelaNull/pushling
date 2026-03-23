@@ -238,7 +238,7 @@ final class SpeechCache {
 
     private func parseStage(_ str: String) -> GrowthStage {
         switch str {
-        case "spore":   return .spore
+        case "egg":   return .egg
         case "drop":    return .drop
         case "critter": return .critter
         case "beast":   return .beast

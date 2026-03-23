@@ -294,3 +294,68 @@ final class MenuButton: NSView {
         onTap?()
     }
 }
+
+// MARK: - GitHub Consent Popup
+
+/// Popup asking for permission to check GitHub for richer personality data.
+/// Shows exactly what data will be accessed. Two buttons: Allow / No Thanks.
+final class GitHubConsentPopupView: NSView {
+
+    var onConsent: (() -> Void)?
+    var onDecline: (() -> Void)?
+
+    private let titleLabel = NSTextField(labelWithString: "Learn from GitHub?")
+    private let messageLabel = NSTextField(
+        labelWithString: "Check your repos & languages via gh CLI")
+    private let allowButton: MenuButton
+    private let declineButton: MenuButton
+
+    override init(frame: NSRect) {
+        allowButton = MenuButton(
+            frame: NSRect(x: frame.width - 90, y: 4, width: 40, height: 22),
+            label: "Allow"
+        )
+        declineButton = MenuButton(
+            frame: NSRect(x: frame.width - 46, y: 4, width: 44, height: 22),
+            label: "No thx"
+        )
+
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.92).cgColor
+        layer?.cornerRadius = 4
+        layer?.borderWidth = 1.0
+        layer?.borderColor = NSColor(white: 0.3, alpha: 0.6).cgColor
+
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .medium)
+
+        titleLabel.font = NSFont.boldSystemFont(ofSize: 9)
+        titleLabel.textColor = NSColor(
+            displayP3Red: 0, green: 0.831, blue: 1.0, alpha: 1.0)
+        titleLabel.backgroundColor = .clear
+        titleLabel.isBezeled = false
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+        titleLabel.frame = NSRect(x: 6, y: 15, width: 150, height: 12)
+        addSubview(titleLabel)
+
+        messageLabel.font = font
+        messageLabel.textColor = NSColor(white: 0.7, alpha: 1.0)
+        messageLabel.backgroundColor = .clear
+        messageLabel.isBezeled = false
+        messageLabel.isEditable = false
+        messageLabel.isSelectable = false
+        messageLabel.frame = NSRect(x: 6, y: 3, width: 200, height: 12)
+        addSubview(messageLabel)
+
+        allowButton.onTap = { [weak self] in self?.onConsent?() }
+        declineButton.onTap = { [weak self] in self?.onDecline?() }
+
+        addSubview(allowButton)
+        addSubview(declineButton)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) not implemented")
+    }
+}

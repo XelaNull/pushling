@@ -251,7 +251,7 @@ extension AppDelegate {
 
     // MARK: - Stage
 
-    @objc func debugSetSpore()   { ensureDebugActions().setStage(.spore) }
+    @objc func debugSetSpore()   { ensureDebugActions().setStage(.egg) }
     @objc func debugSetDrop()    { ensureDebugActions().setStage(.drop) }
     @objc func debugSetCritter() { ensureDebugActions().setStage(.critter) }
     @objc func debugSetBeast()   { ensureDebugActions().setStage(.beast) }

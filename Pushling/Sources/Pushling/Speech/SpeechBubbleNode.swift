@@ -366,7 +366,7 @@ final class SpeechBubbleNode: SKNode {
 
     private func bubbleMaxWidth(for stage: GrowthStage) -> CGFloat {
         switch stage {
-        case .spore: return 0;  case .drop: return 12
+        case .egg: return 0;  case .drop: return 12
         case .critter: return 40; case .beast: return 60
         case .sage: return 80;  case .apex: return 120
         }

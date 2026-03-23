@@ -25,7 +25,7 @@ struct CameraConstraints {
 
     static func constraints(for stage: GrowthStage) -> CameraConstraints {
         switch stage {
-        case .spore:
+        case .egg:
             // Closer than default but not so close that terrain overwhelms
             return CameraConstraints(
                 maxPanOffset: 0, minZoom: 1.3, maxZoom: 2.0,
@@ -116,7 +116,7 @@ final class CameraController {
     // MARK: - Stage Constraints
 
     /// Active camera constraints (driven by stage).
-    private(set) var constraints: CameraConstraints = .constraints(for: .spore)
+    private(set) var constraints: CameraConstraints = .constraints(for: .egg)
 
     /// Whether a constraint transition animation is in progress.
     private var isTransitioningConstraints = false

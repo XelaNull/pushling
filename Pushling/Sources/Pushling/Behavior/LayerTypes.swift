@@ -30,7 +30,7 @@ enum Direction: String, Codable {
 /// Growth stage gates for behavior availability.
 /// Mirrors Schema.validStages but as a Comparable enum for gate checks.
 enum GrowthStage: Int, Comparable, CaseIterable, Codable {
-    case spore = 0
+    case egg = 0
     case drop = 1
     case critter = 2
     case beast = 3
@@ -44,7 +44,7 @@ enum GrowthStage: Int, Comparable, CaseIterable, Codable {
     /// Base walk speed in points per second for this stage.
     var baseWalkSpeed: CGFloat {
         switch self {
-        case .spore:   return 0      // Spore floats, doesn't walk
+        case .egg:   return 3      // Egg hops slowly
         case .drop:    return 8
         case .critter: return 15
         case .beast:   return 25
@@ -56,7 +56,7 @@ enum GrowthStage: Int, Comparable, CaseIterable, Codable {
     /// Base run speed in points per second for this stage.
     var baseRunSpeed: CGFloat {
         switch self {
-        case .spore:   return 0
+        case .egg:   return 0
         case .drop:    return 0       // Drop can't run
         case .critter: return 30
         case .beast:   return 50

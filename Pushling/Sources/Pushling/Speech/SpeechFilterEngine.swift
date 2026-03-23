@@ -72,7 +72,7 @@ enum SpeechFilterEngine {
                         stage: GrowthStage,
                         personality: PersonalitySnapshot) -> SpeechFilterResult {
         // Spore: no speech at all
-        if stage == .spore {
+        if stage == .egg {
             return SpeechFilterResult(
                 filteredText: "",
                 originalText: text,
@@ -337,7 +337,7 @@ enum SpeechFilterEngine {
         _ stage: GrowthStage
     ) -> (maxChars: Int, maxWords: Int) {
         switch stage {
-        case .spore:   return (0, 0)
+        case .egg:   return (0, 0)
         case .drop:    return (3, 0)
         case .critter: return (20, 3)
         case .beast:   return (50, 8)

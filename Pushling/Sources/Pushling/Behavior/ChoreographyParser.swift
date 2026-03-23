@@ -373,7 +373,7 @@ enum ChoreographyParser {
 
     private static func parseStage(_ str: String) -> GrowthStage? {
         switch str.lowercased() {
-        case "spore":   return .spore
+        case "egg":   return .egg
         case "drop":    return .drop
         case "critter": return .critter
         case "beast":   return .beast

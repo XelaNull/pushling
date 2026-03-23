@@ -22,6 +22,9 @@ final class GameCoordinator {
     internal var totalXP: Int = 0
     internal var visualTraits: VisualTraits = .neutral
 
+    /// Accumulates commit data during the egg stage for progressive personality.
+    var eggAccumulator: EggAccumulator?
+
     // MARK: - Subsystems
 
     let emotionalState: EmotionalState
@@ -101,6 +104,11 @@ final class GameCoordinator {
         self.creatureStage = Self.loadStage(from: db)
         self.creatureName = Self.loadCreatureName(from: db)
         self.totalXP = Self.loadXP(from: db)
+
+        // Initialize egg accumulator if creature is still an egg
+        if creatureStage == .egg {
+            self.eggAccumulator = EggAccumulator()
+        }
 
         // --- A. Emotional State + Circadian ---
         self.emotionalState = EmotionalState.load(from: db)
@@ -336,36 +344,80 @@ final class GameCoordinator {
                 // Record in circadian cycle
                 self.circadianCycle.recordCommit(at: Date())
 
-                // Trigger eating animation
-                if let creature = self.scene.creatureNode {
-                    self.eatingAnimation.configure(creature: creature,
-                                                     scene: self.scene,
-                                                     fogController: self.scene.worldManager.fogOfWar)
-                    let sha = commitData["sha"] as? String ?? "unknown"
-                    let message = commitData["message"] as? String ?? ""
-                    let repo = commitData["repo_name"] as? String ?? "unknown"
-                    let isMerge = commitData["is_merge"] as? Bool ?? false
-                    let isRevert = commitData["is_revert"] as? Bool ?? false
-                    let isForcePush = commitData["is_force_push"]
-                        as? Bool ?? false
-                    let data = CommitData(
-                        message: message, sha: sha, repoName: repo,
-                        filesChanged: commitData["files_changed"] as? Int ?? 0,
-                        linesAdded: linesAdded, linesRemoved: linesRemoved,
-                        languages: [], isMerge: isMerge, isRevert: isRevert,
-                        isForcePush: isForcePush,
-                        tags: commitData["tags"] as? [String] ?? [],
-                        branch: nil,
-                        timestamp: Date()
-                    )
-                    let commitType = CommitTypeDetector.detect(
-                        commit: data,
-                        isFirstFromRepo: false,
-                        lastCommitTime: nil
-                    )
-                    self.eatingAnimation.start(
-                        commit: data, commitType: commitType, xpResult: nil
-                    )
+                // Build commit data
+                let sha = commitData["sha"] as? String ?? "unknown"
+                let message = commitData["message"] as? String ?? ""
+                let repo = commitData["repo_name"] as? String ?? "unknown"
+                let isMerge = commitData["is_merge"] as? Bool ?? false
+                let isRevert = commitData["is_revert"] as? Bool ?? false
+                let isForcePush = commitData["is_force_push"]
+                    as? Bool ?? false
+                let langs = (commitData["languages"] as? String)?
+                    .components(separatedBy: ",")
+                    .filter { !$0.isEmpty } ?? []
+                let data = CommitData(
+                    message: message, sha: sha, repoName: repo,
+                    filesChanged: commitData["files_changed"] as? Int ?? 0,
+                    linesAdded: linesAdded, linesRemoved: linesRemoved,
+                    languages: langs, isMerge: isMerge, isRevert: isRevert,
+                    isForcePush: isForcePush,
+                    tags: commitData["tags"] as? [String] ?? [],
+                    branch: nil,
+                    timestamp: Date()
+                )
+
+                if self.creatureStage == .egg {
+                    // Egg stage: absorb commit silently, accumulate data
+                    self.eggAccumulator?.record(data)
+
+                    // Egg glow pulse (simple visual feedback)
+                    if let creature = self.scene.creatureNode {
+                        let progress = self.eggAccumulator?.hatchProgress ?? 0
+                        let glow = SKAction.sequence([
+                            SKAction.fadeAlpha(
+                                to: CGFloat(0.6 + progress * 0.4),
+                                duration: 0.5),
+                            SKAction.fadeAlpha(to: 0.95, duration: 1.0)
+                        ])
+                        creature.run(glow, withKey: "eggAbsorb")
+                    }
+
+                    // On first commit, check if GitHub auth works and
+                    // show consent popup only if it does
+                    if self.eggAccumulator?.commitCount == 1 &&
+                       !UserDefaults.standard.bool(
+                           forKey: "githubConsentAsked") {
+                        DispatchQueue.global(qos: .utility).async {
+                            let authed = GitHubProfileFetcher.isAuthenticated()
+                            DispatchQueue.main.async { [weak self] in
+                                if authed {
+                                    self?.showGitHubConsentPopup()
+                                }
+                                UserDefaults.standard.set(
+                                    true, forKey: "githubConsentAsked")
+                            }
+                        }
+                    }
+
+                    // Check if ready to hatch
+                    if self.eggAccumulator?.isReadyToHatch == true {
+                        self.hatchEggIntoDrop()
+                    }
+                } else {
+                    // Normal stage: character-by-character eating
+                    if let creature = self.scene.creatureNode {
+                        self.eatingAnimation.configure(
+                            creature: creature, scene: self.scene,
+                            fogController: self.scene.worldManager.fogOfWar)
+                        let commitType = CommitTypeDetector.detect(
+                            commit: data, isFirstFromRepo: false,
+                            lastCommitTime: nil
+                        )
+                        self.eatingAnimation.start(
+                            commit: data, commitType: commitType,
+                            xpResult: nil
+                        )
+                    }
                 }
 
                 // XP award
@@ -550,6 +602,33 @@ final class GameCoordinator {
 
         NSLog("[Pushling/Coordinator] Surprise system wired — "
               + "%d surprises registered", surpriseScheduler.registeredCount)
+    }
+
+    // MARK: - GitHub Consent
+
+    /// Show the GitHub consent popup on the Touch Bar (only if gh auth works).
+    private func showGitHubConsentPopup() {
+        guard let tbView = scene.view as? TouchBarView else { return }
+        tbView.showGitHubConsent(
+            onConsent: { [weak self] in
+                GitHubProfileFetcher.fetch { profile in
+                    guard let self = self, let profile = profile else { return }
+                    // Feed GitHub data into egg accumulator
+                    for (lang, count) in profile.languages {
+                        let category = LanguageCategory.extensionMap[
+                            lang.lowercased()] ?? .polyglot
+                        self.eggAccumulator?.languageCounts[
+                            category.rawValue, default: 0] += count
+                    }
+                    NSLog("[Pushling/GitHub] Profile fetched — %d repos, "
+                          + "%d languages",
+                          profile.repoCount, profile.languages.count)
+                }
+            },
+            onDecline: {
+                NSLog("[Pushling/GitHub] Consent declined")
+            }
+        )
     }
 
     // MARK: - Wiring: Input/Touch (G)

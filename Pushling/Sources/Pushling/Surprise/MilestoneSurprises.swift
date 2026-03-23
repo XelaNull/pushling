@@ -43,7 +43,7 @@ enum MilestoneSurprises {
 
     static let evolutionCeremony = SurpriseDefinition(
         id: 45, name: "Evolution Ceremony", category: .milestone,
-        stageMin: .spore, weight: 10.0, cooldown: 0, duration: 5.0,
+        stageMin: .egg, weight: 10.0, cooldown: 0, duration: 5.0,
         bypassesCooldown: true, suppressesOthers: true,
         animation: { _ in
             SurpriseAnimation(keyframes: [

@@ -14,7 +14,7 @@ enum Schema {
 
     // MARK: - Valid Enum Values
 
-    static let validStages = ["spore", "drop", "critter", "beast", "sage", "apex"]
+    static let validStages = ["egg", "drop", "critter", "beast", "sage", "apex"]
 
     static let validSpecialties = [
         "polyglot", "frontend", "backend", "systems", "data", "mobile",
@@ -85,8 +85,8 @@ enum Schema {
         CREATE TABLE IF NOT EXISTS creature (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             name TEXT NOT NULL,
-            stage TEXT NOT NULL DEFAULT 'spore'
-                CHECK (stage IN ('spore','drop','critter','beast','sage','apex')),
+            stage TEXT NOT NULL DEFAULT 'egg'
+                CHECK (stage IN ('egg','drop','critter','beast','sage','apex')),
             commits_eaten INTEGER NOT NULL DEFAULT 0,
             xp INTEGER NOT NULL DEFAULT 0,
             xp_to_next_stage INTEGER NOT NULL DEFAULT 100,
@@ -187,8 +187,8 @@ enum Schema {
                 CHECK (category IN (
                     'playful','affectionate','dramatic','calm','silly','functional'
                 )),
-            stage_min TEXT NOT NULL DEFAULT 'spore'
-                CHECK (stage_min IN ('spore','drop','critter','beast','sage','apex')),
+            stage_min TEXT NOT NULL DEFAULT 'egg'
+                CHECK (stage_min IN ('egg','drop','critter','beast','sage','apex')),
             duration_s REAL NOT NULL,
             tracks_json TEXT NOT NULL,
             triggers_json TEXT NOT NULL,

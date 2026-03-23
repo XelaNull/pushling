@@ -112,7 +112,7 @@ final class GhostEchoNode {
             // Ghost shows one stage below current (or random for Apex)
             if stage == .apex {
                 // Apex: random past stage
-                let pastStages: [GrowthStage] = [.spore, .drop, .critter, .beast, .sage]
+                let pastStages: [GrowthStage] = [.egg, .drop, .critter, .beast, .sage]
                 ghostStage = pastStages.randomElement() ?? .critter
             } else {
                 ghostStage = GrowthStage(rawValue: stage.rawValue - 1) ?? .critter
@@ -214,7 +214,7 @@ final class GhostEchoNode {
 
         // For Apex, pick a random past stage each appearance
         if currentCreatureStage == .apex {
-            let pastStages: [GrowthStage] = [.spore, .drop, .critter, .beast, .sage]
+            let pastStages: [GrowthStage] = [.egg, .drop, .critter, .beast, .sage]
             ghostStage = pastStages.randomElement() ?? .critter
             rebuildGhostShape()
         }

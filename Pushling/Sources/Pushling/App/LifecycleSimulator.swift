@@ -63,7 +63,7 @@ final class LifecycleSimulator {
     private var lastSimulatedCommitDay = 0
     private var commitsToday = 0
     private var targetCommitsToday = 0
-    private var currentStage: GrowthStage = .spore
+    private var currentStage: GrowthStage = .egg
     private var totalXP = 0
 
     /// Accumulated real time for commit scheduling.

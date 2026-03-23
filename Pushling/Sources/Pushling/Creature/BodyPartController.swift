@@ -25,11 +25,11 @@ struct StageConfiguration {
 
     /// All six stage configs, indexed by stage.
     static let all: [GrowthStage: StageConfiguration] = [
-        .spore: StageConfiguration(
-            stage: .spore, size: CGSize(width: 6, height: 6),
+        .egg: StageConfiguration(
+            stage: .egg, size: CGSize(width: 9, height: 11),
             hasEars: false, hasTail: false, hasPaws: false,
             hasWhiskers: false, hasMouth: false, hasAura: false,
-            hasCoreGlow: false, walkSpeed: 0, runSpeed: 0
+            hasCoreGlow: true, walkSpeed: 3, runSpeed: 0
         ),
         .drop: StageConfiguration(
             stage: .drop, size: CGSize(width: 10, height: 12),

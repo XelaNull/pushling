@@ -64,7 +64,7 @@ final class ZoomDetailController {
     private weak var noseNode: SKNode?
 
     /// Current growth stage (affects which details exist).
-    private var stage: GrowthStage = .spore
+    private var stage: GrowthStage = .egg
 
     // MARK: - Configuration
 

@@ -36,7 +36,7 @@ enum CatShapes {
         let haunchWidth: CGFloat
 
         switch stage {
-        case .spore, .drop:
+        case .egg, .drop:
             shoulderBump = 0.0
             bellyDrop = 0.0
             haunchWidth = 1.0
@@ -122,7 +122,7 @@ enum CatShapes {
         let muzzleSize: CGFloat
 
         switch stage {
-        case .spore, .drop:
+        case .egg, .drop:
             widthScale = 1.0  // Round
             chinTaper = 0.0
             muzzleSize = 0.0
@@ -275,7 +275,7 @@ enum CatShapes {
         // Roundness: 1.0 = circular, 0.5 = sharp almond
         let roundness: CGFloat
         switch stage {
-        case .spore, .drop:
+        case .egg, .drop:
             roundness = 1.0
         case .critter:
             roundness = 0.85
@@ -359,7 +359,7 @@ enum CatShapes {
 
         let curveFactor: CGFloat
         switch stage {
-        case .spore, .drop:
+        case .egg, .drop:
             curveFactor = 0.3
         case .critter:
             curveFactor = 0.5  // Stubby, less curve
@@ -548,7 +548,7 @@ enum CatShapes {
     static func bodySilhouette(width w: CGFloat, height h: CGFloat,
                                stage: GrowthStage) -> CGPath {
         switch stage {
-        case .spore:
+        case .egg:
             let path = CGMutablePath()
             path.addEllipse(in: CGRect(x: -w / 2, y: -h / 2,
                                         width: w, height: h))
