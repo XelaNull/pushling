@@ -267,7 +267,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? fm.removeItem(atPath: dbPath + suffix)
         }
 
-        NSLog("[Pushling] Database deleted — restarting fresh")
+        // Reset UserDefaults so consent popups and flags re-trigger
+        UserDefaults.standard.removeObject(forKey: "githubConsentAsked")
+
+        NSLog("[Pushling] Database + UserDefaults reset — restarting fresh")
         exit(0)  // LaunchAgent will relaunch with clean state
     }
 

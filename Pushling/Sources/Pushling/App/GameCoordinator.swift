@@ -368,6 +368,10 @@ final class GameCoordinator {
 
                 if self.creatureStage == .egg {
                     // Egg stage: absorb commit silently, accumulate data
+                    NSLog("[Pushling/Egg] Absorbing commit %d/%d — accumulator %@",
+                          (self.eggAccumulator?.commitCount ?? 0) + 1,
+                          EggAccumulator.hatchThreshold,
+                          self.eggAccumulator != nil ? "active" : "NIL")
                     self.eggAccumulator?.record(data)
 
                     // Egg glow pulse (simple visual feedback)
