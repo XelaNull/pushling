@@ -102,7 +102,7 @@ final class SpeechBubbleNode: SKNode {
     override init() {
         super.init()
         self.name = "speechBubble"
-        self.zPosition = 40  // Above creature parts, below weather
+        self.zPosition = 950  // Above fog of war (900) so text is always readable
     }
 
     required init?(coder aDecoder: NSCoder) {
