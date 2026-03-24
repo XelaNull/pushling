@@ -72,7 +72,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   + "GameCoordinator not created")
         }
 
-        // 7. Hot-reload monitor: watch for new binary builds
+        // 7. Auto-install hooks and MCP (first launch only)
+        if !UserDefaults.standard.bool(forKey: "hooksInstalled") {
+            DispatchQueue.global(qos: .utility).async {
+                HookInstaller.installAll()
+            }
+        }
+
+        // 8. Hot-reload monitor: watch for new binary builds
         let monitor = HotReloadMonitor()
         monitor.onNewBinaryDetected = { [weak self] in
             self?.performGracefulRestart(reason: "new binary detected")
@@ -267,8 +274,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? fm.removeItem(atPath: dbPath + suffix)
         }
 
-        // Reset UserDefaults so consent popups and flags re-trigger
+        // Reset UserDefaults so consent popups, hooks, and flags re-trigger
         UserDefaults.standard.removeObject(forKey: "githubConsentAsked")
+        UserDefaults.standard.removeObject(forKey: "hooksInstalled")
 
         NSLog("[Pushling] Database + UserDefaults reset — restarting fresh")
         exit(0)  // LaunchAgent will relaunch with clean state

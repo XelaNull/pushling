@@ -573,6 +573,15 @@ main() {
             ;;
     esac
 
+    # Check if hooks are fully installed
+    local hooks_lib="${HOME}/.local/share/pushling/hooks/lib/pushling-hook-lib.sh"
+    if [[ ! -f "$hooks_lib" ]]; then
+        echo ""
+        echo "> Setup incomplete: Pushling hooks are not fully installed."
+        echo "> The creature cannot sense your commits or Claude Code sessions."
+        echo "> Call pushling_world('install_hooks') or restart Pushling.app to auto-install."
+    fi
+
     # Write the hook event to feed directory
     local escaped_name
     escaped_name="$(pushling_json_escape "${C_NAME}")"
