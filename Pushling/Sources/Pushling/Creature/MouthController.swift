@@ -9,8 +9,9 @@ final class MouthController: BodyPartController {
 
     let node: SKNode
     let validStates = [
-        "closed", "open", "smile", "frown", "chew",
-        "yawn", "chatter", "blep", "lick"
+        "closed", "open", "open_small", "open_wide",
+        "smile", "smirk", "frown", "pout",
+        "chew", "yawn", "chatter", "blep", "lick"
     ]
     private(set) var currentState = "closed"
 

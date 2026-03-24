@@ -88,7 +88,7 @@ enum StageRenderer {
         coreGlow.strokeColor = .clear
         coreGlow.name = "core_glow"
         coreGlow.zPosition = 5
-        body.addChild(coreGlow)
+        // Don't addChild here — StageNodes returns it for addBodyParts()
 
         // No head, eyes, ears, tail — just an egg
         let head = SKNode()
