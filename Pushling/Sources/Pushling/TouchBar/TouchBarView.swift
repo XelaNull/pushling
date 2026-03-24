@@ -109,13 +109,27 @@ final class TouchBarView: SKView {
 
         // Slide-out menu strip (initially collapsed, hidden)
         // Positioned at x=30 (right edge of expanded P button), full Touch Bar height
+        // Check MCP status on background thread, show install button if needed
         if menuStrip == nil {
-            let menu = MenuStripView(frame: NSRect(x: 30, y: 0, width: 0, height: 30))
+            // Check MCP on background to avoid blocking Touch Bar setup
+            let needsMCP = !HookInstaller.isMCPInstalled()
+            let menu = MenuStripView(
+                frame: NSRect(x: 30, y: 0, width: 0, height: 30),
+                showMCPButton: needsMCP
+            )
             menu.isHidden = true
             menu.onStatsTap = { [weak self] in self?.menuStatsTapped() }
             menu.onSoundToggle = { [weak self] muted in
                 guard let scene = self?.scene as? PushlingScene else { return }
                 scene.worldManager.soundSystem.isMuted = muted
+            }
+            menu.onMCPInstall = {
+                DispatchQueue.global(qos: .utility).async {
+                    HookInstaller.installMCP()
+                    DispatchQueue.main.async {
+                        NSLog("[Pushling/Menu] MCP installed from Touch Bar menu")
+                    }
+                }
             }
             addSubview(menu)
             self.menuStrip = menu

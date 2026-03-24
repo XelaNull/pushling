@@ -14,6 +14,7 @@ final class MenuStripView: NSView {
 
     var onStatsTap: (() -> Void)?
     var onSoundToggle: ((_ muted: Bool) -> Void)?
+    var onMCPInstall: (() -> Void)?
     /// Called when the 20s fade completes — used to restore P label.
     var onFadeComplete: (() -> Void)?
     /// Called when a button is pressed during fade — restore M button brightness.
@@ -21,19 +22,24 @@ final class MenuStripView: NSView {
 
     private let soundButton: MenuButton
     private let statsButton: MenuButton
+    private var mcpButton: MenuButton?
     private var fadeTimer: Timer?
     private var isMuted = false
+    private var showMCPInstall: Bool
     static let fadeDuration: TimeInterval = 20.0
 
-    private let expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
+    private var expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
     private let stripHeight: CGFloat = 30
 
-    override init(frame: NSRect) {
+    init(frame: NSRect, showMCPButton: Bool = false) {
+        self.showMCPInstall = showMCPButton
+
         soundButton = MenuButton(
             frame: NSRect(x: 0, y: 0, width: 30, height: 30), label: "♪"
         )
+        let statsX: CGFloat = 32
         statsButton = MenuButton(
-            frame: NSRect(x: 32, y: 0, width: 50, height: 30), label: "Stats"
+            frame: NSRect(x: statsX, y: 0, width: 50, height: 30), label: "Stats"
         )
 
         super.init(frame: frame)
@@ -66,6 +72,27 @@ final class MenuStripView: NSView {
 
         addSubview(soundButton)
         addSubview(statsButton)
+
+        // Conditionally add MCP Install button
+        if showMCPInstall {
+            let mcpX: CGFloat = 84  // After stats button
+            let btn = MenuButton(
+                frame: NSRect(x: mcpX, y: 0, width: 50, height: 30),
+                label: "MCP"
+            )
+            btn.setTextColor(NSColor(
+                displayP3Red: 1.0, green: 0.85, blue: 0.3, alpha: 1.0))
+            btn.onTap = { [weak self] in
+                self?.restoreBrightness()
+                self?.onMCPInstall?()
+                // Hide the button after install
+                btn.isHidden = true
+                self?.expandedWidth = 84  // Shrink back to normal
+            }
+            addSubview(btn)
+            self.mcpButton = btn
+            expandedWidth = 136  // 30 + 2 + 50 + 2 + 50 + 2
+        }
     }
 
     required init?(coder: NSCoder) {

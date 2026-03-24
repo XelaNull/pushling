@@ -277,6 +277,24 @@ enum HookInstaller {
         }
     }
 
+    // MARK: - Public Status Checks
+
+    /// Check if the MCP server is registered with Claude Code.
+    /// Safe to call from any thread (runs shell command).
+    static func isMCPInstalled() -> Bool {
+        let result = shell("claude mcp list 2>/dev/null")
+        return result.contains("pushling")
+    }
+
+    /// Install the MCP server. Call from background thread.
+    static func installMCP() {
+        guard let source = findHooksSource() else {
+            NSLog("[Pushling/Installer] Cannot find hooks source for MCP install")
+            return
+        }
+        registerMCPServer(from: source)
+    }
+
     // MARK: - Shell Helper
 
     @discardableResult
