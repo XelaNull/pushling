@@ -15,6 +15,7 @@ final class MenuStripView: NSView {
     var onStatsTap: (() -> Void)?
     var onSoundToggle: ((_ muted: Bool) -> Void)?
     var onMCPInstall: (() -> Void)?
+    var onAboutTap: (() -> Void)?
     /// Called when the 20s fade completes — used to restore P label.
     var onFadeComplete: (() -> Void)?
     /// Called when a button is pressed during fade — restore M button brightness.
@@ -30,7 +31,7 @@ final class MenuStripView: NSView {
     private var fadeGeneration: Int = 0
     static let fadeDuration: TimeInterval = 20.0
 
-    var expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
+    var expandedWidth: CGFloat = 130  // 30 + 2 + 50 + 2 + 44 + 2
     private let stripHeight: CGFloat = 30
 
     init(frame: NSRect, showMCPButton: Bool = false) {
@@ -72,12 +73,21 @@ final class MenuStripView: NSView {
             self?.onStatsTap?()
         }
 
+        let aboutButton = MenuButton(
+            frame: NSRect(x: 84, y: 0, width: 44, height: 30), label: "About"
+        )
+        aboutButton.onTap = { [weak self] in
+            self?.restoreBrightness()
+            self?.onAboutTap?()
+        }
+
         addSubview(soundButton)
         addSubview(statsButton)
+        addSubview(aboutButton)
 
         // Conditionally add MCP Install button
         if showMCPInstall {
-            let mcpX: CGFloat = 84  // After stats button
+            let mcpX: CGFloat = 130  // After about button
             let btn = MenuButton(
                 frame: NSRect(x: mcpX, y: 0, width: 50, height: 30),
                 label: "MCP"
@@ -93,7 +103,7 @@ final class MenuStripView: NSView {
             }
             addSubview(btn)
             self.mcpButton = btn
-            expandedWidth = 136  // 30 + 2 + 50 + 2 + 50 + 2
+            expandedWidth = 182  // 30 + 2 + 50 + 2 + 44 + 2 + 50 + 2
         }
     }
 
@@ -254,12 +264,11 @@ struct StatsPageData {
 ///   3: What Am I Like? (natural language personality)
 ///   4: What Have I Done? (commits, touches, badges, tricks)
 ///   5: What Do I Look Like? (fur, eyes, tail descriptions)
-///   6: About (version, build)
 final class StatsPopupView: NSView {
 
     var onClose: (() -> Void)?
 
-    private static let pageCount = 6
+    private static let pageCount = 5
     private var currentPage = 0
     private var pageData: StatsPageData?
     private var hasTriggeredSwipe = false
@@ -272,7 +281,7 @@ final class StatsPopupView: NSView {
     private let contentContainer = NSView()
 
     // Fixed elements (persist across pages)
-    private let pageIndicator = NSTextField(labelWithString: "1/6")
+    private let pageIndicator = NSTextField(labelWithString: "1/5")
     private let closeButton: MenuButton
 
     override init(frame: NSRect) {
@@ -479,19 +488,6 @@ final class StatsPopupView: NSView {
                                     saturation: 0.5, brightness: 1, alpha: 1)
             setLabel(label4, text: "Hue",
                      color: hueColor, x: 242, width: 30)
-
-        case 5: // About
-            let version = Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-            let build = Bundle.main.object(
-                forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-            setLabel(label1, text: "Pushling v\(version)",
-                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1, alpha: 1),
-                     x: 6, width: 100)
-            setLabel(label2, text: "Build: \(build)",
-                     color: NSColor(white: 1, alpha: 0.5), x: 110, width: 140)
-            setLabel(label3, text: "", color: .clear, x: 0, width: 0)
-            setLabel(label4, text: "", color: .clear, x: 0, width: 0)
 
         default:
             break

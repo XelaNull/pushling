@@ -123,8 +123,8 @@ export async function handleSense(
   }
   if (aspect === "version" || aspect === "full") {
     response.version = {
-      app: "0.1.0",
-      mcp: "0.1.0",
+      app: "0.1.0.1",
+      mcp: "0.1.0.1",
       engine: "SpriteKit 60fps",
       platform: "macOS Touch Bar"
     };

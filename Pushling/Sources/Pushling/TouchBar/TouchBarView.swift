@@ -120,6 +120,10 @@ final class TouchBarView: SKView {
                 guard let scene = self?.scene as? PushlingScene else { return }
                 scene.worldManager.soundSystem.isMuted = muted
             }
+            menu.onAboutTap = { [weak self] in
+                self?.closeMenu()
+                self?.showAbout()
+            }
             menu.onMCPInstall = { [weak menu] in
                 DispatchQueue.global(qos: .utility).async {
                     HookInstaller.installMCP()
@@ -238,6 +242,44 @@ final class TouchBarView: SKView {
             self?.toggleButton?.cancelFadeOut()
             self?.toggleButton?.fadeOut(duration: MenuStripView.fadeDuration)
         }
+    }
+
+    private var aboutPopup: NSView?
+
+    private func showAbout() {
+        // Remove existing about popup
+        aboutPopup?.removeFromSuperview()
+
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+
+        let popup = NSView(frame: NSRect(x: 30, y: 0, width: 300, height: 30))
+        popup.wantsLayer = true
+        popup.layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.92).cgColor
+        popup.layer?.cornerRadius = 4
+        popup.layer?.borderWidth = 1.0
+        popup.layer?.borderColor = NSColor(white: 0.3, alpha: 0.6).cgColor
+
+        let label = NSTextField(labelWithString: "Pushling v\(version)  Build: \(build)")
+        label.font = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
+        label.textColor = NSColor(displayP3Red: 0, green: 0.831, blue: 1, alpha: 1)
+        label.backgroundColor = .clear
+        label.isBezeled = false
+        label.isEditable = false
+        label.frame = NSRect(x: 8, y: 8, width: 240, height: 14)
+        popup.addSubview(label)
+
+        let close = MenuButton(frame: NSRect(x: 276, y: 4, width: 22, height: 22), label: "X")
+        close.onTap = { [weak self] in
+            self?.aboutPopup?.removeFromSuperview()
+            self?.aboutPopup = nil
+        }
+        popup.addSubview(close)
+
+        addSubview(popup)
+        aboutPopup = popup
     }
 
     private func closeMenu() {

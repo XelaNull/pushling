@@ -87,7 +87,7 @@ cat > "${CONTENTS_DIR}/Info.plist" << PLIST
     <string>APPL</string>
 
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.1.0.1</string>
 
     <key>CFBundleVersion</key>
     <string>${BUILD_DATE}.${GIT_HASH}</string>
@@ -148,7 +148,7 @@ fi
 echo ""
 echo "==> Build complete: ${APP_BUNDLE}"
 echo "    Bundle ID:  com.pushling.app"
-echo "    Version:    0.1.0 (${BUILD_DATE}.${GIT_HASH})"
+echo "    Version:    0.1.0.1 (${BUILD_DATE}.${GIT_HASH})"
 echo "    Config:     ${CONFIG}"
 echo "    LSUIElement: true (no dock icon)"
 echo ""
