@@ -255,22 +255,46 @@ final class TouchBarView: SKView {
 
     private func showStats() {
         guard let scene = self.scene as? PushlingScene else { return }
-        let state = scene.hudOverlay.currentState
+        let hud = scene.hudOverlay.currentState
+        let gc = scene.gameCoordinator
 
         // Convert SKColor to NSColor for AppKit
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        let rgb = state.stageColor.usingColorSpace(.sRGB) ?? NSColor.white
+        let rgb = hud.stageColor.usingColorSpace(.sRGB) ?? NSColor.white
         rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
         let stageNSColor = NSColor(displayP3Red: r, green: g, blue: b, alpha: a)
 
-        statsPopup?.update(
-            stage: state.stageName,
-            currentXP: state.currentXP,
-            xpToNext: state.xpToNext,
-            satisfaction: state.satisfaction,
-            streakDays: state.streakDays,
-            stageColor: stageNSColor
+        // Gather data for all 4 pages
+        let emo = gc?.emotionalState
+        let pers = gc?.personality
+        let traits = gc?.visualTraits ?? .neutral
+        let emergent = gc?.emergentStates.currentState
+
+        let data = StatsPageData(
+            stageName: hud.stageName,
+            stageColor: stageNSColor,
+            currentXP: hud.currentXP,
+            xpToNext: hud.xpToNext,
+            satisfaction: emo?.satisfaction ?? hud.satisfaction,
+            streakDays: hud.streakDays,
+            curiosity: emo?.curiosity ?? 50,
+            contentment: emo?.contentment ?? 50,
+            energy: emo?.energy ?? 50,
+            emergentState: emergent?.rawValue,
+            pEnergy: pers?.energy ?? 0.5,
+            pVerbosity: pers?.verbosity ?? 0.5,
+            pFocus: pers?.focus ?? 0.5,
+            pDiscipline: pers?.discipline ?? 0.5,
+            specialty: pers?.specialty.rawValue ?? "polyglot",
+            specialtyHue: traits.baseColorHue,
+            badgesEarned: 0,  // TODO: wire MutationSystem.earnedCount
+            badgesTotal: 10,
+            tricksKnown: gc?.masteryTracker.totalBehaviors ?? 0,
+            furPattern: traits.furPattern.rawValue,
+            eyeShape: traits.eyeShape.rawValue
         )
+
+        statsPopup?.update(data: data)
         statsPopup?.isHidden = false
         isStatsOpen = true
     }

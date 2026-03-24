@@ -209,18 +209,62 @@ final class MenuStripView: NSView {
     var isExpanded: Bool { !isHidden && frame.width > 0 }
 }
 
+// MARK: - Stats Page Data
+
+/// All data needed for the 4-page stats popup.
+struct StatsPageData {
+    // Page 1: Identity
+    let stageName: String
+    let stageColor: NSColor
+    let currentXP: Int
+    let xpToNext: Int
+    let satisfaction: Double
+    let streakDays: Int
+    // Page 2: Emotions
+    let curiosity: Double
+    let contentment: Double
+    let energy: Double
+    let emergentState: String?
+    // Page 3: Personality
+    let pEnergy: Double
+    let pVerbosity: Double
+    let pFocus: Double
+    let pDiscipline: Double
+    let specialty: String
+    let specialtyHue: Double
+    // Page 4: Growth & Traits
+    let badgesEarned: Int
+    let badgesTotal: Int
+    let tricksKnown: Int
+    let furPattern: String
+    let eyeShape: String
+}
+
 // MARK: - Stats Popup View
 
-/// Overlay panel showing creature stats: stage, XP, satisfaction, streak.
-/// Full Touch Bar height (30pt), 280pt wide, with [X] close button.
+/// Multi-page stats overlay. Swipe up/down to cycle through 4 pages:
+///   1: Identity (stage, XP, hearts, streak)
+///   2: Emotions (satisfaction, curiosity, contentment, energy)
+///   3: Personality (5 axes + specialty)
+///   4: Growth (badges, tricks, fur, eyes)
 final class StatsPopupView: NSView {
 
     var onClose: (() -> Void)?
 
-    private let stageLabel = NSTextField(labelWithString: "SPORE")
-    private let xpLabel = NSTextField(labelWithString: "XP 0/100")
-    private let heartsLabel = NSTextField(labelWithString: "-----")
-    private let streakLabel = NSTextField(labelWithString: "")
+    private static let pageCount = 4
+    private var currentPage = 0
+    private var pageData: StatsPageData?
+    private var hasTriggeredSwipe = false
+
+    // 4 reusable content labels
+    private let label1 = NSTextField(labelWithString: "")
+    private let label2 = NSTextField(labelWithString: "")
+    private let label3 = NSTextField(labelWithString: "")
+    private let label4 = NSTextField(labelWithString: "")
+    private let contentContainer = NSView()
+
+    // Fixed elements (persist across pages)
+    private let pageIndicator = NSTextField(labelWithString: "1/4")
     private let closeButton: MenuButton
 
     override init(frame: NSRect) {
@@ -236,61 +280,190 @@ final class StatsPopupView: NSView {
         layer?.borderWidth = 1.0
         layer?.borderColor = NSColor(white: 0.3, alpha: 0.6).cgColor
 
-        let font = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
+        // Content container (animates on page change)
+        contentContainer.frame = NSRect(x: 0, y: 0,
+                                         width: frame.width, height: frame.height)
+        contentContainer.wantsLayer = true
+        addSubview(contentContainer)
 
-        configureLabel(stageLabel, font: font, x: 6)
-        configureLabel(xpLabel, font: font, x: 70)
-        xpLabel.textColor = NSColor(
-            displayP3Red: 0, green: 0.831, blue: 1.0, alpha: 1.0
-        )
-        configureLabel(heartsLabel, font: font, x: 140)
-        heartsLabel.textColor = NSColor(
-            displayP3Red: 1.0, green: 0.35, blue: 0.3, alpha: 1.0
-        )
-        configureLabel(streakLabel, font: font, x: 200)
-        streakLabel.textColor = NSColor(
-            displayP3Red: 1.0, green: 0.85, blue: 0.3, alpha: 1.0
-        )
+        let font = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
+        for label in [label1, label2, label3, label4] {
+            label.font = font
+            label.textColor = .white
+            label.backgroundColor = .clear
+            label.isBezeled = false
+            label.isEditable = false
+            label.isSelectable = false
+            label.frame = NSRect(x: 6, y: 8, width: 60, height: 14)
+            contentContainer.addSubview(label)
+        }
+
+        // Page indicator "1/4"
+        pageIndicator.font = NSFont.monospacedSystemFont(ofSize: 8, weight: .regular)
+        pageIndicator.textColor = NSColor(white: 1.0, alpha: 0.4)
+        pageIndicator.backgroundColor = .clear
+        pageIndicator.isBezeled = false
+        pageIndicator.isEditable = false
+        pageIndicator.isSelectable = false
+        pageIndicator.frame = NSRect(x: frame.width - 52, y: 8, width: 22, height: 14)
+        addSubview(pageIndicator)
 
         closeButton.onTap = { [weak self] in self?.onClose?() }
         addSubview(closeButton)
+
+        // Swipe gesture for page cycling
+        let swipe = NSPanGestureRecognizer(
+            target: self, action: #selector(handleSwipe(_:)))
+        swipe.allowedTouchTypes = [.direct]
+        swipe.buttonMask = 0
+        swipe.numberOfTouchesRequired = 1
+        addGestureRecognizer(swipe)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
     }
 
-    private func configureLabel(_ label: NSTextField, font: NSFont, x: CGFloat) {
-        label.font = font
-        label.textColor = .white
-        label.backgroundColor = .clear
-        label.isBezeled = false
-        label.isEditable = false
-        label.isSelectable = false
-        label.frame = NSRect(x: x, y: 8, width: 60, height: 14)
-        addSubview(label)
+    // MARK: - Swipe Handler
+
+    @objc private func handleSwipe(_ gesture: NSPanGestureRecognizer) {
+        switch gesture.state {
+        case .changed:
+            guard !hasTriggeredSwipe else { return }
+            let translation = gesture.translation(in: self)
+            if translation.y > 8 {
+                hasTriggeredSwipe = true
+                setPage((currentPage + 1) % Self.pageCount, animated: true)
+            } else if translation.y < -8 {
+                hasTriggeredSwipe = true
+                setPage((currentPage - 1 + Self.pageCount) % Self.pageCount,
+                        animated: true)
+            }
+        case .ended, .cancelled:
+            hasTriggeredSwipe = false
+        default:
+            break
+        }
+    }
+
+    // MARK: - Page Navigation
+
+    func setPage(_ page: Int, animated: Bool) {
+        currentPage = page
+        pageIndicator.stringValue = "\(page + 1)/\(Self.pageCount)"
+
+        if animated {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.07
+                contentContainer.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                self?.updateLabelsForCurrentPage()
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.08
+                    self?.contentContainer.animator().alphaValue = 1
+                }
+            })
+        } else {
+            updateLabelsForCurrentPage()
+        }
+    }
+
+    // MARK: - Label Updates Per Page
+
+    private func updateLabelsForCurrentPage() {
+        guard let d = pageData else { return }
+
+        switch currentPage {
+        case 0: // Identity
+            setLabel(label1, text: d.stageName.uppercased(),
+                     color: d.stageColor, x: 6, width: 55)
+            setLabel(label2, text: "XP \(d.currentXP)/\(d.xpToNext)",
+                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1.0, alpha: 1),
+                     x: 64, width: 70)
+            let full = min(5, Int(d.satisfaction / 20.0))
+            let empty = 5 - full
+            setLabel(label3,
+                     text: String(repeating: "\u{2665}", count: full)
+                         + String(repeating: "\u{2661}", count: empty),
+                     color: NSColor(displayP3Red: 1, green: 0.35, blue: 0.3, alpha: 1),
+                     x: 138, width: 45)
+            setLabel(label4,
+                     text: d.streakDays > 0 ? "\(d.streakDays)d" : "",
+                     color: NSColor(displayP3Red: 1, green: 0.85, blue: 0.3, alpha: 1),
+                     x: 188, width: 35)
+
+        case 1: // Emotions
+            let tint = emergentColor(d.emergentState)
+            setLabel(label1, text: "SAT \(Int(d.satisfaction))",
+                     color: tint ?? NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
+                     x: 6, width: 48)
+            setLabel(label2, text: "CUR \(Int(d.curiosity))",
+                     color: tint ?? NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
+                     x: 58, width: 48)
+            setLabel(label3, text: "CON \(Int(d.contentment))",
+                     color: tint ?? NSColor(displayP3Red: 1, green: 0.8, blue: 0.3, alpha: 1),
+                     x: 110, width: 48)
+            setLabel(label4, text: "NRG \(Int(d.energy))",
+                     color: tint ?? NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
+                     x: 162, width: 48)
+
+        case 2: // Personality
+            let fmt = { (v: Double) -> String in
+                String(format: ".%02d", Int(v * 100))
+            }
+            setLabel(label1, text: "E\(fmt(d.pEnergy)) V\(fmt(d.pVerbosity))",
+                     color: NSColor(white: 1, alpha: 0.8), x: 6, width: 80)
+            setLabel(label2, text: "F\(fmt(d.pFocus)) D\(fmt(d.pDiscipline))",
+                     color: NSColor(white: 1, alpha: 0.8), x: 90, width: 80)
+            let specColor = NSColor(
+                hue: CGFloat(d.specialtyHue), saturation: 0.5,
+                brightness: 1.0, alpha: 1.0)
+            setLabel(label3, text: d.specialty,
+                     color: specColor, x: 175, width: 55)
+            setLabel(label4, text: "", color: .clear, x: 0, width: 0)
+
+        case 3: // Growth & Traits
+            setLabel(label1, text: "*\(d.badgesEarned)/\(d.badgesTotal)",
+                     color: NSColor(displayP3Red: 1, green: 0.85, blue: 0.3, alpha: 1),
+                     x: 6, width: 38)
+            setLabel(label2, text: "\(d.tricksKnown) tricks",
+                     color: NSColor(displayP3Red: 0.7, green: 0.5, blue: 1, alpha: 1),
+                     x: 48, width: 55)
+            setLabel(label3, text: d.furPattern,
+                     color: NSColor(white: 1, alpha: 0.6), x: 108, width: 42)
+            setLabel(label4, text: d.eyeShape,
+                     color: NSColor(white: 1, alpha: 0.6), x: 154, width: 50)
+
+        default:
+            break
+        }
+    }
+
+    private func setLabel(_ label: NSTextField, text: String,
+                           color: NSColor, x: CGFloat, width: CGFloat) {
+        label.stringValue = text
+        label.textColor = color
+        label.frame = NSRect(x: x, y: 8, width: width, height: 14)
+    }
+
+    private func emergentColor(_ state: String?) -> NSColor? {
+        guard let state = state?.lowercased() else { return nil }
+        switch state {
+        case "blissful":  return NSColor(displayP3Red: 1, green: 0.9, blue: 0.5, alpha: 1)
+        case "playful":   return NSColor(displayP3Red: 0.5, green: 1, blue: 0.6, alpha: 1)
+        case "studious":  return NSColor(displayP3Red: 0.4, green: 0.8, blue: 1, alpha: 1)
+        case "hangry":    return NSColor(displayP3Red: 1, green: 0.3, blue: 0.2, alpha: 1)
+        case "zen":       return NSColor(displayP3Red: 0.7, green: 0.6, blue: 1, alpha: 1)
+        case "exhausted": return NSColor(white: 0.5, alpha: 1)
+        default:          return nil
+        }
     }
 
     // MARK: - Data Update
 
-    func update(stage: String, currentXP: Int, xpToNext: Int,
-                satisfaction: Double, streakDays: Int,
-                stageColor: NSColor) {
-        stageLabel.stringValue = stage.uppercased()
-        stageLabel.textColor = stageColor
-
-        xpLabel.stringValue = "XP \(currentXP)/\(xpToNext)"
-
-        let fullHearts = min(5, Int(satisfaction / 20.0))
-        let emptyHearts = 5 - fullHearts
-        heartsLabel.stringValue = String(repeating: "\u{2665}", count: fullHearts)
-            + String(repeating: "\u{2661}", count: emptyHearts)
-
-        if streakDays > 0 {
-            streakLabel.stringValue = "\(streakDays)d"
-        } else {
-            streakLabel.stringValue = ""
-        }
+    func update(data: StatsPageData) {
+        self.pageData = data
+        updateLabelsForCurrentPage()
     }
 }
 
