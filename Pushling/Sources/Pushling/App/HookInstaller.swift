@@ -255,8 +255,13 @@ enum HookInstaller {
     // MARK: - Step 4: MCP Server Registration
 
     private static func registerMCPServer(from source: String) {
+        guard let claudePath = findClaudePath() else {
+            NSLog("[Pushling/Installer] claude CLI not found — skipping MCP registration")
+            return
+        }
+
         // Check if MCP is already registered
-        let existing = shell("claude mcp list 2>/dev/null")
+        let existing = shell("'\(claudePath)' mcp list 2>/dev/null")
         if existing.contains("pushling") {
             NSLog("[Pushling/Installer] MCP server already registered")
             return
@@ -269,7 +274,7 @@ enum HookInstaller {
             .appendingPathComponent("mcp/dist/index.js").path
 
         if FileManager.default.fileExists(atPath: mcpIndex) {
-            _ = shell("claude mcp add pushling -- node '\(mcpIndex)' 2>/dev/null")
+            _ = shell("'\(claudePath)' mcp add pushling -- node '\(mcpIndex)' 2>/dev/null")
             NSLog("[Pushling/Installer] MCP server registered: %@", mcpIndex)
         } else {
             NSLog("[Pushling/Installer] MCP dist not found at %@ "
@@ -280,19 +285,43 @@ enum HookInstaller {
     // MARK: - Public Status Checks
 
     /// Check if the MCP server is registered with Claude Code.
-    /// Safe to call from any thread (runs shell command).
+    /// Tries the full path to claude CLI first, falls back to PATH lookup.
     static func isMCPInstalled() -> Bool {
+        // Try common claude locations with full path
+        let claudePaths = [
+            NSString(string: "~/.local/bin/claude").expandingTildeInPath,
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude"
+        ]
+        for claudePath in claudePaths {
+            if FileManager.default.isExecutableFile(atPath: claudePath) {
+                let result = shell("'\(claudePath)' mcp list 2>/dev/null")
+                if result.contains("pushling") { return true }
+            }
+        }
+        // Fallback: try bare command (might work if PATH is set)
         let result = shell("claude mcp list 2>/dev/null")
         return result.contains("pushling")
     }
 
     /// Install the MCP server. Call from background thread.
+    /// Uses full path to claude CLI since GUI apps don't inherit shell PATH.
     static func installMCP() {
         guard let source = findHooksSource() else {
             NSLog("[Pushling/Installer] Cannot find hooks source for MCP install")
             return
         }
         registerMCPServer(from: source)
+    }
+
+    /// Find the claude CLI executable path.
+    static func findClaudePath() -> String? {
+        let paths = [
+            NSString(string: "~/.local/bin/claude").expandingTildeInPath,
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude"
+        ]
+        return paths.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     // MARK: - Shell Helper
