@@ -243,13 +243,23 @@ final class SpeechCoordinator {
             }
         }
 
-        // Single bubble
+        // Single bubble — add to scene root (not creature) so it renders
+        // above the fog of war panels (z=900). Position in scene coordinates.
         let bubble = SpeechBubbleNode()
         bubble.configure(
             text: text, style: style,
             stage: stage, positionMode: positionMode
         )
-        creature.addChild(bubble)
+        if let scene = creature.scene {
+            // Convert creature position to scene coordinates for bubble placement
+            let creaturePos = creature.convert(.zero, to: scene)
+            bubble.position = CGPoint(x: creaturePos.x,
+                                       y: min(creaturePos.y + 10,
+                                              scene.size.height - 8))
+            scene.addChild(bubble)
+        } else {
+            creature.addChild(bubble)
+        }
         bubble.clampToSceneBounds()  // Keep bubble visible on Touch Bar
         bubble.appear()
 
