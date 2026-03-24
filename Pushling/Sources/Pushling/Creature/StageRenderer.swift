@@ -107,7 +107,7 @@ enum StageRenderer {
         particles.zPosition = 50
 
         return StageNodes(
-            body: body, coreGlow: nil, head: head,
+            body: body, coreGlow: coreGlow, head: head,
             earLeft: nil, earRight: nil,
             eyeLeft: eyeL, eyeLeftShape: eyeLShape,
             eyeRight: eyeR, eyeRightShape: eyeRShape,
@@ -184,7 +184,7 @@ enum StageRenderer {
 
     private static func buildCritter(w: CGFloat, h: CGFloat,
                                        bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.6, color: bodyColor)
+        let body = makeCatBody(width: w, height: h * 0.6, stage: .critter, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -202,7 +202,7 @@ enum StageRenderer {
         head.zPosition = 20
 
         let headShape = SKShapeNode(circleOfRadius: w * 0.3)
-        headShape.fillColor = PushlingPalette.bone
+        headShape.fillColor = bodyColor
         headShape.strokeColor = .clear
         headShape.name = "head_shape"
         head.addChild(headShape)
@@ -273,7 +273,7 @@ enum StageRenderer {
 
     private static func buildBeast(w: CGFloat, h: CGFloat,
                                      bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.55, color: bodyColor)
+        let body = makeCatBody(width: w, height: h * 0.55, stage: .beast, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -283,7 +283,7 @@ enum StageRenderer {
         head.zPosition = 20
 
         let headShape = SKShapeNode(circleOfRadius: w * 0.25)
-        headShape.fillColor = PushlingPalette.bone
+        headShape.fillColor = bodyColor
         headShape.strokeColor = .clear
         headShape.name = "head_shape"
         head.addChild(headShape)
@@ -360,7 +360,7 @@ enum StageRenderer {
 
     private static func buildSage(w: CGFloat, h: CGFloat,
                                     bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.5, color: bodyColor)
+        let body = makeCatBody(width: w, height: h * 0.5, stage: .sage, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
 
@@ -370,7 +370,7 @@ enum StageRenderer {
         head.zPosition = 20
 
         let headShape = SKShapeNode(circleOfRadius: w * 0.22)
-        headShape.fillColor = PushlingPalette.bone
+        headShape.fillColor = bodyColor
         headShape.strokeColor = .clear
         headShape.name = "head_shape"
         head.addChild(headShape)
@@ -462,7 +462,7 @@ enum StageRenderer {
     private static func buildApex(w: CGFloat, h: CGFloat,
                                     repoCount: Int = 1,
                                     bodyColor: SKColor = PushlingPalette.bone) -> StageNodes {
-        let body = makeCatBody(width: w, height: h * 0.5, color: bodyColor)
+        let body = makeCatBody(width: w, height: h * 0.5, stage: .apex, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
         body.alpha = 0.85 // semi-ethereal
@@ -473,7 +473,7 @@ enum StageRenderer {
         head.zPosition = 20
 
         let headShape = SKShapeNode(circleOfRadius: w * 0.2)
-        headShape.fillColor = PushlingPalette.bone
+        headShape.fillColor = bodyColor
         headShape.strokeColor = .clear
         headShape.alpha = 0.9
         headShape.name = "head_shape"
