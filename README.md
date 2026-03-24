@@ -239,4 +239,4 @@ The successor to [touchbar-claude](https://github.com/mrathbone/touchbar-claude)
 
 ## License
 
-TBD
+[CC BY-NC 4.0](LICENSE) — Free to use and modify. Not for sale.
