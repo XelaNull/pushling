@@ -20,7 +20,7 @@ import {
 
 const VALID_ASPECTS = [
   "self", "body", "surroundings", "visual",
-  "events", "developer", "evolve", "full",
+  "events", "developer", "evolve", "version", "full",
 ] as const;
 
 type Aspect = (typeof VALID_ASPECTS)[number];
@@ -120,6 +120,14 @@ export async function handleSense(
       delete evolve._pendingEvents;
     }
     response.evolve = evolve;
+  }
+  if (aspect === "version" || aspect === "full") {
+    response.version = {
+      app: "0.1.0",
+      mcp: "0.1.0",
+      engine: "SpriteKit 60fps",
+      platform: "macOS Touch Bar"
+    };
   }
 
   response.pending_events = pendingEvents;

@@ -254,11 +254,12 @@ struct StatsPageData {
 ///   3: What Am I Like? (natural language personality)
 ///   4: What Have I Done? (commits, touches, badges, tricks)
 ///   5: What Do I Look Like? (fur, eyes, tail descriptions)
+///   6: About (version, build)
 final class StatsPopupView: NSView {
 
     var onClose: (() -> Void)?
 
-    private static let pageCount = 5
+    private static let pageCount = 6
     private var currentPage = 0
     private var pageData: StatsPageData?
     private var hasTriggeredSwipe = false
@@ -271,7 +272,7 @@ final class StatsPopupView: NSView {
     private let contentContainer = NSView()
 
     // Fixed elements (persist across pages)
-    private let pageIndicator = NSTextField(labelWithString: "1/5")
+    private let pageIndicator = NSTextField(labelWithString: "1/6")
     private let closeButton: MenuButton
 
     override init(frame: NSRect) {
@@ -478,6 +479,19 @@ final class StatsPopupView: NSView {
                                     saturation: 0.5, brightness: 1, alpha: 1)
             setLabel(label4, text: "Hue",
                      color: hueColor, x: 242, width: 30)
+
+        case 5: // About
+            let version = Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+            let build = Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+            setLabel(label1, text: "Pushling v\(version)",
+                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1, alpha: 1),
+                     x: 6, width: 100)
+            setLabel(label2, text: "Build: \(build)",
+                     color: NSColor(white: 1, alpha: 0.5), x: 110, width: 140)
+            setLabel(label3, text: "", color: .clear, x: 0, width: 0)
+            setLabel(label4, text: "", color: .clear, x: 0, width: 0)
 
         default:
             break
