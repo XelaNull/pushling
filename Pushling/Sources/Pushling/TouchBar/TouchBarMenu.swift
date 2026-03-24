@@ -30,7 +30,7 @@ final class MenuStripView: NSView {
     private var fadeGeneration: Int = 0
     static let fadeDuration: TimeInterval = 20.0
 
-    private var expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
+    var expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
     private let stripHeight: CGFloat = 30
 
     init(frame: NSRect, showMCPButton: Bool = false) {
@@ -166,11 +166,27 @@ final class MenuStripView: NSView {
     }
 
     private func cancelFade() {
+        fadeGeneration += 1  // Invalidate any pending completion
         // Cancel any in-progress fade animation
         NSAnimationContext.beginGrouping()
         NSAnimationContext.current.duration = 0
         animator().alphaValue = 1.0
         NSAnimationContext.endGrouping()
+        alphaValue = 1.0
+    }
+
+    /// Cancel all animations and reset to clean state for next show().
+    func cancelAllAnimations() {
+        cancelFade()
+        // Reset frame width so next show() can animate from 0
+        NSAnimationContext.beginGrouping()
+        NSAnimationContext.current.duration = 0
+        animator().frame = NSRect(
+            x: frame.origin.x, y: frame.origin.y,
+            width: 0, height: stripHeight)
+        NSAnimationContext.endGrouping()
+        frame.size.width = 0
+        isHidden = true
         alphaValue = 1.0
     }
 
