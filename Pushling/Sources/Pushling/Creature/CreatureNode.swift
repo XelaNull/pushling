@@ -251,11 +251,22 @@ final class CreatureNode: SKNode {
             ? breathPeriodSleep
             : breathPeriodAwake)
 
-        let breathScale = 1.0 + amplitude
-            * CGFloat(sin(2.0 * .pi * breathingTime / period))
+        // Asymmetric breathing: inhale 40% (faster, ease-in), exhale 60% (slower, ease-out)
+        // More organic than pure sine — like a real cat breathing
+        let phase = CGFloat((breathingTime.truncatingRemainder(dividingBy: period)) / period)
+        let breathValue: CGFloat
+        if phase < 0.4 {
+            // Inhale: map [0, 0.4] to [0, 1] with quadratic ease-in
+            let t = phase / 0.4
+            breathValue = t * t
+        } else {
+            // Exhale: map [0.4, 1.0] to [1, 0] with quadratic ease-out
+            let t = (phase - 0.4) / 0.6
+            breathValue = 1.0 - t * t
+        }
+        let breathScale = 1.0 + amplitude * breathValue
 
         // Apply to body node — this is a post-process multiplier.
-        // It applies regardless of what other systems do to the body.
         bodyNode?.yScale = breathScale
     }
 
