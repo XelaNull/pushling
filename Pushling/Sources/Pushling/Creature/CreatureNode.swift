@@ -583,8 +583,10 @@ final class CreatureNode: SKNode {
     private func applyDefaultStates() {
         earLeftController?.setState("neutral", duration: 0)
         earRightController?.setState("neutral", duration: 0)
-        eyeLeftController?.setState("open", duration: 0)
-        eyeRightController?.setState("open", duration: 0)
+        // Sage+ has half-lidded "wise" default eyes
+        let defaultEyeState = currentStage >= .sage ? "half" : "open"
+        eyeLeftController?.setState(defaultEyeState, duration: 0)
+        eyeRightController?.setState(defaultEyeState, duration: 0)
         tailController?.setState("sway", duration: 0)
         mouthController?.setState("closed", duration: 0)
         whiskerLeftController?.setState("neutral", duration: 0)
