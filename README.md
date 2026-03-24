@@ -1,8 +1,31 @@
-# Pushling
+<h1 align="center">Pushling</h1>
 
-**A creature that lives on your MacBook Touch Bar — fed by git commits, animated by Claude's intelligence, learning to speak out loud.**
+<p align="center">
+  <strong>A Creature That Lives on Your Touch Bar</strong><br>
+  <em>Fed by git commits. Animated by Claude's intelligence. Learning to speak out loud.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-macOS-black" alt="macOS">
+  <img src="https://img.shields.io/badge/engine-SpriteKit%2060fps-blue" alt="SpriteKit 60fps">
+  <img src="https://img.shields.io/badge/voice-local%20TTS-green" alt="Local TTS">
+  <img src="https://img.shields.io/badge/status-active%20development-orange" alt="Active Development">
+  <img src="https://img.shields.io/badge/AI--authored-Claude-purple" alt="AI Authored">
+</p>
+
+<p align="center">
+  <a href="PUSHLING_VISION.md">Design Spec</a> &middot;
+  <a href="docs/CREATURE-VOICE-DESIGN.md">Voice Design</a> &middot;
+  <a href="docs/TOUCHBAR-TECHNIQUES.md">Touch Bar Research</a> &middot;
+  <a href="https://github.com/XelaNull/pushling/issues">Report Issues</a> &middot;
+  <a href="https://github.com/XelaNull/pushling/blob/traffic-stats/.github/traffic/SUMMARY.md">Live Metrics</a>
+</p>
+
+---
 
 > You glance at your Touch Bar and something is breathing. It blinks. It notices you looking. It ate your last commit and is still chewing. Welcome to Pushling.
+
+---
 
 ## What is Pushling?
 
@@ -126,11 +149,15 @@ Claude Code hooks give the creature awareness of the full development session:
 
 ## Status
 
-**Pre-development.** The vision and research are complete. Implementation has not started.
+> **Active development.** The creature lives, breathes, eats commits, grows through 6 stages, and reacts to touch. Voice evolution, world rendering, and Claude embodiment are in progress.
+>
+> **What works:** Egg hatching, 6 growth stages with distinct visuals, commit feeding with XP, breathing/blinking/idle animations, touch interactions, stage-specific behaviors (egg wobble, drop hop, sage meditation, apex alpha pulse), emotion system, personality axes, stats display, MCP embodiment tools.
+>
+> **What's in progress:** Voice/TTS pipeline, weather system, surprise events, journal, full hook integration.
 
 The project is the successor to [touchbar-claude](https://github.com/mrathbone/touchbar-claude), which proved the concept with a shell-script tamagotchi rendered via MTMR at 2fps. Pushling takes everything learned from that experiment and rebuilds it as a native app with a real game engine — and a fundamentally different idea: the AI isn't a co-player, it's the creature itself.
 
-## Tech Stack (Planned)
+## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
