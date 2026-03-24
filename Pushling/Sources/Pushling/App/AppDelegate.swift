@@ -277,6 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Reset UserDefaults so consent popups, hooks, and flags re-trigger
         UserDefaults.standard.removeObject(forKey: "githubConsentAsked")
         UserDefaults.standard.removeObject(forKey: "hooksInstalled")
+        UserDefaults.standard.removeObject(forKey: "mcpInstalled")
 
         NSLog("[Pushling] Database + UserDefaults reset — restarting fresh")
         exit(0)  // LaunchAgent will relaunch with clean state

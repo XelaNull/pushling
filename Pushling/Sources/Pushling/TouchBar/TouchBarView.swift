@@ -120,10 +120,12 @@ final class TouchBarView: SKView {
                 guard let scene = self?.scene as? PushlingScene else { return }
                 scene.worldManager.soundSystem.isMuted = muted
             }
-            menu.onMCPInstall = {
+            menu.onMCPInstall = { [weak menu] in
                 DispatchQueue.global(qos: .utility).async {
                     HookInstaller.installMCP()
+                    UserDefaults.standard.set(true, forKey: "mcpInstalled")
                     DispatchQueue.main.async {
+                        menu?.hideMCPButton()
                         NSLog("[Pushling/Menu] MCP installed from Touch Bar menu")
                     }
                 }
@@ -131,12 +133,18 @@ final class TouchBarView: SKView {
             addSubview(menu)
             self.menuStrip = menu
 
-            // Async MCP check — hide button if already installed
-            DispatchQueue.global(qos: .utility).async { [weak menu] in
-                let installed = HookInstaller.isMCPInstalled()
-                if installed {
-                    DispatchQueue.main.async {
-                        menu?.hideMCPButton()
+            // Check MCP status — hide button if already installed
+            if UserDefaults.standard.bool(forKey: "mcpInstalled") {
+                menu.hideMCPButton()
+            } else {
+                // Async check via claude CLI as fallback
+                DispatchQueue.global(qos: .utility).async { [weak menu] in
+                    let installed = HookInstaller.isMCPInstalled()
+                    if installed {
+                        UserDefaults.standard.set(true, forKey: "mcpInstalled")
+                        DispatchQueue.main.async {
+                            menu?.hideMCPButton()
+                        }
                     }
                 }
             }
