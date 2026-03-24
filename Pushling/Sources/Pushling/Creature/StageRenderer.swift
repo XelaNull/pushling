@@ -305,6 +305,11 @@ enum StageRenderer {
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
+        // Nose — debuts at Beast stage
+        let nose = makeNose(size: 1.5,
+            position: CGPoint(x: 0, y: -w * 0.08))
+        head.addChild(nose)
+
         let (mouthNode, mouthInner) = makeMouth(width: w * 0.12,
             position: CGPoint(x: 0, y: -w * 0.18))
         head.addChild(mouthNode)
@@ -405,6 +410,10 @@ enum StageRenderer {
                                             yOff: -1.0, name: "eye_right")
         head.addChild(eyeL)
         head.addChild(eyeRN)
+
+        let nose = makeNose(size: 1.5,
+            position: CGPoint(x: 0, y: -w * 0.07))
+        head.addChild(nose)
 
         let (mouthNode, mouthInner) = makeMouth(width: w * 0.1,
             position: CGPoint(x: 0, y: -w * 0.16))
@@ -516,6 +525,10 @@ enum StageRenderer {
                                             yOff: -1.0, name: "eye_right")
         head.addChild(eyeL)
         head.addChild(eyeRN)
+
+        let nose = makeNose(size: 1.5,
+            position: CGPoint(x: 0, y: -w * 0.06))
+        head.addChild(nose)
 
         let (mouthNode, mouthInner) = makeMouth(width: w * 0.1,
             position: CGPoint(x: 0, y: -w * 0.14))
