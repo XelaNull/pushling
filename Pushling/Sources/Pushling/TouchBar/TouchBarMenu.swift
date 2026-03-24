@@ -414,33 +414,32 @@ final class StatsPopupView: NSView {
                      x: 212, width: 80)
 
         case 1: // How Do I Feel?
+            // When emergent state active, tint all labels with state color
             let tint = emergentColor(d.emergentState)
+            let happyC = tint ?? NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1)
+            let curiousC = tint ?? NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1)
+            let cozyC = tint ?? NSColor(displayP3Red: 1, green: 0.8, blue: 0.3, alpha: 1)
+            let energyC = tint ?? NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1)
+
             if let emergent = d.emergentState {
-                // Emergent state: show name + bare bars
-                setLabel(label1, text: emergent.capitalized,
-                         color: tint ?? .white, x: 6, width: 75)
-                setLabel(label2, text: emotionBar(d.satisfaction),
-                         color: tint ?? NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
-                         x: 85, width: 35)
-                setLabel(label3, text: emotionBar(d.curiosity),
-                         color: tint ?? NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
-                         x: 125, width: 35)
-                setLabel(label4, text: emotionBar(d.energy),
-                         color: tint ?? NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
-                         x: 165, width: 35)
+                // Emergent: state name replaces "Happy", other 3 keep labels
+                setLabel(label1, text: emergent.capitalized + " " + emotionBar(d.satisfaction),
+                         color: happyC, x: 6, width: 90)
+                setLabel(label2, text: "Curious " + emotionBar(d.curiosity),
+                         color: curiousC, x: 100, width: 80)
+                setLabel(label3, text: "Cozy " + emotionBar(d.contentment),
+                         color: cozyC, x: 184, width: 68)
+                setLabel(label4, text: "Nrg " + emotionBar(d.energy),
+                         color: energyC, x: 256, width: 55)
             } else {
                 setLabel(label1, text: "Happy " + emotionBar(d.satisfaction),
-                         color: NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
-                         x: 6, width: 78)
+                         color: happyC, x: 6, width: 78)
                 setLabel(label2, text: "Curious " + emotionBar(d.curiosity),
-                         color: NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
-                         x: 88, width: 80)
+                         color: curiousC, x: 88, width: 80)
                 setLabel(label3, text: "Cozy " + emotionBar(d.contentment),
-                         color: NSColor(displayP3Red: 1, green: 0.8, blue: 0.3, alpha: 1),
-                         x: 172, width: 68)
+                         color: cozyC, x: 172, width: 68)
                 setLabel(label4, text: "Energy " + emotionBar(d.energy),
-                         color: NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
-                         x: 244, width: 68)
+                         color: energyC, x: 244, width: 68)
             }
 
         case 2: // What Am I Like?
