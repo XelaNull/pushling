@@ -434,6 +434,20 @@ final class CreatureNode: SKNode {
         addChild(nodes.head)
         headNode = nodes.head
 
+        // Collect beard strand nodes (Apex wise beard, children of head)
+        beardStrandNodes.removeAll()
+        for child in nodes.head.children {
+            if let beardGroup = child as? SKNode,
+               beardGroup.name == "wise_beard" {
+                for strand in beardGroup.children {
+                    if let shape = strand as? SKShapeNode,
+                       let name = shape.name, name.hasPrefix("beard_strand_") {
+                        beardStrandNodes.append(shape)
+                    }
+                }
+            }
+        }
+
         addChild(nodes.particles)
         particlesNode = nodes.particles
     }
@@ -541,6 +555,7 @@ final class CreatureNode: SKNode {
         pawBLController = nil
         pawBRController = nil
         additionalTailNodes.removeAll()
+        beardStrandNodes.removeAll()
         bodyNode = nil
         coreGlowNode = nil
         headNode = nil

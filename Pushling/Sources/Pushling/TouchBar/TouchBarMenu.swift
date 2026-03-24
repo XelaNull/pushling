@@ -26,6 +26,8 @@ final class MenuStripView: NSView {
     private var fadeTimer: Timer?
     private var isMuted = false
     private var showMCPInstall: Bool
+    /// Incremented on each show() to invalidate stale fade completions.
+    private var fadeGeneration: Int = 0
     static let fadeDuration: TimeInterval = 20.0
 
     private var expandedWidth: CGFloat = 84  // 30 + 2 + 50 + 2
@@ -108,6 +110,7 @@ final class MenuStripView: NSView {
     func show() {
         isHidden = false
         alphaValue = 1.0
+        fadeGeneration += 1  // Invalidate any previous fade completion
         let target = NSRect(
             x: frame.origin.x, y: frame.origin.y,
             width: expandedWidth, height: stripHeight
@@ -146,16 +149,19 @@ final class MenuStripView: NSView {
 
     private func startFade() {
         fadeTimer?.invalidate()
+        let currentGen = fadeGeneration
         // Fade alpha from 1 to 0 over 20 seconds
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = Self.fadeDuration
             ctx.timingFunction = CAMediaTimingFunction(name: .linear)
             self.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            self?.isHidden = true
-            self?.alphaValue = 1.0
-            self?.frame.size.width = 0
-            self?.onFadeComplete?()
+            // Only complete if this fade hasn't been superseded
+            guard let self = self, self.fadeGeneration == currentGen else { return }
+            self.isHidden = true
+            self.alphaValue = 1.0
+            self.frame.size.width = 0
+            self.onFadeComplete?()
         })
     }
 

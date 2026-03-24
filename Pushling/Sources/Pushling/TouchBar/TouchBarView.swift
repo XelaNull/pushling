@@ -205,14 +205,19 @@ final class TouchBarView: SKView {
 
     private func openMenu() {
         isMenuOpen = true
+        // Cancel any lingering fade from a previous menu open
+        toggleButton?.cancelFadeOut()
+        menuStrip?.alphaValue = 1.0
         // Flash the P button bright before transforming
         toggleButton?.flash()
         toggleButton?.setLabel("M")
         // Step 1: Expand P button to full-height M
-        toggleButton?.expand { [weak self] in
-            // Step 2: Slide menu drawer out from underneath expanded button
+        toggleButton?.expand(completion: nil)
+        // Step 2: After expand animation (0.4s), slide menu out + start fade
+        // Using timer instead of completion handler — more reliable on Touch Bar
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard self?.isMenuOpen == true else { return }
             self?.menuStrip?.show()
-            // Step 3: Fade the M button in sync with the menu (20s)
             self?.toggleButton?.fadeOut(duration: MenuStripView.fadeDuration)
         }
         menuStrip?.onFadeComplete = { [weak self] in

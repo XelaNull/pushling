@@ -239,6 +239,7 @@ Since we use Bezier paths (not pixels), sub-pixel antialiasing gives us effectiv
 | Crown behavior | Fixed position, only alpha pulses | Make reactive: flare on events, dim during sleep |
 | Eye glow | None | Add faint glow node behind each eye (2.5pt, alpha 0.15) |
 | Aura | Bone-colored circle | Change to **gilt** (regression from Sage's golden aura). Consider pulsing ring |
+| **Wise beard** | **IMPLEMENTED** | 3 flowing gilt-colored strands from chin, per-frame sway animation. The mark of a transcendent sage-spirit. |
 | **Behaviors** | Same as all cat stages | **Add Apex-exclusive**: ethereal float, phase-shift, cosmic awareness. Multi-tail should express emotion (fan wide = confident, wrap tight = concerned) |
 
 ---
@@ -260,6 +261,7 @@ Since we use Bezier paths (not pixels), sub-pixel antialiasing gives us effectiv
 | Third eye | None | None | None | None | **NEW** | Crown of stars |
 | Particles | None | None | None | None | **NEW**: orbiting | Dissolution + orbit |
 | Transparency | Opaque | Semi | Opaque | Opaque | Opaque | Ethereal (waving) |
+| **Wise beard** | None | None | None | None | None | **NEW**: 3 gilt strands, flowing sway |
 
 ---
 
