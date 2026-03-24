@@ -47,9 +47,10 @@ enum StageRenderer {
         let h = config.size.height
 
         // Compute body color from visual traits — each creature has unique hue
+        // Saturation 0.4 ensures visibility on OLED (0.25 was too pale)
         let bodyColor = SKColor(
             hue: CGFloat(visualTraits.baseColorHue),
-            saturation: 0.25, brightness: 0.95, alpha: 1.0
+            saturation: 0.4, brightness: 0.95, alpha: 1.0
         )
 
         // Apply body proportion scaling

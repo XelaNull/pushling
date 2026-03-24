@@ -15,7 +15,8 @@ extension StageRenderer {
         let path = CatShapes.teardropBody(width: width, height: height)
         let shape = SKShapeNode(path: path)
         shape.fillColor = color
-        shape.strokeColor = .clear
+        shape.strokeColor = color.withAlphaComponent(0.5)
+        shape.lineWidth = 0.75
         return shape
     }
 
