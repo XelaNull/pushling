@@ -56,6 +56,10 @@ final class CreatureNode: SKNode {
     /// Noise amplitudes — position offsets in points, rotation in radians.
     private let noiseAmps: [CGFloat] = [0.12, 0.15, 0.015, 0.015, 0.02, 0.02]
 
+    /// Previous frame's noise offsets — subtracted before applying new ones.
+    /// Prevents accumulation drift.
+    private var prevNoiseOffsets: [CGFloat] = [0, 0, 0, 0, 0, 0]
+
     // MARK: - Breathing State (Per-Frame — NEVER an SKAction)
 
     /// Accumulated time for breathing sine wave.
@@ -275,35 +279,26 @@ final class CreatureNode: SKNode {
     /// Apply subtle per-frame micro-movements to body parts using layered sine waves.
     /// Each part has a different frequency and phase offset so they never move in sync.
     private func updateNoiseIdle() {
-        // Amplitude scaling: 1.0 normal, 0.3 walking, 0.1 sleeping
+        // Amplitude scaling: 1.0 normal, 0.1 sleeping
         let scale: CGFloat = isSleeping ? 0.1 : 1.0
         let t = CGFloat(breathingTime)
 
-        // Body Y offset
-        let bodyOffset = noiseAmps[0] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[0] * t + noisePhases[0]))
-        bodyNode?.position.y += bodyOffset
+        // Compute new offsets
+        var offsets: [CGFloat] = []
+        for i in 0..<6 {
+            offsets.append(noiseAmps[i] * scale
+                * CGFloat(sin(2.0 * .pi * noiseFreqs[i] * t + noisePhases[i])))
+        }
 
-        // Head Y offset
-        let headOffset = noiseAmps[1] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[1] * t + noisePhases[1]))
-        headNode?.position.y += headOffset
+        // Subtract previous offsets, add new ones (prevents accumulation)
+        bodyNode?.position.y += offsets[0] - prevNoiseOffsets[0]
+        headNode?.position.y += offsets[1] - prevNoiseOffsets[1]
+        earLeftController?.node.zRotation += offsets[2] - prevNoiseOffsets[2]
+        earRightController?.node.zRotation += offsets[3] - prevNoiseOffsets[3]
+        whiskerLeftController?.node.zRotation += offsets[4] - prevNoiseOffsets[4]
+        whiskerRightController?.node.zRotation += offsets[5] - prevNoiseOffsets[5]
 
-        // Ear rotations (additive to current controller state)
-        let earLOff = noiseAmps[2] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[2] * t + noisePhases[2]))
-        earLeftController?.node.zRotation += earLOff
-        let earROff = noiseAmps[3] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[3] * t + noisePhases[3]))
-        earRightController?.node.zRotation += earROff
-
-        // Whisker rotations
-        let whiskerLOff = noiseAmps[4] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[4] * t + noisePhases[4]))
-        whiskerLeftController?.node.zRotation += whiskerLOff
-        let whiskerROff = noiseAmps[5] * scale
-            * CGFloat(sin(2.0 * .pi * noiseFreqs[5] * t + noisePhases[5]))
-        whiskerRightController?.node.zRotation += whiskerROff
+        prevNoiseOffsets = offsets
     }
 
     private func updateBreathing(deltaTime: TimeInterval) {

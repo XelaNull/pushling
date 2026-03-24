@@ -328,17 +328,13 @@ enum StageRenderer {
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 2.5, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true,
-                            legHeight: 2.0, isFront: true)
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 2.5, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true,
-                            legHeight: 2.0, isFront: true)
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 2.5, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true,
-                            legHeight: 2.5, isFront: false)
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 2.5, position: pawPositions.br,
-                            name: "paw_br", showToes: true,
-                            legHeight: 2.5, isFront: false)
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.7)
         aura.fillColor = PushlingPalette.bone
@@ -446,13 +442,13 @@ enum StageRenderer {
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true, legHeight: 2.5, isFront: true)
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true, legHeight: 2.5, isFront: true)
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true, legHeight: 3.0, isFront: false)
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br", showToes: true, legHeight: 3.0, isFront: false)
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.8)
         aura.fillColor = PushlingPalette.gilt
@@ -617,13 +613,13 @@ enum StageRenderer {
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true, legHeight: 2.5, isFront: true)
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true, legHeight: 2.5, isFront: true)
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true, legHeight: 3.0, isFront: false)
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br", showToes: true, legHeight: 3.0, isFront: false)
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 1.0)
         aura.fillColor = PushlingPalette.bone
