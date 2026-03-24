@@ -109,7 +109,7 @@ jobs:
       # ── Always: Hourly download snapshot ────────────────────────
       - name: Snapshot release downloads
         env:
-          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           mkdir -p .github/traffic/charts
 
@@ -183,7 +183,7 @@ jobs:
       - name: Collect full traffic stats
         if: steps.mode.outputs.full == 'true'
         env:
-          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           DATE=$(date -u +%Y-%m-%d)
@@ -789,7 +789,7 @@ jobs:
       - name: Generate summary dashboard
         if: steps.mode.outputs.full == 'true'
         env:
-          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           SUMMARY_FILE=".github/traffic/SUMMARY.md"
           DATE=$(date -u +%Y-%m-%d)
