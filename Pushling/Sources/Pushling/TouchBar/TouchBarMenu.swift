@@ -311,30 +311,39 @@ final class StatsPopupView: NSView {
         closeButton.onTap = { [weak self] in self?.onClose?() }
         addSubview(closeButton)
 
-        // Swipe gesture for page cycling
+        // Horizontal swipe gesture for page cycling
+        // (vertical swipe is impractical on a 30pt tall bar)
         let swipe = NSPanGestureRecognizer(
             target: self, action: #selector(handleSwipe(_:)))
         swipe.allowedTouchTypes = [.direct]
         swipe.buttonMask = 0
         swipe.numberOfTouchesRequired = 1
         addGestureRecognizer(swipe)
+
+        // Tap to cycle pages (fallback — works alongside swipe)
+        let tap = NSClickGestureRecognizer(
+            target: self, action: #selector(handleTapCycle(_:)))
+        tap.allowedTouchTypes = [.direct]
+        tap.buttonMask = 0
+        addGestureRecognizer(tap)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
     }
 
-    // MARK: - Swipe Handler
+    // MARK: - Gesture Handlers
 
     @objc private func handleSwipe(_ gesture: NSPanGestureRecognizer) {
         switch gesture.state {
         case .changed:
             guard !hasTriggeredSwipe else { return }
             let translation = gesture.translation(in: self)
-            if translation.y > 8 {
+            // Horizontal swipe: right = next page, left = previous
+            if translation.x > 20 {
                 hasTriggeredSwipe = true
                 setPage((currentPage + 1) % Self.pageCount, animated: true)
-            } else if translation.y < -8 {
+            } else if translation.x < -20 {
                 hasTriggeredSwipe = true
                 setPage((currentPage - 1 + Self.pageCount) % Self.pageCount,
                         animated: true)
@@ -344,6 +353,15 @@ final class StatsPopupView: NSView {
         default:
             break
         }
+    }
+
+    @objc private func handleTapCycle(_ gesture: NSClickGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        // Tap anywhere on the popup (except X button) cycles to next page
+        let loc = gesture.location(in: self)
+        // Don't cycle if tapping near the X button (right 30pt)
+        guard loc.x < frame.width - 30 else { return }
+        setPage((currentPage + 1) % Self.pageCount, animated: true)
     }
 
     // MARK: - Page Navigation
