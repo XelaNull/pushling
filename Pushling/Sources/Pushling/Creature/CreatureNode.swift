@@ -163,12 +163,28 @@ final class CreatureNode: SKNode {
 
     // MARK: - Per-Frame Update (Called from PushlingScene)
 
+    /// Egg wobble progress (0.0-1.0, intensifies as hatch approaches).
+    var eggHatchProgress: CGFloat = 0
+
     /// Main update loop — breathing, blinks, tail, whiskers.
     /// - Parameter deltaTime: Seconds since last frame.
     func update(deltaTime: TimeInterval) {
         // === BREATHING — The most important animation ===
         // Per-frame sine-wave Y-scale. Never stops. Never an SKAction.
         updateBreathing(deltaTime: deltaTime)
+
+        // === EGG WOBBLE ===
+        if currentStage == .egg {
+            let wobble = sin(breathingTime * 3.0)
+                * 0.06 * eggHatchProgress
+            bodyNode?.zRotation = CGFloat(wobble)
+        }
+
+        // === APEX ALPHA OSCILLATION ===
+        if currentStage == .apex {
+            let alphaPhase = sin(breathingTime * 0.5) * 0.12
+            bodyNode?.alpha = CGFloat(0.88 + alphaPhase)
+        }
 
         // === BLINK SYSTEM ===
         updateBlinkSystem(deltaTime: deltaTime)

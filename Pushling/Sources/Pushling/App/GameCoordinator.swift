@@ -374,9 +374,10 @@ final class GameCoordinator {
                           self.eggAccumulator != nil ? "active" : "NIL")
                     self.eggAccumulator?.record(data)
 
-                    // Egg glow pulse (simple visual feedback)
+                    // Egg glow pulse + wobble progress
                     if let creature = self.scene.creatureNode {
                         let progress = self.eggAccumulator?.hatchProgress ?? 0
+                        creature.eggHatchProgress = CGFloat(progress)
                         let glow = SKAction.sequence([
                             SKAction.fadeAlpha(
                                 to: CGFloat(0.6 + progress * 0.4),
