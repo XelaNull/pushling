@@ -71,6 +71,9 @@ enum BehaviorChoreography {
         case "if_i_fits_i_sits":
             applyIfIFitsISits(progress: progress, output: &output)
 
+        case "meditation":
+            applyMeditation(progress: progress, output: &output)
+
         default:
             output.bodyState = "stand"
         }
@@ -137,6 +140,29 @@ enum BehaviorChoreography {
         output.tailState = "wrap"
         output.eyeLeftState = "half"
         output.eyeRightState = "half"
+    }
+
+    /// Meditation: Sage+ exclusive — deep contemplation with eyes closed.
+    /// Eyes flutter open at 80% progress. Represents wisdom and inner peace.
+    private static func applyMeditation(progress: Double,
+                                         output: inout LayerOutput) {
+        output.bodyState = "loaf"
+        output.pawStates = ["fl": "tuck", "fr": "tuck",
+                            "bl": "tuck", "br": "tuck"]
+        output.tailState = "wrap"
+        output.earLeftState = "neutral"
+        output.earRightState = "neutral"
+
+        // Eyes closed for 80% of meditation, flutter open at the end
+        if progress < 0.8 {
+            output.eyeLeftState = "closed"
+            output.eyeRightState = "closed"
+        } else {
+            // Flutter: alternate between closed and half-open
+            let flutter = Int((progress - 0.8) * 50) % 2 == 0
+            output.eyeLeftState = flutter ? "half" : "closed"
+            output.eyeRightState = flutter ? "half" : "closed"
+        }
     }
 
     /// Zoomies: sprint across bar and back with poof tail and wild ears.

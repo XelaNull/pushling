@@ -257,6 +257,18 @@ final class BehaviorSelector {
                 axis: .contentment, comparison: .greaterThan, threshold: 40
             )
         ),
+        // Sage+ exclusive: deep meditation
+        BehaviorDefinition(
+            name: "meditation",
+            category: .calm,
+            stageMin: .sage,
+            durationRange: 10.0...20.0,
+            baseWeight: 1.2,
+            cooldown: 600,
+            emotionalCondition: EmotionalCondition(
+                axis: .contentment, comparison: .greaterThan, threshold: 60
+            )
+        ),
     ]
 
     // MARK: - Personality Affinity Map
