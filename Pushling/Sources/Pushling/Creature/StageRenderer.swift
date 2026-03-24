@@ -266,6 +266,16 @@ enum StageRenderer {
         body.name = "body"
         body.zPosition = 10
 
+
+        // Fur texture overlay — subtle directional strokes
+        let furPath = CatShapes.furTexture(bodyWidth: w, bodyHeight: h * 0.55, density: 0.2)
+        let fur = SKShapeNode(path: furPath)
+        fur.strokeColor = bodyColor.withAlphaComponent(0.15)
+        fur.fillColor = .clear
+        fur.lineWidth = 0.75
+        fur.name = "fur_texture"
+        fur.zPosition = 11
+        body.addChild(fur)
         let head = SKNode()
         head.name = "head"
         head.position = CGPoint(x: w * 0.15, y: h * 0.25)
@@ -361,6 +371,15 @@ enum StageRenderer {
         let body = makeCatBody(width: w, height: h * 0.5, stage: .sage, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
+
+        let furPath = CatShapes.furTexture(bodyWidth: w, bodyHeight: h * 0.5, density: 0.25)
+        let fur = SKShapeNode(path: furPath)
+        fur.strokeColor = bodyColor.withAlphaComponent(0.12)
+        fur.fillColor = .clear
+        fur.lineWidth = 0.75
+        fur.name = "fur_texture"
+        fur.zPosition = 11
+        body.addChild(fur)
 
         let head = SKNode()
         head.name = "head"
@@ -480,6 +499,15 @@ enum StageRenderer {
         let body = makeCatBody(width: w, height: h * 0.5, stage: .apex, color: bodyColor)
         body.name = "body"
         body.zPosition = 10
+
+        let furPath = CatShapes.furTexture(bodyWidth: w, bodyHeight: h * 0.5, density: 0.15)
+        let fur = SKShapeNode(path: furPath)
+        fur.strokeColor = bodyColor.withAlphaComponent(0.08)
+        fur.fillColor = .clear
+        fur.lineWidth = 0.75
+        fur.name = "fur_texture"
+        fur.zPosition = 11
+        body.addChild(fur)
         body.alpha = 0.85 // semi-ethereal
 
         let head = SKNode()

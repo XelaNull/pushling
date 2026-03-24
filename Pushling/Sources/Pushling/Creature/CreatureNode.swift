@@ -42,6 +42,20 @@ final class CreatureNode: SKNode {
     /// Visual traits from git history — determines body color, eye shape, etc.
     var visualTraits: VisualTraits = .neutral
 
+    // MARK: - Noise Idle System (Organic Micro-Movements)
+
+    /// Phase offsets for noise idle — random per body part, set once.
+    /// [body, head, earL, earR, whiskerL, whiskerR]
+    private let noisePhases: [CGFloat] = (0..<6).map { _ in
+        CGFloat.random(in: 0..<(2.0 * .pi))
+    }
+
+    /// Noise frequencies (Hz) — irrational ratios so parts never sync.
+    private let noiseFreqs: [CGFloat] = [0.3, 0.4, 0.53, 0.57, 0.83, 0.79]
+
+    /// Noise amplitudes — position offsets in points, rotation in radians.
+    private let noiseAmps: [CGFloat] = [0.12, 0.15, 0.015, 0.015, 0.02, 0.02]
+
     // MARK: - Breathing State (Per-Frame — NEVER an SKAction)
 
     /// Accumulated time for breathing sine wave.
@@ -180,6 +194,15 @@ final class CreatureNode: SKNode {
             bodyNode?.zRotation = CGFloat(wobble)
         }
 
+        // === DROP HOP ===
+        if currentStage == .drop {
+            let hopValue = abs(CGFloat(sin(breathingTime * 5.0)))
+            bodyNode?.position.y += 2.0 * hopValue
+            // Squash on ground, stretch on launch (compose with breathing)
+            let hopSquash = 0.85 + 0.3 * hopValue
+            bodyNode?.yScale *= hopSquash
+        }
+
         // === APEX ALPHA OSCILLATION ===
         if currentStage == .apex {
             let alphaPhase = sin(breathingTime * 0.5) * 0.12
@@ -190,6 +213,9 @@ final class CreatureNode: SKNode {
         if currentStage >= .sage {
             particlesNode?.zRotation += CGFloat(deltaTime * 0.5)
         }
+
+        // === NOISE IDLE — organic micro-movements ===
+        updateNoiseIdle()
 
         // === BLINK SYSTEM ===
         updateBlinkSystem(deltaTime: deltaTime)
@@ -246,6 +272,40 @@ final class CreatureNode: SKNode {
 
     /// Per-frame breathing. Applied EVERY frame. Never stops.
     /// Formula: yScale = 1.0 + amplitude * sin(2pi * t / period)
+    /// Apply subtle per-frame micro-movements to body parts using layered sine waves.
+    /// Each part has a different frequency and phase offset so they never move in sync.
+    private func updateNoiseIdle() {
+        // Amplitude scaling: 1.0 normal, 0.3 walking, 0.1 sleeping
+        let scale: CGFloat = isSleeping ? 0.1 : 1.0
+        let t = CGFloat(breathingTime)
+
+        // Body Y offset
+        let bodyOffset = noiseAmps[0] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[0] * t + noisePhases[0]))
+        bodyNode?.position.y += bodyOffset
+
+        // Head Y offset
+        let headOffset = noiseAmps[1] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[1] * t + noisePhases[1]))
+        headNode?.position.y += headOffset
+
+        // Ear rotations (additive to current controller state)
+        let earLOff = noiseAmps[2] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[2] * t + noisePhases[2]))
+        earLeftController?.node.zRotation += earLOff
+        let earROff = noiseAmps[3] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[3] * t + noisePhases[3]))
+        earRightController?.node.zRotation += earROff
+
+        // Whisker rotations
+        let whiskerLOff = noiseAmps[4] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[4] * t + noisePhases[4]))
+        whiskerLeftController?.node.zRotation += whiskerLOff
+        let whiskerROff = noiseAmps[5] * scale
+            * CGFloat(sin(2.0 * .pi * noiseFreqs[5] * t + noisePhases[5]))
+        whiskerRightController?.node.zRotation += whiskerROff
+    }
+
     private func updateBreathing(deltaTime: TimeInterval) {
         breathingTime += deltaTime
 
