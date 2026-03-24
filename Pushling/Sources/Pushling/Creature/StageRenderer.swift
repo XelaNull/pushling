@@ -530,6 +530,15 @@ enum StageRenderer {
         head.addChild(whiskerL)
         head.addChild(whiskerR)
 
+        // Wise beard — flowing strands from chin, the mark of a transcendent spirit
+        let beard = makeWiseBeard(
+            length: w * 0.35,
+            position: CGPoint(x: 0, y: -w * 0.18),
+            color: PushlingPalette.gilt
+        )
+        beard.alpha = 0.8
+        head.addChild(beard)
+
         // Primary tail — TailController drives this one
         let tail = makeTail(length: 12, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: 0),

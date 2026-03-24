@@ -108,14 +108,11 @@ final class TouchBarView: SKView {
         }
 
         // Slide-out menu strip (initially collapsed, hidden)
-        // Positioned at x=30 (right edge of expanded P button), full Touch Bar height
-        // Check MCP status on background thread, show install button if needed
+        // Show MCP button by default; async check hides it if MCP is already installed
         if menuStrip == nil {
-            // Check MCP on background to avoid blocking Touch Bar setup
-            let needsMCP = !HookInstaller.isMCPInstalled()
             let menu = MenuStripView(
                 frame: NSRect(x: 30, y: 0, width: 0, height: 30),
-                showMCPButton: needsMCP
+                showMCPButton: true  // Default to showing; hidden async if installed
             )
             menu.isHidden = true
             menu.onStatsTap = { [weak self] in self?.menuStatsTapped() }
@@ -133,6 +130,16 @@ final class TouchBarView: SKView {
             }
             addSubview(menu)
             self.menuStrip = menu
+
+            // Async MCP check — hide button if already installed
+            DispatchQueue.global(qos: .utility).async { [weak menu] in
+                let installed = HookInstaller.isMCPInstalled()
+                if installed {
+                    DispatchQueue.main.async {
+                        menu?.hideMCPButton()
+                    }
+                }
+            }
         }
 
         // Stats popup (initially hidden)

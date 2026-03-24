@@ -332,6 +332,45 @@ extension StageRenderer {
         )
     }
 
+    // MARK: - Wise Beard (Apex Stage)
+
+    /// Make a wise beard — 3 flowing strands hanging from the chin.
+    /// Semi-ethereal, gently swaying, matching the Apex's transcendent aesthetic.
+    /// Returns the beard group node containing individual strand children.
+    static func makeWiseBeard(length: CGFloat,
+                               position: CGPoint,
+                               color: SKColor = PushlingPalette.bone) -> SKNode {
+        let group = SKNode()
+        group.position = position
+        group.name = "wise_beard"
+        group.zPosition = 24
+
+        // 3 strands: center (longest), left, right
+        let strands: [(spread: CGFloat, lengthScale: CGFloat, waviness: CGFloat, thick: CGFloat)] = [
+            (spread: -0.6, lengthScale: 0.75, waviness: 0.35, thick: 0.8),  // left
+            (spread:  0.0, lengthScale: 1.0,  waviness: 0.20, thick: 1.0),  // center (longest)
+            (spread:  0.6, lengthScale: 0.75, waviness: 0.35, thick: 0.8),  // right
+        ]
+
+        for (i, s) in strands.enumerated() {
+            let strandPath = CatShapes.beardStrand(
+                length: length * s.lengthScale,
+                spread: s.spread,
+                waviness: s.waviness
+            )
+            let strand = SKShapeNode(path: strandPath)
+            strand.strokeColor = color
+            strand.lineWidth = s.thick
+            strand.lineCap = .round
+            strand.fillColor = .clear
+            strand.alpha = 0.75
+            strand.name = "beard_strand_\(i)"
+            group.addChild(strand)
+        }
+
+        return group
+    }
+
     // MARK: - Proto Features (Spore/Drop Hints)
 
     /// Make a proto-ear nub for Spore stage (circular).

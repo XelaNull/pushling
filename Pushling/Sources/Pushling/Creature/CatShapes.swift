@@ -607,6 +607,34 @@ enum CatShapes {
         return path
     }
 
+    // MARK: - Wise Beard (Apex Stage)
+
+    /// Single beard strand — a flowing downward curve with gentle S-shape.
+    /// Strands originate from chin and flow downward with organic curvature.
+    /// - Parameters:
+    ///   - length: Strand length in points
+    ///   - spread: Horizontal spread factor (-1 = left, 0 = center, 1 = right)
+    ///   - waviness: How much the strand curves (0.1 = subtle, 0.5 = dramatic)
+    static func beardStrand(length: CGFloat, spread: CGFloat = 0,
+                            waviness: CGFloat = 0.3) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: .zero)
+
+        // Flowing S-curve downward with lateral spread
+        let endX = length * spread * 0.4
+        let endY = -length
+
+        path.addCurve(
+            to: CGPoint(x: endX, y: endY),
+            control1: CGPoint(x: -length * waviness * spread,
+                              y: -length * 0.3),
+            control2: CGPoint(x: endX + length * waviness * 0.5,
+                              y: -length * 0.7)
+        )
+
+        return path
+    }
+
     // MARK: - Fur Texture Sub-Paths
 
     /// Optional fur texture lines overlaid on the body.

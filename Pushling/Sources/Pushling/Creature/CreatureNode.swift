@@ -94,6 +94,11 @@ final class CreatureNode: SKNode {
     /// Number of tracked repos (drives Apex multi-tail count). Set by GameCoordinator.
     var repoCount: Int = 1
 
+    // MARK: - Wise Beard (Apex)
+
+    /// Beard strand nodes for Apex wise beard (driven by per-frame sway).
+    private var beardStrandNodes: [SKShapeNode] = []
+
     // MARK: - Tail Sway
 
     /// Whether the tail sway is active (suppressed during certain states).
@@ -191,6 +196,14 @@ final class CreatureNode: SKNode {
         if areWhiskerTwitchesActive {
             whiskerLeftController?.update(deltaTime: deltaTime)
             whiskerRightController?.update(deltaTime: deltaTime)
+        }
+
+        // === WISE BEARD SWAY (Apex) ===
+        for (i, strand) in beardStrandNodes.enumerated() {
+            // Each strand sways at a different rate with gentle, flowing motion
+            let phase = breathingTime + Double(i) * 0.7
+            let sway = 0.12 * CGFloat(sin(phase * 2.0 * .pi / 3.5))
+            strand.zRotation = sway
         }
 
         // === PAW CONTROLLERS ===

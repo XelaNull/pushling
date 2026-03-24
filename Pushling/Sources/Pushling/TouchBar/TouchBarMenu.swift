@@ -176,6 +176,14 @@ final class MenuStripView: NSView {
         startFade()
     }
 
+    /// Hide the MCP button (called async when MCP is already installed).
+    func hideMCPButton() {
+        mcpButton?.isHidden = true
+        mcpButton = nil
+        expandedWidth = 84  // Standard width without MCP button
+        showMCPInstall = false
+    }
+
     var isExpanded: Bool { !isHidden && frame.width > 0 }
 }
 
