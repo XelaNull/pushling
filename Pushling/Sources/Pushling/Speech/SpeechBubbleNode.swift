@@ -234,7 +234,7 @@ final class SpeechBubbleNode: SKNode {
             shape.strokeColor = PushlingPalette.ember; shape.lineWidth = 1.5
         case .think:
             shape.fillColor = PushlingPalette.withAlpha(PushlingPalette.ash, alpha: 0.60)
-            shape.strokeColor = PushlingPalette.bone; shape.lineWidth = 0.5
+            shape.strokeColor = PushlingPalette.bone; shape.lineWidth = 0.75
         case .whisper:
             shape.fillColor = PushlingPalette.withAlpha(PushlingPalette.ash, alpha: 0.40)
             shape.strokeColor = .clear; shape.lineWidth = 0

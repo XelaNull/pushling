@@ -94,7 +94,7 @@ final class DiamondIndicator: SKNode {
         let diamond = SKShapeNode(path: Self.diamondPath(size: Self.diamondSize))
         diamond.fillColor = PushlingPalette.tide
         diamond.strokeColor = PushlingPalette.withAlpha(PushlingPalette.tide, alpha: 0.6)
-        diamond.lineWidth = 0.5
+        diamond.lineWidth = 0.75
         diamond.name = "diamond_main"
         addChild(diamond)
         self.diamondNode = diamond

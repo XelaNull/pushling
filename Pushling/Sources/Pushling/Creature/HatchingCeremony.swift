@@ -374,7 +374,7 @@ final class HatchingCeremony {
                 let egg = SKShapeNode(ellipseOf: CGSize(width: 10, height: 13))
                 egg.fillColor = PushlingPalette.bone
                 egg.strokeColor = SKColor(white: 0.7, alpha: 0.8)
-                egg.lineWidth = 0.5
+                egg.lineWidth = 0.75
                 egg.position = Self.eggOrigin
                 egg.zPosition = 100
                 egg.name = "hatch_egg"
@@ -521,7 +521,7 @@ final class HatchingCeremony {
         topHalf.path = topPath
         topHalf.fillColor = PushlingPalette.bone
         topHalf.strokeColor = SKColor(white: 0.6, alpha: 0.6)
-        topHalf.lineWidth = 0.5
+        topHalf.lineWidth = 0.75
         topHalf.position = CGPoint(x: Self.eggOrigin.x, y: Self.eggOrigin.y + 2)
         topHalf.zPosition = 101
         scene.addChild(topHalf)
@@ -543,7 +543,7 @@ final class HatchingCeremony {
         bottomHalf.path = botPath
         bottomHalf.fillColor = PushlingPalette.bone
         bottomHalf.strokeColor = SKColor(white: 0.6, alpha: 0.6)
-        bottomHalf.lineWidth = 0.5
+        bottomHalf.lineWidth = 0.75
         bottomHalf.position = CGPoint(x: Self.eggOrigin.x, y: Self.eggOrigin.y - 2)
         bottomHalf.zPosition = 101
         scene.addChild(bottomHalf)

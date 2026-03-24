@@ -138,7 +138,7 @@ extension StageRenderer {
         let path = CatShapes.catMouth(width: width)
         let inner = SKShapeNode(path: path)
         inner.strokeColor = PushlingPalette.ash
-        inner.lineWidth = 0.5
+        inner.lineWidth = 0.75
         inner.fillColor = .clear
         inner.name = "mouth_inner"
         outer.addChild(inner)
@@ -167,7 +167,7 @@ extension StageRenderer {
 
             let whisker = SKShapeNode(path: whiskerPath)
             whisker.strokeColor = PushlingPalette.ash
-            whisker.lineWidth = 0.5
+            whisker.lineWidth = 0.75
             whisker.alpha = 0.8
             whisker.name = "\(name)_\(i)"
             // Rotate to fan direction

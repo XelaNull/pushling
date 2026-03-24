@@ -228,7 +228,7 @@ final class MutationVisualsManager {
         halo.fillColor = .clear
         halo.strokeColor = SKColor(red: 0.85, green: 0.65, blue: 0.13,
                                     alpha: 0.2)  // Gilt, very faint
-        halo.lineWidth = 0.5
+        halo.lineWidth = 0.75
         halo.position = CGPoint(x: 0, y: 12)
         halo.zPosition = 6
         return halo

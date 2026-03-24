@@ -75,7 +75,7 @@ enum StageRenderer {
         let body = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
         body.fillColor = bodyColor
         body.strokeColor = SKColor(white: 0.7, alpha: 0.3)
-        body.lineWidth = 0.5
+        body.lineWidth = 0.75
         body.alpha = 0.95
         body.name = "body"
         body.zPosition = 10
@@ -96,10 +96,10 @@ enum StageRenderer {
         head.zPosition = 20
 
         let (eyeL, eyeLShape) = makeEye(radius: 0.3, xOff: 0,
-                                          yOff: 0, name: "eye_left")
+                                          yOff: 0, name: "eye_left", stage: .egg)
         eyeL.alpha = 0  // invisible on egg
         let (eyeR, eyeRShape) = makeEye(radius: 0.3, xOff: 0,
-                                          yOff: 0, name: "eye_right")
+                                          yOff: 0, name: "eye_right", stage: .egg)
         eyeR.alpha = 0  // invisible on egg
 
         let particles = SKNode()
@@ -135,9 +135,9 @@ enum StageRenderer {
         let eyeR: CGFloat = 1.0
         let eyeSpacing: CGFloat = w * 0.2
         let (eyeL, eyeLShape) = makeEye(radius: eyeR, xOff: -eyeSpacing,
-                                          yOff: 0, name: "eye_left")
+                                          yOff: 0, name: "eye_left", stage: .drop)
         let (eyeRN, eyeRShape) = makeEye(radius: eyeR, xOff: eyeSpacing,
-                                            yOff: 0, name: "eye_right")
+                                            yOff: 0, name: "eye_right", stage: .drop)
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
@@ -218,29 +218,18 @@ enum StageRenderer {
 
         let eyeSpacing: CGFloat = w * 0.12
         let (eyeL, eyeLShape) = makeEye(radius: 1.2, xOff: -eyeSpacing,
-                                          yOff: -0.5, name: "eye_left")
+                                          yOff: -0.5, name: "eye_left", stage: .critter)
         let (eyeRN, eyeRShape) = makeEye(radius: 1.2, xOff: eyeSpacing,
-                                            yOff: -0.5, name: "eye_right")
+                                            yOff: -0.5, name: "eye_right", stage: .critter)
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
-        let (mouthNode, mouthInner) = makeMouth(width: w * 0.15,
-            position: CGPoint(x: 0, y: -w * 0.2))
-        head.addChild(mouthNode)
-
-        // Whisker stubs — short 2-whisker set (emerging, not full)
-        let whiskerL = makeWhiskerGroup(
-            position: CGPoint(x: -w * 0.15, y: -w * 0.12),
-            name: "whisker_left", isLeft: true, count: 2, length: 2)
-        let whiskerR = makeWhiskerGroup(
-            position: CGPoint(x: w * 0.15, y: -w * 0.12),
-            name: "whisker_right", isLeft: false, count: 2, length: 2)
-        head.addChild(whiskerL)
-        head.addChild(whiskerR)
+        // No mouth or whiskers at Critter stage — they debut at Beast
+        // as a visual reward for evolution. Critter is a kitten: eyes + ears only.
 
         let tail = makeTail(length: 5, thickness: 1.5,
                              position: CGPoint(x: -w * 0.4, y: -h * 0.1),
-                             name: "tail")
+                             name: "tail", stage: .critter)
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 2, position: pawPositions.fl,
@@ -261,8 +250,8 @@ enum StageRenderer {
             earLeft: earL, earRight: earR,
             eyeLeft: eyeL, eyeLeftShape: eyeLShape,
             eyeRight: eyeRN, eyeRightShape: eyeRShape,
-            mouth: mouthNode, mouthShape: mouthInner,
-            whiskerLeft: whiskerL, whiskerRight: whiskerR,
+            mouth: nil, mouthShape: nil,
+            whiskerLeft: nil, whiskerRight: nil,
             tail: tail,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: nil, particles: particles
@@ -299,9 +288,9 @@ enum StageRenderer {
 
         let eyeSpacing: CGFloat = w * 0.1
         let (eyeL, eyeLShape) = makeEye(radius: 1.5, xOff: -eyeSpacing,
-                                          yOff: -0.5, name: "eye_left")
+                                          yOff: -0.5, name: "eye_left", stage: .beast)
         let (eyeRN, eyeRShape) = makeEye(radius: 1.5, xOff: eyeSpacing,
-                                            yOff: -0.5, name: "eye_right")
+                                            yOff: -0.5, name: "eye_right", stage: .beast)
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
@@ -325,17 +314,17 @@ enum StageRenderer {
 
         let tail = makeTail(length: 8, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: -h * 0.05),
-                             name: "tail")
+                             name: "tail", stage: .beast)
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 2.5, position: pawPositions.fl,
-                            name: "paw_fl")
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 2.5, position: pawPositions.fr,
-                            name: "paw_fr")
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 2.5, position: pawPositions.bl,
-                            name: "paw_bl")
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 2.5, position: pawPositions.br,
-                            name: "paw_br")
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.7)
         aura.fillColor = PushlingPalette.bone
@@ -405,9 +394,9 @@ enum StageRenderer {
 
         let eyeSpacing: CGFloat = w * 0.09
         let (eyeL, eyeLShape) = makeEye(radius: 1.5, xOff: -eyeSpacing,
-                                          yOff: -1.0, name: "eye_left")
+                                          yOff: -1.0, name: "eye_left", stage: .sage)
         let (eyeRN, eyeRShape) = makeEye(radius: 1.5, xOff: eyeSpacing,
-                                            yOff: -1.0, name: "eye_right")
+                                            yOff: -1.0, name: "eye_right", stage: .sage)
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
@@ -430,17 +419,17 @@ enum StageRenderer {
 
         let tail = makeTail(length: 10, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: -h * 0.03),
-                             name: "tail")
+                             name: "tail", stage: .sage)
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl")
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr")
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl")
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br")
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.8)
         aura.fillColor = PushlingPalette.gilt
@@ -520,9 +509,9 @@ enum StageRenderer {
 
         let eyeSpacing: CGFloat = w * 0.08
         let (eyeL, eyeLShape) = makeEye(radius: 1.8, xOff: -eyeSpacing,
-                                          yOff: -1.0, name: "eye_left")
+                                          yOff: -1.0, name: "eye_left", stage: .apex)
         let (eyeRN, eyeRShape) = makeEye(radius: 1.8, xOff: eyeSpacing,
-                                            yOff: -1.0, name: "eye_right")
+                                            yOff: -1.0, name: "eye_right", stage: .apex)
         head.addChild(eyeL)
         head.addChild(eyeRN)
 
@@ -555,7 +544,7 @@ enum StageRenderer {
         // Primary tail — TailController drives this one
         let tail = makeTail(length: 12, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: 0),
-                             name: "tail")
+                             name: "tail", stage: .apex)
         tail.alpha = 0.85
 
         // Additional tails fanned from the same attach point (repo count driven)
@@ -575,13 +564,13 @@ enum StageRenderer {
 
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl")
+                            name: "paw_fl", showToes: true)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr")
+                            name: "paw_fr", showToes: true)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl")
+                            name: "paw_bl", showToes: true)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br")
+                            name: "paw_br", showToes: true)
 
         let aura = SKShapeNode(circleOfRadius: w * 1.0)
         aura.fillColor = PushlingPalette.bone

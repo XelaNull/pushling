@@ -265,7 +265,7 @@ final class ZoomDetailController {
             let tuftPath = CatShapes.earTuft(earHeight: earH)
             let tuft = SKShapeNode(path: tuftPath)
             tuft.strokeColor = PushlingPalette.ash
-            tuft.lineWidth = 0.4
+            tuft.lineWidth = 0.75
             tuft.alpha = 0
             tuft.name = "ear_tuft_left"
             tuft.zPosition = 1
@@ -277,7 +277,7 @@ final class ZoomDetailController {
             let tuftPath = CatShapes.earTuft(earHeight: earH)
             let tuft = SKShapeNode(path: tuftPath)
             tuft.strokeColor = PushlingPalette.ash
-            tuft.lineWidth = 0.4
+            tuft.lineWidth = 0.75
             tuft.alpha = 0
             tuft.name = "ear_tuft_right"
             tuft.zPosition = 1

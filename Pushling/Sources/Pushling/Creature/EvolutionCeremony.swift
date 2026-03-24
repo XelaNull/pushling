@@ -245,7 +245,7 @@ final class EvolutionCeremony {
                                      y: -12))
             crack.path = path
             crack.strokeColor = PushlingPalette.gilt
-            crack.lineWidth = 0.5
+            crack.lineWidth = 0.75
             crack.alpha = 0
             crack.name = "crack_\(i)"
             container.addChild(crack)
