@@ -66,10 +66,18 @@ final class MouthController: BodyPartController {
             applyClosedShape(duration: duration)
         case "open":
             applyOpenShape(duration: duration)
+        case "open_small":
+            applyOpenSmallShape(duration: duration)
+        case "open_wide":
+            applyOpenWideShape(duration: duration)
         case "smile":
             applySmileShape(duration: duration)
+        case "smirk":
+            applySmirkShape(duration: duration)
         case "frown":
             applyFrownShape(duration: duration)
+        case "pout":
+            applyPoutShape(duration: duration)
         case "chew":
             chewTimer = 0
         case "yawn":
@@ -202,6 +210,35 @@ final class MouthController: BodyPartController {
         shapeNode.yScale = 1.0
         shapeNode.xScale = 1.0
         shapeNode.position.y = -0.3
+    }
+
+    private func applyOpenSmallShape(duration: TimeInterval) {
+        // Slightly open — for speech, curiosity
+        shapeNode.yScale = 0.8
+        shapeNode.xScale = 0.9
+        shapeNode.position.y = 0
+    }
+
+    private func applyOpenWideShape(duration: TimeInterval) {
+        // Wide open — for surprise
+        shapeNode.yScale = 2.5
+        shapeNode.xScale = 1.2
+        shapeNode.position.y = 0
+    }
+
+    private func applySmirkShape(duration: TimeInterval) {
+        // Asymmetric half-smile — for mischief
+        shapeNode.yScale = 1.0
+        shapeNode.xScale = 1.05
+        shapeNode.position.y = 0.2
+        shapeNode.position.x = 0.3  // Slight offset for asymmetry
+    }
+
+    private func applyPoutShape(duration: TimeInterval) {
+        // Protruding lower lip — for melancholy
+        shapeNode.yScale = 1.2
+        shapeNode.xScale = 0.8
+        shapeNode.position.y = -0.5
     }
 
     // MARK: - Tongue Setup

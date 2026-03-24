@@ -119,6 +119,73 @@ final class EmotionalVisualController {
         }
 
         updateBreathing(creature: creature, energy: eng)
+        updateMouth(creature: creature, satisfaction: sat, curiosity: cur,
+                    contentment: con, energy: eng)
+    }
+
+    // MARK: - Mouth Emotional Mapping
+
+    private var isMouthHappyActive = false
+    private var isMouthSadActive = false
+    private var isMouthCuriousActive = false
+    private var lastYawnTime: TimeInterval = 0
+    private var totalTime: TimeInterval = 0
+
+    private func updateMouth(creature: CreatureNode,
+                              satisfaction: Double, curiosity: Double,
+                              contentment: Double, energy: Double) {
+        totalTime += 1.0 / 60.0  // approximate per-frame
+
+        // Hangry → pout (highest priority for mouth)
+        if isHangryActive {
+            creature.mouthController?.setState("pout", duration: 0.5)
+            return
+        }
+
+        // Happy + content → smile
+        let happyTarget = satisfaction > 70 && contentment > 70
+        if happyTarget != isMouthHappyActive {
+            isMouthHappyActive = happyTarget
+            if happyTarget {
+                creature.mouthController?.setState("smile", duration: 0.5)
+                return
+            }
+        }
+        if isMouthHappyActive { return }
+
+        // Sad → frown
+        let sadMouthTarget = satisfaction < 30
+        if sadMouthTarget != isMouthSadActive {
+            isMouthSadActive = sadMouthTarget
+            if sadMouthTarget {
+                creature.mouthController?.setState("frown", duration: 0.5)
+                return
+            }
+        }
+        if isMouthSadActive { return }
+
+        // Curious → open_small
+        let curiousMouthTarget = curiosity > 70
+        if curiousMouthTarget != isMouthCuriousActive {
+            isMouthCuriousActive = curiousMouthTarget
+            if curiousMouthTarget {
+                creature.mouthController?.setState("open_small", duration: 0.3)
+                return
+            }
+        }
+        if isMouthCuriousActive { return }
+
+        // Low energy → occasional yawn (60s cooldown)
+        if energy < 25 && (totalTime - lastYawnTime) > 60 {
+            lastYawnTime = totalTime
+            creature.mouthController?.setState("yawn", duration: 0)
+            return
+        }
+
+        // Default: closed
+        if !isMouthHappyActive && !isMouthSadActive && !isMouthCuriousActive {
+            creature.mouthController?.setState("closed", duration: 0.3)
+        }
     }
 
     /// Modulate breathing speed based on energy axis.
