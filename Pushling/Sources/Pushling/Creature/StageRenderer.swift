@@ -74,7 +74,7 @@ enum StageRenderer {
         // Egg shape — smooth oval, taller than wide, no features
         let body = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
         body.fillColor = bodyColor
-        body.strokeColor = SKColor(white: 0.7, alpha: 0.3)
+        body.strokeColor = PushlingPalette.ash.withAlphaComponent(0.15)
         body.lineWidth = 0.75
         body.alpha = 0.95
         body.name = "body"
