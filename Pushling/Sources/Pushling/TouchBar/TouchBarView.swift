@@ -152,7 +152,7 @@ final class TouchBarView: SKView {
 
         // Stats popup (initially hidden)
         if statsPopup == nil {
-            let popup = StatsPopupView(frame: NSRect(x: 30, y: 0, width: 280, height: 30))
+            let popup = StatsPopupView(frame: NSRect(x: 30, y: 0, width: 360, height: 30))
             popup.isHidden = true
             popup.onClose = { [weak self] in self?.closeStats() }
             addSubview(popup)
@@ -271,12 +271,13 @@ final class TouchBarView: SKView {
         let emergent = gc?.emergentStates.currentState
 
         let data = StatsPageData(
+            creatureName: gc?.creatureName ?? "Pushling",
             stageName: hud.stageName,
             stageColor: stageNSColor,
             currentXP: hud.currentXP,
             xpToNext: hud.xpToNext,
-            satisfaction: emo?.satisfaction ?? hud.satisfaction,
             streakDays: hud.streakDays,
+            satisfaction: emo?.satisfaction ?? hud.satisfaction,
             curiosity: emo?.curiosity ?? 50,
             contentment: emo?.contentment ?? 50,
             energy: emo?.energy ?? 50,
@@ -287,11 +288,15 @@ final class TouchBarView: SKView {
             pDiscipline: pers?.discipline ?? 0.5,
             specialty: pers?.specialty.rawValue ?? "polyglot",
             specialtyHue: traits.baseColorHue,
+            commitsEaten: gc?.totalXP ?? 0,
+            totalTouches: 0,  // TODO: wire touch count
             badgesEarned: 0,  // TODO: wire MutationSystem.earnedCount
             badgesTotal: 10,
             tricksKnown: gc?.masteryTracker.totalBehaviors ?? 0,
             furPattern: traits.furPattern.rawValue,
-            eyeShape: traits.eyeShape.rawValue
+            eyeShape: traits.eyeShape.rawValue,
+            tailShape: traits.tailShape.rawValue,
+            baseColorHue: traits.baseColorHue
         )
 
         statsPopup?.update(data: data)

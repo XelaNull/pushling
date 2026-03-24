@@ -211,47 +211,54 @@ final class MenuStripView: NSView {
 
 // MARK: - Stats Page Data
 
-/// All data needed for the 4-page stats popup.
+/// All data needed for the 5-page stats popup.
 struct StatsPageData {
-    // Page 1: Identity
+    // Page 1: Who Am I?
+    let creatureName: String
     let stageName: String
     let stageColor: NSColor
     let currentXP: Int
     let xpToNext: Int
-    let satisfaction: Double
     let streakDays: Int
-    // Page 2: Emotions
+    // Page 2: How Do I Feel?
+    let satisfaction: Double
     let curiosity: Double
     let contentment: Double
     let energy: Double
     let emergentState: String?
-    // Page 3: Personality
+    // Page 3: What Am I Like?
     let pEnergy: Double
     let pVerbosity: Double
     let pFocus: Double
     let pDiscipline: Double
     let specialty: String
     let specialtyHue: Double
-    // Page 4: Growth & Traits
+    // Page 4: What Have I Done?
+    let commitsEaten: Int
+    let totalTouches: Int
     let badgesEarned: Int
     let badgesTotal: Int
     let tricksKnown: Int
+    // Page 5: What Do I Look Like?
     let furPattern: String
     let eyeShape: String
+    let tailShape: String
+    let baseColorHue: Double
 }
 
 // MARK: - Stats Popup View
 
-/// Multi-page stats overlay. Swipe up/down to cycle through 4 pages:
-///   1: Identity (stage, XP, hearts, streak)
-///   2: Emotions (satisfaction, curiosity, contentment, energy)
-///   3: Personality (5 axes + specialty)
-///   4: Growth (badges, tricks, fur, eyes)
+/// Multi-page stats overlay. Tap or swipe to cycle through 5 pages:
+///   1: Who Am I? (name, stage, XP, streak)
+///   2: How Do I Feel? (emotions with visual bars)
+///   3: What Am I Like? (natural language personality)
+///   4: What Have I Done? (commits, touches, badges, tricks)
+///   5: What Do I Look Like? (fur, eyes, tail descriptions)
 final class StatsPopupView: NSView {
 
     var onClose: (() -> Void)?
 
-    private static let pageCount = 4
+    private static let pageCount = 5
     private var currentPage = 0
     private var pageData: StatsPageData?
     private var hasTriggeredSwipe = false
@@ -264,7 +271,7 @@ final class StatsPopupView: NSView {
     private let contentContainer = NSView()
 
     // Fixed elements (persist across pages)
-    private let pageIndicator = NSTextField(labelWithString: "1/4")
+    private let pageIndicator = NSTextField(labelWithString: "1/5")
     private let closeButton: MenuButton
 
     override init(frame: NSRect) {
@@ -392,68 +399,167 @@ final class StatsPopupView: NSView {
         guard let d = pageData else { return }
 
         switch currentPage {
-        case 0: // Identity
-            setLabel(label1, text: d.stageName.uppercased(),
-                     color: d.stageColor, x: 6, width: 55)
-            setLabel(label2, text: "XP \(d.currentXP)/\(d.xpToNext)",
-                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1.0, alpha: 1),
-                     x: 64, width: 70)
-            let full = min(5, Int(d.satisfaction / 20.0))
-            let empty = 5 - full
-            setLabel(label3,
-                     text: String(repeating: "\u{2665}", count: full)
-                         + String(repeating: "\u{2661}", count: empty),
-                     color: NSColor(displayP3Red: 1, green: 0.35, blue: 0.3, alpha: 1),
-                     x: 138, width: 45)
+        case 0: // Who Am I?
+            let name = d.creatureName.isEmpty ? "Pushling" : d.creatureName
+            setLabel(label1, text: name,
+                     color: d.stageColor, x: 6, width: 65)
+            setLabel(label2, text: d.stageName.uppercased(),
+                     color: NSColor(white: 1, alpha: 0.6), x: 74, width: 55)
+            setLabel(label3, text: "XP \(d.currentXP)/\(d.xpToNext)",
+                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1, alpha: 1),
+                     x: 132, width: 75)
             setLabel(label4,
-                     text: d.streakDays > 0 ? "\(d.streakDays)d" : "",
+                     text: d.streakDays > 0 ? "Streak: \(d.streakDays)d" : "",
                      color: NSColor(displayP3Red: 1, green: 0.85, blue: 0.3, alpha: 1),
-                     x: 188, width: 35)
+                     x: 212, width: 80)
 
-        case 1: // Emotions
+        case 1: // How Do I Feel?
             let tint = emergentColor(d.emergentState)
-            setLabel(label1, text: "SAT \(Int(d.satisfaction))",
-                     color: tint ?? NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
-                     x: 6, width: 48)
-            setLabel(label2, text: "CUR \(Int(d.curiosity))",
-                     color: tint ?? NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
-                     x: 58, width: 48)
-            setLabel(label3, text: "CON \(Int(d.contentment))",
-                     color: tint ?? NSColor(displayP3Red: 1, green: 0.8, blue: 0.3, alpha: 1),
-                     x: 110, width: 48)
-            setLabel(label4, text: "NRG \(Int(d.energy))",
-                     color: tint ?? NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
-                     x: 162, width: 48)
-
-        case 2: // Personality
-            let fmt = { (v: Double) -> String in
-                String(format: ".%02d", Int(v * 100))
+            if let emergent = d.emergentState {
+                // Emergent state: show name + bare bars
+                setLabel(label1, text: emergent.capitalized,
+                         color: tint ?? .white, x: 6, width: 75)
+                setLabel(label2, text: emotionBar(d.satisfaction),
+                         color: tint ?? NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
+                         x: 85, width: 35)
+                setLabel(label3, text: emotionBar(d.curiosity),
+                         color: tint ?? NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
+                         x: 125, width: 35)
+                setLabel(label4, text: emotionBar(d.energy),
+                         color: tint ?? NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
+                         x: 165, width: 35)
+            } else {
+                setLabel(label1, text: "Happy " + emotionBar(d.satisfaction),
+                         color: NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
+                         x: 6, width: 78)
+                setLabel(label2, text: "Curious " + emotionBar(d.curiosity),
+                         color: NSColor(displayP3Red: 0.3, green: 0.9, blue: 0.8, alpha: 1),
+                         x: 88, width: 80)
+                setLabel(label3, text: "Cozy " + emotionBar(d.contentment),
+                         color: NSColor(displayP3Red: 1, green: 0.8, blue: 0.3, alpha: 1),
+                         x: 172, width: 68)
+                setLabel(label4, text: "Energy " + emotionBar(d.energy),
+                         color: NSColor(displayP3Red: 0.4, green: 1, blue: 0.5, alpha: 1),
+                         x: 244, width: 68)
             }
-            setLabel(label1, text: "E\(fmt(d.pEnergy)) V\(fmt(d.pVerbosity))",
-                     color: NSColor(white: 1, alpha: 0.8), x: 6, width: 80)
-            setLabel(label2, text: "F\(fmt(d.pFocus)) D\(fmt(d.pDiscipline))",
-                     color: NSColor(white: 1, alpha: 0.8), x: 90, width: 80)
+
+        case 2: // What Am I Like?
+            let desc = personalityDescription(d)
             let specColor = NSColor(
                 hue: CGFloat(d.specialtyHue), saturation: 0.5,
                 brightness: 1.0, alpha: 1.0)
-            setLabel(label3, text: d.specialty,
-                     color: specColor, x: 175, width: 55)
+            setLabel(label1, text: desc,
+                     color: specColor, x: 6, width: 300)
+            setLabel(label2, text: "", color: .clear, x: 0, width: 0)
+            setLabel(label3, text: "", color: .clear, x: 0, width: 0)
             setLabel(label4, text: "", color: .clear, x: 0, width: 0)
 
-        case 3: // Growth & Traits
-            setLabel(label1, text: "*\(d.badgesEarned)/\(d.badgesTotal)",
+        case 3: // What Have I Done?
+            setLabel(label1, text: "Commits: \(d.commitsEaten)",
+                     color: NSColor(displayP3Red: 0, green: 0.831, blue: 1, alpha: 1),
+                     x: 6, width: 78)
+            setLabel(label2, text: "Touches: \(d.totalTouches)",
+                     color: NSColor(displayP3Red: 1, green: 0.4, blue: 0.5, alpha: 1),
+                     x: 88, width: 78)
+            setLabel(label3, text: "Badges: \(d.badgesEarned)/\(d.badgesTotal)",
                      color: NSColor(displayP3Red: 1, green: 0.85, blue: 0.3, alpha: 1),
-                     x: 6, width: 38)
-            setLabel(label2, text: "\(d.tricksKnown) tricks",
+                     x: 170, width: 72)
+            setLabel(label4, text: "Tricks: \(d.tricksKnown)",
                      color: NSColor(displayP3Red: 0.7, green: 0.5, blue: 1, alpha: 1),
-                     x: 48, width: 55)
-            setLabel(label3, text: d.furPattern,
-                     color: NSColor(white: 1, alpha: 0.6), x: 108, width: 42)
-            setLabel(label4, text: d.eyeShape,
-                     color: NSColor(white: 1, alpha: 0.6), x: 154, width: 50)
+                     x: 246, width: 60)
+
+        case 4: // What Do I Look Like?
+            setLabel(label1, text: furDisplay(d.furPattern),
+                     color: NSColor(white: 1, alpha: 0.7), x: 6, width: 72)
+            setLabel(label2, text: eyeDisplay(d.eyeShape),
+                     color: NSColor(white: 1, alpha: 0.7), x: 82, width: 80)
+            setLabel(label3, text: tailDisplay(d.tailShape),
+                     color: NSColor(white: 1, alpha: 0.7), x: 166, width: 72)
+            let hueColor = NSColor(hue: CGFloat(d.baseColorHue),
+                                    saturation: 0.5, brightness: 1, alpha: 1)
+            setLabel(label4, text: "Hue",
+                     color: hueColor, x: 242, width: 30)
 
         default:
             break
+        }
+    }
+
+    // MARK: - Display Helpers
+
+    private func emotionBar(_ value: Double) -> String {
+        let filled = min(5, Int(value / 20.0))
+        let empty = 5 - filled
+        return String(repeating: "=", count: filled)
+             + String(repeating: "-", count: empty)
+    }
+
+    private func personalityDescription(_ d: StatsPageData) -> String {
+        let e = energyWord(d.pEnergy)
+        let v = verbosityWord(d.pVerbosity)
+        let f = focusWord(d.pFocus)
+        let arch = archetypeWord(d.pDiscipline)
+        return "A \(e), \(v), \(f) \(d.specialty) \(arch)"
+    }
+
+    private func energyWord(_ v: Double) -> String {
+        if v < 0.2 { return "sleepy" }
+        if v < 0.4 { return "calm" }
+        if v < 0.6 { return "steady" }
+        if v < 0.8 { return "lively" }
+        return "hyper"
+    }
+
+    private func verbosityWord(_ v: Double) -> String {
+        if v < 0.2 { return "silent" }
+        if v < 0.4 { return "quiet" }
+        if v < 0.6 { return "moderate" }
+        if v < 0.8 { return "chatty" }
+        return "loud"
+    }
+
+    private func focusWord(_ v: Double) -> String {
+        if v < 0.2 { return "scattered" }
+        if v < 0.4 { return "wandering" }
+        if v < 0.6 { return "balanced" }
+        if v < 0.8 { return "focused" }
+        return "laser-focused"
+    }
+
+    private func archetypeWord(_ v: Double) -> String {
+        if v < 0.2 { return "rebel" }
+        if v < 0.4 { return "improviser" }
+        if v < 0.6 { return "explorer" }
+        if v < 0.8 { return "craftsman" }
+        return "architect"
+    }
+
+    private func furDisplay(_ raw: String) -> String {
+        switch raw {
+        case "none": return "Solid fur"
+        case "spots": return "Spotted fur"
+        case "stripes": return "Striped fur"
+        case "tabby": return "Tabby fur"
+        default: return raw
+        }
+    }
+
+    private func eyeDisplay(_ raw: String) -> String {
+        switch raw {
+        case "round": return "Round eyes"
+        case "standard": return "Standard eyes"
+        case "narrow": return "Narrow eyes"
+        default: return raw
+        }
+    }
+
+    private func tailDisplay(_ raw: String) -> String {
+        switch raw {
+        case "thin": return "Thin tail"
+        case "fluffy": return "Fluffy tail"
+        case "serpentine": return "Curly tail"
+        case "standard": return "Standard tail"
+        default: return raw
         }
     }
 
