@@ -186,6 +186,11 @@ final class CreatureNode: SKNode {
             bodyNode?.alpha = CGFloat(0.88 + alphaPhase)
         }
 
+        // === SAGE WISDOM PARTICLES ORBIT ===
+        if currentStage >= .sage {
+            particlesNode?.zRotation += CGFloat(deltaTime * 0.5)
+        }
+
         // === BLINK SYSTEM ===
         updateBlinkSystem(deltaTime: deltaTime)
 

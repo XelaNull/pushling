@@ -193,6 +193,17 @@ final class GameCoordinator {
               + "Hatched: %@",
               "\(creatureStage)", creatureName, totalXP,
               isHatched ? "yes" : "no")
+
+        // Check if egg should hatch based on accumulated XP across restarts.
+        // Each commit awards ~3-5 XP. At 15+ XP, enough commits have been
+        // absorbed (across restarts) to justify hatching.
+        if creatureStage == .egg && totalXP >= 15 {
+            NSLog("[Pushling/Coordinator] Egg has %d XP — hatching on startup",
+                  totalXP)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.hatchEggIntoDrop()
+            }
+        }
     }
 
     // MARK: - Per-Frame Update

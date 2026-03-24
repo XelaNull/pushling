@@ -442,9 +442,22 @@ enum StageRenderer {
         aura.name = "aura"
         aura.zPosition = 1
 
+        // Orbiting wisdom particles — 4 dusk-colored dots
         let particles = SKNode()
         particles.name = "particles"
         particles.zPosition = 50
+        for i in 0..<4 {
+            let angle = CGFloat(i) / 4.0 * 2.0 * .pi
+            let orbitR = w * 0.6
+            let dot = SKShapeNode(circleOfRadius: 0.5)
+            dot.fillColor = PushlingPalette.dusk
+            dot.strokeColor = .clear
+            dot.alpha = 0.4
+            dot.position = CGPoint(x: cos(angle) * orbitR,
+                                    y: sin(angle) * orbitR)
+            dot.name = "wisdom_dot_\(i)"
+            particles.addChild(dot)
+        }
 
         return StageNodes(
             body: body, coreGlow: nil, head: head,
