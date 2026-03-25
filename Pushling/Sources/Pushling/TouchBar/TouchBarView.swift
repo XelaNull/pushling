@@ -444,7 +444,7 @@ final class TouchBarView: SKView {
 
         switch gesture.state {
         case .began:
-            scene.handleTouch(at: point)
+            // Don't trigger HUD on drag start — only on clean tap (click gesture)
             tracker?.touchBegan(id: id, normalizedPosition: point, currentTime: now)
         case .changed:
             tracker?.touchMoved(id: id, normalizedPosition: point, currentTime: now)
