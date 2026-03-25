@@ -494,9 +494,10 @@ final class CameraController {
             lockMode = .unlocked
         }
 
-        // Pan in world space: dragging right moves the view left (camera moves right)
-        // Invert so drag direction matches view movement (drag right → see content to the left)
-        panOffset -= deltaX
+        // Pan in world space with reduced sensitivity (0.3x of finger movement).
+        // Touch Bar drags are small distances but cover many points — raw 1:1
+        // mapping makes the background fly past on tiny finger movements.
+        panOffset -= deltaX * 0.3
 
         // Clamp pan offset
         panOffset = clamp(panOffset, min: -constraints.maxPanOffset,

@@ -420,8 +420,9 @@ final class TouchBarView: SKView {
             // drag right = zoom in. This fires alongside magnification for
             // same-direction two-finger drags (where magnification ≈ 0).
             let translation = gesture.translation(in: self)
-            // 200pt of finger travel = 1.0 zoom level change
-            let zoomDelta = -translation.x / 200.0
+            // 500pt of finger travel = 1.0 zoom level change
+            // (was 200pt — too sensitive on Touch Bar's narrow strip)
+            let zoomDelta = -translation.x / 500.0
             scene.cameraController.zoom(delta: CGFloat(zoomDelta),
                                          centerWorldX: worldCenterX)
             gesture.setTranslation(.zero, in: self)
