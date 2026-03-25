@@ -88,5 +88,95 @@
     "stars": 2,
     "forks": 0,
     "watchers": 0
+  },
+  {
+    "timestamp": "2026-03-25T00:17:58Z",
+    "date": "2026-03-25",
+    "views": {
+      "count": 35,
+      "uniques": 9
+    },
+    "clones": {
+      "count": 1119,
+      "uniques": 188
+    },
+    "referrers": [
+      {
+        "referrer": "github.com",
+        "count": 20,
+        "uniques": 1
+      },
+      {
+        "referrer": "Google",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/XelaNull/pushling",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 14,
+        "uniques": 4
+      },
+      {
+        "path": "/XelaNull/pushling/issues",
+        "title": "GitHub · Where software is built",
+        "count": 6,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/plan",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/plan/teams",
+        "title": "pushling/plan at main · XelaNull/pushling",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/issues/1",
+        "title": "Windows support? · Issue #1 · XelaNull/pushling",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/issues/new",
+        "title": "Issues · XelaNull/pushling",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md",
+        "title": "pushling/docs at main · XelaNull/pushling",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/IPC-PROTOCOL.md",
+        "title": "pushling/docs/IPC-PROTOCOL.md at main · XelaNull/pushling · GitHub",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/plan/teams/TEAMS.md",
+        "title": "pushling/plan/teams at main · XelaNull/pushling",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/commit/4c3ee978430569c5b68ba6a880a326e4296bf4fb",
+        "title": "Add cat visual enhancement plan to 2.5D recommendation · XelaNull/pushling@4c...",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "releases": [],
+    "stars": 2,
+    "forks": 0,
+    "watchers": 0
   }
 ]
