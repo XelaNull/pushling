@@ -46,21 +46,9 @@ enum StageRenderer {
         let w = config.size.width
         let h = config.size.height
 
-        // Body color: start from bone (guaranteed visible on OLED) and
-        // blend toward the creature's personality hue. 70% bone + 30% hue.
-        let hueColor = SKColor(
-            hue: CGFloat(visualTraits.baseColorHue),
-            saturation: 0.7, brightness: 0.9, alpha: 1.0
-        )
-        var hr: CGFloat = 0, hg: CGFloat = 0, hb: CGFloat = 0
-        hueColor.getRed(&hr, green: &hg, blue: &hb, alpha: nil)
-        // Bone base: warm cream (R=0.93, G=0.89, B=0.82) — always visible
-        let bodyColor = SKColor(
-            red: 0.93 * 0.7 + hr * 0.3,
-            green: 0.89 * 0.7 + hg * 0.3,
-            blue: 0.82 * 0.7 + hb * 0.3,
-            alpha: 1.0
-        )
+        // Body color: use PushlingPalette.bone directly — guaranteed visible.
+        // The warm cream always renders clearly on OLED dark backgrounds.
+        let bodyColor = PushlingPalette.bone
 
         // Apply body proportion scaling
         let propScale = CGFloat(visualTraits.bodyProportion)
