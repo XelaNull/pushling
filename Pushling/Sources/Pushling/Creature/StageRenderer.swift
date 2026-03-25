@@ -125,6 +125,8 @@ enum StageRenderer {
         body.name = "body"
         body.zPosition = 10
 
+        // Body is visible — teardrop shape with bone fill + stroke outline
+
         let head = SKNode()
         head.name = "head"
         head.position = CGPoint(x: 0, y: h * 0.15)

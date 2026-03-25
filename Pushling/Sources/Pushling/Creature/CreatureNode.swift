@@ -184,6 +184,10 @@ final class CreatureNode: SKNode {
     /// Egg wobble progress (0.0-1.0, intensifies as hatch approaches).
     var eggHatchProgress: CGFloat = 0
 
+    /// Drop hop state — set per-frame, applied in breathing
+    private var dropHopOffset: CGFloat = 0
+    private var dropHopSquash: CGFloat = 1.0
+
     /// Main update loop — breathing, blinks, tail, whiskers.
     /// - Parameter deltaTime: Seconds since last frame.
     func update(deltaTime: TimeInterval) {
@@ -199,12 +203,11 @@ final class CreatureNode: SKNode {
         }
 
         // === DROP HOP ===
+        // Absolute position offset (not additive) to prevent drift
         if currentStage == .drop {
             let hopValue = abs(CGFloat(sin(breathingTime * 5.0)))
-            bodyNode?.position.y += 2.0 * hopValue
-            // Squash on ground, stretch on launch (compose with breathing)
-            let hopSquash = 0.85 + 0.3 * hopValue
-            bodyNode?.yScale *= hopSquash
+            dropHopOffset = 2.0 * hopValue
+            dropHopSquash = 0.85 + 0.15 * hopValue
         }
 
         // === APEX ALPHA OSCILLATION ===
@@ -327,7 +330,12 @@ final class CreatureNode: SKNode {
         let breathScale = 1.0 + amplitude * breathValue
 
         // Apply to body node — this is a post-process multiplier.
-        bodyNode?.yScale = breathScale
+        // Compose breathing with drop hop squash (multiplicative)
+        bodyNode?.yScale = breathScale * dropHopSquash
+        // Apply drop hop Y offset (absolute, not additive)
+        if currentStage == .drop {
+            bodyNode?.position.y = dropHopOffset
+        }
     }
 
     // MARK: - Blink System (P2-T1-05)

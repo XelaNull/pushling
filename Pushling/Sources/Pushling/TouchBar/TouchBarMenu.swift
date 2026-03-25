@@ -99,7 +99,7 @@ final class MenuStripView: NSView {
                 self?.onMCPInstall?()
                 // Hide the button after install
                 btn.isHidden = true
-                self?.expandedWidth = 84  // Shrink back to normal
+                self?.expandedWidth = 130  // Shrink to standard (with About)
             }
             addSubview(btn)
             self.mcpButton = btn
@@ -212,7 +212,7 @@ final class MenuStripView: NSView {
     func hideMCPButton() {
         mcpButton?.isHidden = true
         mcpButton = nil
-        expandedWidth = 84  // Standard width without MCP button
+        expandedWidth = 130  // Standard width with About button (no MCP)
         showMCPInstall = false
     }
 
