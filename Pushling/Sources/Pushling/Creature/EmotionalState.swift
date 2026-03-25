@@ -110,6 +110,7 @@ final class EmotionalState {
         curiosity = decayToward(curiosity, target: curiosityTarget,
                                 rate: Self.curiosityDecayPerSec,
                                 deltaTime: deltaTime)
+        curiosity = clamp(curiosity, min: 0, max: 100)
 
         // --- Contentment: slow drift toward 50 ---
         let contentmentTarget: Double = 50.0

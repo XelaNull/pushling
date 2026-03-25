@@ -89,6 +89,35 @@ function eventSummary(event: {
       return `The weather shifted to ${event.data.weather}. You feel it on your fur.`;
     case "session":
       return `Claude session ${event.data.action ?? "event"}`;
+    case "hook": {
+      const hookData = event.data as Record<string, unknown>;
+      const hookType = hookData.hook_type as string | undefined;
+      const inner = (hookData.data ?? {}) as Record<string, unknown>;
+      switch (hookType) {
+        case "PostToolUse": {
+          const tool = inner.tool as string | undefined;
+          const ok = inner.success as boolean | undefined;
+          const burst = inner.burst as boolean | undefined;
+          if (burst) return `A burst of tool activity (${inner.burst_count ?? "several"} tools).`;
+          if (ok === false) return tool ? `Tool failed: ${tool}. You flinched.` : "A tool failed. You flinched.";
+          return tool && tool !== "unknown" ? `Tool succeeded: ${tool}.` : "A tool succeeded quietly.";
+        }
+        case "UserPromptSubmit":
+          return "The developer spoke. Your ears perked.";
+        case "SubagentStart":
+          return `Parallel activity -- ${inner.count ?? "something"} spawned. Your diamond split.`;
+        case "SubagentStop":
+          return "Parallel activity resolved. Diamonds reconverged.";
+        case "PostCompact":
+          return "Context compressed. You blinked hard -- where were you?";
+        case "SessionStart":
+          return "You woke up. A new session began.";
+        case "SessionEnd":
+          return "A session ended. You settled back into yourself.";
+        default:
+          return hookType ? `Hook: ${hookType}` : "Something happened in the background.";
+      }
+    }
     default:
       return `${event.type}: ${JSON.stringify(event.data)}`;
   }
