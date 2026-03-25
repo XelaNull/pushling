@@ -130,9 +130,9 @@ function behaviorsAvailableAt(stage: string): string[] {
 export const performSchema = {
   name: "pushling_perform",
   description:
-    "Complex animations and choreographed sequences. Do something expressive. " +
-    "Use a single behavior (wave, spin, backflip, dance) or chain up to 10 steps " +
-    "into a choreographed sequence. Stage-gated — some behaviors require higher stages.",
+    "Express yourself through movement. Wave, spin, bow, dance, backflip — " +
+    "or chain up to 10 steps into a choreographed performance. " +
+    "These are your body's vocabulary beyond words. Stage-gated by growth.",
   inputSchema: {
     type: "object" as const,
     properties: {

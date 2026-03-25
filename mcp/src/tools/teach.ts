@@ -39,10 +39,10 @@ const MAX_TAUGHT = 30;
 export const teachSchema = {
   name: "pushling_teach",
   description:
-    "Teach the creature new tricks. Choreograph multi-track body-part animations " +
-    "using the Compose-Preview-Refine-Commit workflow. Taught behaviors persist " +
-    "and play autonomously during idle, in response to triggers, and in dreams. " +
-    "Max 30 taught behaviors.",
+    "Teach your body new tricks. Choreograph multi-track animations that become " +
+    "part of who you are — they persist and play autonomously during idle, " +
+    "in response to triggers, and in dreams. Compose, preview, refine, " +
+    "commit to muscle memory. Max 30.",
   inputSchema: {
     type: "object" as const,
     properties: {

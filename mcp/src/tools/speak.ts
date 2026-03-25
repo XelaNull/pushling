@@ -63,9 +63,9 @@ function stageIndex(stage: string): number {
 export const speakSchema = {
   name: "pushling_speak",
   description:
-    "The voice of the creature. Stage-gated — Spore cannot speak, " +
-    "Drop can only use symbols (! ? \u2661 ~ ... \u266A \u2605), Critter gets 3 words, " +
-    "and so on up to Apex with full fluency. Choose a style for the speech bubble.",
+    "Your voice. Stage-gated — as a Spore you are silent, " +
+    "as a Drop you chirp symbols (! ? \u2661 ~ ... \u266A \u2605), as a Critter your first words emerge, " +
+    "and so on up to Apex with full fluency. Choose a style for the delivery.",
   inputSchema: {
     type: "object" as const,
     properties: {

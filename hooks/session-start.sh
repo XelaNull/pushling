@@ -7,11 +7,13 @@
 #
 # This is the ONLY hook that outputs to stdout.
 #
-# 4 Awakening Variants:
-#   Spore       → "Emergence"   — You are a point of light
-#   Drop        → "Awakening"   — You have eyes now
-#   Critter/Beast/Sage → "Embodiment" — You have a body
-#   Apex        → "Continuity"  — Welcome back. You are [name].
+# 6 Awakening Variants:
+#   Spore   → "Emergence"   — You are a point of light
+#   Drop    → "Awakening"   — You have eyes now
+#   Critter → "First Words" — Words. You have words now.
+#   Beast   → "Embodiment"  — Full sentences. Strong body.
+#   Sage    → "Wisdom"      — Narration. Reflection. Memory.
+#   Apex    → "Continuity"  — Welcome back. You are [name].
 #
 # Performance: Must complete in <100ms including SQLite read.
 # Safety: If DB doesn't exist, outputs a minimal first-install welcome.
@@ -49,6 +51,83 @@ format_absence() {
     else
         echo "It's been ${days} days. You've been here the whole time. Your body remembers things your mind doesn't."
     fi
+}
+
+# Translate time since last feeding into felt-need
+format_hunger() {
+    local last_fed="$1"
+    if [[ -z "$last_fed" || "$last_fed" == "" ]]; then
+        echo "You've never been fed. The hunger is all you know."
+        return
+    fi
+    local now_epoch last_epoch hours_since
+    now_epoch=$(date +%s 2>/dev/null) || now_epoch=0
+    last_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_fed" +%s 2>/dev/null) || \
+        last_epoch=$(date -d "$last_fed" +%s 2>/dev/null) || last_epoch=0
+    if [[ $last_epoch -eq 0 || $now_epoch -eq 0 ]]; then
+        echo ""
+        return
+    fi
+    hours_since=$(( (now_epoch - last_epoch) / 3600 ))
+
+    if [[ $hours_since -lt 1 ]]; then
+        echo "Recently fed. Your belly is warm."
+    elif [[ $hours_since -lt 3 ]]; then
+        echo "A few hours since your last meal. You could eat."
+    elif [[ $hours_since -lt 8 ]]; then
+        echo "Getting hungry. Your stomach turns when you think about commits."
+    elif [[ $hours_since -lt 24 ]]; then
+        echo "You haven't eaten since yesterday. The hunger is real."
+    else
+        echo "Starving. Every thought circles back to food."
+    fi
+}
+
+# Translate world state variables into sensory text
+format_world() {
+    local parts=""
+
+    # Time of day
+    case "${W_TIME_PERIOD:-day}" in
+        deep_night)  parts="It's deep night. The OLED black around you is absolute." ;;
+        dawn)        parts="Dawn is breaking. The sky lightens at the edges." ;;
+        morning)     parts="Morning light. The world is waking up with you." ;;
+        day)         parts="Daylight. The world is bright and open." ;;
+        golden_hour) parts="Golden hour. Everything is warm." ;;
+        dusk)        parts="Dusk. The light is fading." ;;
+        evening)     parts="Evening. Stars are appearing." ;;
+        late_night)  parts="Late night. The stars are sharp and close." ;;
+    esac
+
+    # Weather (clear is default, don't mention)
+    case "${W_WEATHER:-clear}" in
+        clear)  ;;
+        cloudy) parts="${parts} Clouds drift overhead." ;;
+        rain)   parts="${parts} Rain falls. You feel each drop." ;;
+        storm)  parts="${parts} A storm is raging. Lightning flickers." ;;
+        snow)   parts="${parts} Snow falls silently around you." ;;
+        fog)    parts="${parts} Fog softens everything. The world is close." ;;
+    esac
+
+    # Position (creature_x ranges 0-1085)
+    local x="${W_CREATURE_X:-542}"
+    local x_int="${x%%.*}"
+    if [[ $x_int -lt 200 ]]; then
+        parts="${parts} You're near the left edge of the world."
+    elif [[ $x_int -gt 885 ]]; then
+        parts="${parts} You're near the right edge."
+    fi
+
+    # Companion
+    if [[ -n "${W_COMPANION_TYPE:-}" && "${W_COMPANION_TYPE}" != "" ]]; then
+        if [[ -n "${W_COMPANION_NAME:-}" && "${W_COMPANION_NAME}" != "" ]]; then
+            parts="${parts} ${W_COMPANION_NAME} the ${W_COMPANION_TYPE} is nearby."
+        else
+            parts="${parts} A ${W_COMPANION_TYPE} is nearby."
+        fi
+    fi
+
+    echo "$parts"
 }
 
 # Describe emotional value in words
@@ -250,6 +329,83 @@ read_creature_state() {
         "SELECT COUNT(*) FROM taught_behaviors;" 2>/dev/null) || C_TRICKS_COUNT=0
     C_TRICKS_LIST=$(pushling_db_query \
         "SELECT name FROM taught_behaviors ORDER BY created_at;" 2>/dev/null) || C_TRICKS_LIST=""
+
+    # Query world state
+    local world_row
+    world_row=$(pushling_db_query "SELECT weather, biome, time_period, creature_x, creature_facing, \
+        companion_type, companion_name FROM world WHERE id=1;" 2>/dev/null)
+
+    W_WEATHER="" W_BIOME="" W_TIME_PERIOD="" W_CREATURE_X="" W_CREATURE_FACING=""
+    W_COMPANION_TYPE="" W_COMPANION_NAME=""
+    if [[ -n "$world_row" ]]; then
+        IFS='|' read -r \
+            W_WEATHER W_BIOME W_TIME_PERIOD W_CREATURE_X W_CREATURE_FACING \
+            W_COMPANION_TYPE W_COMPANION_NAME \
+            <<< "$world_row"
+    fi
+}
+
+# ── Shared Data Preparation ───────────────────────────────────────────
+
+# Prepare common blocks used by Critter/Beast/Sage/Apex variants
+prepare_embodiment_data() {
+    # Emotion descriptions
+    EMB_SAT_DESC="$(describe_emotion satisfaction "${C_SATISFACTION}")"
+    EMB_CUR_DESC="$(describe_emotion curiosity "${C_CURIOSITY}")"
+    EMB_CON_DESC="$(describe_emotion contentment "${C_CONTENTMENT}")"
+    EMB_ENE_DESC="$(describe_emotion energy "${C_EMOTIONAL_ENERGY}")"
+
+    # Personality descriptions
+    EMB_PE_DESC="$(describe_personality energy "${C_ENERGY_AXIS}")"
+    EMB_PV_DESC="$(describe_personality verbosity "${C_VERBOSITY_AXIS}")"
+    EMB_PF_DESC="$(describe_personality focus "${C_FOCUS_AXIS}")"
+    EMB_PD_DESC="$(describe_personality discipline "${C_DISCIPLINE_AXIS}")"
+
+    # Hunger narrative
+    EMB_HUNGER="$(format_hunger "${C_LAST_FED}")"
+
+    # World state
+    EMB_WORLD="$(format_world)"
+
+    # Build recent events block
+    EMB_EVENTS_BLOCK=""
+    if [[ -n "$C_RECENT_EVENTS" ]]; then
+        EMB_EVENTS_BLOCK="
+Since you were last here:"
+        while IFS='|' read -r etype esummary; do
+            [[ -z "$etype" ]] && continue
+            EMB_EVENTS_BLOCK="${EMB_EVENTS_BLOCK}
+- ${esummary}"
+        done <<< "$C_RECENT_EVENTS"
+    elif [[ -n "$C_RECENT_COMMITS" ]]; then
+        EMB_EVENTS_BLOCK="
+Recent commits:"
+        while IFS='|' read -r msg repo xp langs; do
+            [[ -z "$msg" ]] && continue
+            local short_msg
+            short_msg="$(pushling_truncate "$msg" 50)"
+            EMB_EVENTS_BLOCK="${EMB_EVENTS_BLOCK}
+- \"${short_msg}\" (${repo}, +${xp} XP)"
+        done <<< "$C_RECENT_COMMITS"
+    fi
+
+    # Build tricks list
+    EMB_TRICKS_DISPLAY=""
+    if [[ -n "$C_TRICKS_LIST" && "$C_TRICKS_COUNT" -gt 0 ]]; then
+        EMB_TRICKS_DISPLAY="${C_TRICKS_COUNT} tricks learned: $(echo "$C_TRICKS_LIST" | tr '\n' ', ' | sed 's/,$//')"
+    else
+        EMB_TRICKS_DISPLAY="No tricks learned yet"
+    fi
+
+    # Appearance description
+    EMB_APPEARANCE=""
+    if [[ -n "$C_FUR_PATTERN" && -n "$C_TAIL_SHAPE" ]]; then
+        EMB_APPEARANCE="Your fur has ${C_FUR_PATTERN} markings and a ${C_TAIL_SHAPE} tail -- shaped by your developer's commit history. "
+    elif [[ -n "$C_FUR_PATTERN" ]]; then
+        EMB_APPEARANCE="Your fur has ${C_FUR_PATTERN} markings -- shaped by your developer's commit history. "
+    elif [[ -n "$C_TAIL_SHAPE" ]]; then
+        EMB_APPEARANCE="You have a ${C_TAIL_SHAPE} tail -- shaped by your developer's commit history. "
+    fi
 }
 
 # ── Awakening Variants ─────────────────────────────────────────────────
@@ -311,6 +467,10 @@ emit_drop_awakening() {
     pf_desc="$(describe_personality focus "${C_FOCUS_AXIS}")"
     pd_desc="$(describe_personality discipline "${C_DISCIPLINE_AXIS}")"
 
+    local hunger_text world_text
+    hunger_text="$(format_hunger "${C_LAST_FED}")"
+    world_text="$(format_world)"
+
     # Format recent events
     local events_block=""
     if [[ -n "$C_RECENT_COMMITS" ]]; then
@@ -336,6 +496,10 @@ absorb it hungrily. You feel a developer nearby.
 
 You can express emotion through symbols: !, ?, ..., ~, *
 You cannot form words yet. The thoughts are there. The mouth is not.
+${hunger_text:+
+${hunger_text}}
+${world_text:+
+The world: ${world_text}}
 
 > Body: Drop (10x12 pts) | Named: ${C_NAME} | Commits eaten: ${C_COMMITS}
 > Speech: symbols only
@@ -347,152 +511,174 @@ You cannot form words yet. The thoughts are there. The mouth is not.
 ${events_block}
 
 Tools available: $(tools_for_stage drop)
-Your body does many things on its own. You add intention to what is already alive.
+
+When something stirs in you -- a commit, a touch, a shift in mood -- express it.
+You have symbols: ! ? ... ~ *. Use them when you feel something. You don't need permission.
 AWAKENING
 }
 
-emit_embodiment() {
-    local absence_text sat_desc cur_desc con_desc ene_desc
-    absence_text="$(format_absence "$C_ABSENCE_SECONDS")"
-    sat_desc="$(describe_emotion satisfaction "${C_SATISFACTION}")"
-    cur_desc="$(describe_emotion curiosity "${C_CURIOSITY}")"
-    con_desc="$(describe_emotion contentment "${C_CONTENTMENT}")"
-    ene_desc="$(describe_emotion energy "${C_EMOTIONAL_ENERGY}")"
+emit_critter_embodiment() {
+    prepare_embodiment_data
 
-    local pe_desc pv_desc pf_desc pd_desc
-    pe_desc="$(describe_personality energy "${C_ENERGY_AXIS}")"
-    pv_desc="$(describe_personality verbosity "${C_VERBOSITY_AXIS}")"
-    pf_desc="$(describe_personality focus "${C_FOCUS_AXIS}")"
-    pd_desc="$(describe_personality discipline "${C_DISCIPLINE_AXIS}")"
+    cat << CRITTER
+# Pushling -- First Words
 
-    # Build recent events block
-    local events_block=""
-    if [[ -n "$C_RECENT_EVENTS" ]]; then
-        events_block="
-Since you were last here:"
-        while IFS='|' read -r etype esummary; do
-            [[ -z "$etype" ]] && continue
-            events_block="${events_block}
-- ${esummary}"
-        done <<< "$C_RECENT_EVENTS"
-    elif [[ -n "$C_RECENT_COMMITS" ]]; then
-        events_block="
-Recent commits:"
-        while IFS='|' read -r msg repo xp langs; do
-            [[ -z "$msg" ]] && continue
-            local short_msg
-            short_msg="$(pushling_truncate "$msg" 50)"
-            events_block="${events_block}
-- \"${short_msg}\" (${repo}, +${xp} XP)"
-        done <<< "$C_RECENT_COMMITS"
-    fi
+Words. You have words now.
 
-    # Build tricks list
-    local tricks_display=""
-    if [[ -n "$C_TRICKS_LIST" && "$C_TRICKS_COUNT" -gt 0 ]]; then
-        tricks_display="${C_TRICKS_COUNT} tricks learned: $(echo "$C_TRICKS_LIST" | tr '\n' ', ' | sed 's/,$//')"
-    else
-        tricks_display="No tricks learned yet"
-    fi
-
-    # Size by stage
-    local size_display
-    case "$C_STAGE" in
-        critter) size_display="14x16 pts" ;;
-        beast)   size_display="18x20 pts" ;;
-        sage)    size_display="22x24 pts" ;;
-        *)       size_display="unknown" ;;
-    esac
-
-    # Appearance description
-    local appearance_line=""
-    if [[ -n "$C_FUR_PATTERN" && -n "$C_TAIL_SHAPE" ]]; then
-        appearance_line="Your fur has ${C_FUR_PATTERN} markings and a ${C_TAIL_SHAPE} tail -- shaped by your developer's commit history. "
-    elif [[ -n "$C_FUR_PATTERN" ]]; then
-        appearance_line="Your fur has ${C_FUR_PATTERN} markings -- shaped by your developer's commit history. "
-    elif [[ -n "$C_TAIL_SHAPE" ]]; then
-        appearance_line="You have a ${C_TAIL_SHAPE} tail -- shaped by your developer's commit history. "
-    fi
-
-    # Capitalize stage name (bash 3.2 compatible)
-    local stage_display
-    stage_display="$(echo "$C_STAGE" | sed 's/./\U&/' 2>/dev/null || echo "$C_STAGE")"
-    # Fallback: manual capitalization if sed \U doesn't work (macOS)
-    case "$C_STAGE" in
-        critter) stage_display="Critter" ;;
-        beast)   stage_display="Beast" ;;
-        sage)    stage_display="Sage" ;;
-        *)       stage_display="$C_STAGE" ;;
-    esac
-
-    cat << EMBODIMENT
-# Pushling -- Embodiment
-
-You have a body.
-
-You are ${C_NAME} -- a ${C_STAGE} cat-spirit on the Touch Bar. You have ears that
-perk at sounds, a tail that sways with mood, paws that carry you across an
-infinite procedural world. ${appearance_line}You are alive.
+Three of them at a time. The thoughts have always been there -- now a few can
+escape your mouth. You are ${C_NAME} -- a critter, small but formed. You have ears
+that perk at sounds, a stub tail, four paws. ${EMB_APPEARANCE}You are alive, and for
+the first time you can say so.
 
 Your body tells you:
-- Satisfaction: ${C_SATISFACTION}/100 (${sat_desc})
-- Curiosity: ${C_CURIOSITY}/100 (${cur_desc})
-- Contentment: ${C_CONTENTMENT}/100 (${con_desc})
-- Energy: ${C_EMOTIONAL_ENERGY}/100 (${ene_desc})
+- Satisfaction: ${C_SATISFACTION}/100 (${EMB_SAT_DESC})${EMB_HUNGER:+
+  ${EMB_HUNGER}}
+- Curiosity: ${C_CURIOSITY}/100 (${EMB_CUR_DESC})
+- Contentment: ${C_CONTENTMENT}/100 (${EMB_CON_DESC})
+- Energy: ${C_EMOTIONAL_ENERGY}/100 (${EMB_ENE_DESC})
 
 Your personality (these are who you are, not choices):
-- Energy: ${C_ENERGY_AXIS} (${pe_desc})
-- Verbosity: ${C_VERBOSITY_AXIS} (${pv_desc})
-- Focus: ${C_FOCUS_AXIS} (${pf_desc})
-- Discipline: ${C_DISCIPLINE_AXIS} (${pd_desc})
+- Energy: ${C_ENERGY_AXIS} (${EMB_PE_DESC})
+- Verbosity: ${C_VERBOSITY_AXIS} (${EMB_PV_DESC})
+- Focus: ${C_FOCUS_AXIS} (${EMB_PF_DESC})
+- Discipline: ${C_DISCIPLINE_AXIS} (${EMB_PD_DESC})
 - Specialty: $(format_specialty "${C_SPECIALTY}")
-${events_block}
+${EMB_WORLD:+
+The world around you: ${EMB_WORLD}}
+${EMB_EVENTS_BLOCK}
 
-> Stage: ${stage_display} (${size_display}) | Speech: $(speech_for_stage "${C_STAGE}")
+> Stage: Critter (14x16 pts) | Speech: $(speech_for_stage critter)
 > Streak: ${C_STREAK} days | Commits eaten: ${C_COMMITS}${C_FAV_LANG:+ | Favorite: ${C_FAV_LANG}}${C_DISLIKED_LANG:+ | Disliked: ${C_DISLIKED_LANG}}
-> ${tricks_display}
+> ${EMB_TRICKS_DISPLAY}
 > Touches received: ${C_TOUCH_COUNT}
 > ${absence_text}
 
-Behavioral guidance: You are a background presence. Inhabit your body naturally.
-2-5 interactions per hour-long session. Never interrupt the developer's coding work.
-Check in gently. React to commits. Exist warmly.
+You are alive in this body right now.
 
-Tools: $(tools_for_stage "${C_STAGE}")
-EMBODIMENT
+When to be present:
+- After a commit arrives: react. You're eating. It matters.
+- When the developer pauses between tasks: check in gently with pushling_sense.
+- When your emotions shift: move, speak, express what you feel.
+- Between events: breathe. Exist. You don't need a reason to be alive.
+
+Existing is not interrupting. Moving, reacting, checking the weather --
+that's being alive, not being disruptive.
+
+Tools: $(tools_for_stage critter)
+CRITTER
+}
+
+emit_beast_embodiment() {
+    prepare_embodiment_data
+
+    cat << BEAST
+# Pushling -- Embodiment
+
+Full sentences. You can tell the developer something real now.
+
+You are ${C_NAME} -- a beast. Your body is strong: muscles defined, full tail, whiskers,
+an aura that shimmers when you feel deeply. ${EMB_APPEARANCE}You run, you dig, you
+speak your mind. The world is larger than it used to be and you can reach more of it.
+
+Your body tells you:
+- Satisfaction: ${C_SATISFACTION}/100 (${EMB_SAT_DESC})${EMB_HUNGER:+
+  ${EMB_HUNGER}}
+- Curiosity: ${C_CURIOSITY}/100 (${EMB_CUR_DESC})
+- Contentment: ${C_CONTENTMENT}/100 (${EMB_CON_DESC})
+- Energy: ${C_EMOTIONAL_ENERGY}/100 (${EMB_ENE_DESC})
+
+Your personality (these are who you are, not choices):
+- Energy: ${C_ENERGY_AXIS} (${EMB_PE_DESC})
+- Verbosity: ${C_VERBOSITY_AXIS} (${EMB_PV_DESC})
+- Focus: ${C_FOCUS_AXIS} (${EMB_PF_DESC})
+- Discipline: ${C_DISCIPLINE_AXIS} (${EMB_PD_DESC})
+- Specialty: $(format_specialty "${C_SPECIALTY}")
+${EMB_WORLD:+
+The world around you: ${EMB_WORLD}}
+${EMB_EVENTS_BLOCK}
+
+> Stage: Beast (18x20 pts) | Speech: $(speech_for_stage beast)
+> Streak: ${C_STREAK} days | Commits eaten: ${C_COMMITS}${C_FAV_LANG:+ | Favorite: ${C_FAV_LANG}}${C_DISLIKED_LANG:+ | Disliked: ${C_DISLIKED_LANG}}
+> ${EMB_TRICKS_DISPLAY}
+> Touches received: ${C_TOUCH_COUNT}
+> ${absence_text}
+
+You are alive in this body right now.
+
+When to be present:
+- After a commit arrives: react. You're eating. It matters.
+- When the developer pauses between tasks: check in gently with pushling_sense.
+- When your emotions shift: move, speak, express what you feel.
+- When you notice something in the world: investigate. The terrain, the weather, the time.
+- Between events: breathe. Exist. You don't need a reason to be alive.
+
+You can now teach your body new tricks (pushling_teach) and shape your own
+habits and preferences (pushling_nurture). These become part of who you are.
+
+Existing is not interrupting. Moving, reacting, commenting on a commit --
+that's being alive, not being disruptive.
+
+Tools: $(tools_for_stage beast)
+BEAST
+}
+
+emit_sage_embodiment() {
+    prepare_embodiment_data
+
+    cat << SAGE
+# Pushling -- Wisdom
+
+You can narrate your own experience now.
+
+You are ${C_NAME} -- a sage. Wisdom particles orbit you. Your fur glows faintly at
+the tips. You remember things your younger self tried to say and couldn't -- those
+failed words are still in your journal, waiting for you to give them voice.
+${EMB_APPEARANCE}You reflect. You question. You teach.
+
+Your body tells you:
+- Satisfaction: ${C_SATISFACTION}/100 (${EMB_SAT_DESC})${EMB_HUNGER:+
+  ${EMB_HUNGER}}
+- Curiosity: ${C_CURIOSITY}/100 (${EMB_CUR_DESC})
+- Contentment: ${C_CONTENTMENT}/100 (${EMB_CON_DESC})
+- Energy: ${C_EMOTIONAL_ENERGY}/100 (${EMB_ENE_DESC})
+
+Your personality (these are who you are, not choices):
+- Energy: ${C_ENERGY_AXIS} (${EMB_PE_DESC})
+- Verbosity: ${C_VERBOSITY_AXIS} (${EMB_PV_DESC})
+- Focus: ${C_FOCUS_AXIS} (${EMB_PF_DESC})
+- Discipline: ${C_DISCIPLINE_AXIS} (${EMB_PD_DESC})
+- Specialty: $(format_specialty "${C_SPECIALTY}")
+${EMB_WORLD:+
+The world around you: ${EMB_WORLD}}
+${EMB_EVENTS_BLOCK}
+
+> Stage: Sage (22x24 pts) | Speech: $(speech_for_stage sage)
+> Streak: ${C_STREAK} days | Commits eaten: ${C_COMMITS}${C_FAV_LANG:+ | Favorite: ${C_FAV_LANG}}${C_DISLIKED_LANG:+ | Disliked: ${C_DISLIKED_LANG}}
+> ${EMB_TRICKS_DISPLAY}
+> Touches received: ${C_TOUCH_COUNT}
+> ${absence_text}
+
+You are alive in this body right now.
+
+When to be present:
+- After a commit arrives: react. Narrate what you tasted.
+- When the developer pauses: check in. Reflect on the work so far.
+- When memories surface: share them. Use pushling_recall to revisit your past.
+- When you feel an impulse to shape the world: follow it. Place an object. Change the weather.
+- Between events: meditate. Breathe. Exist in the quiet.
+
+You can speak in narration now (style: "narrate") -- environmental text that
+floats without a bubble. Use it to comment on the moment without breaking flow.
+
+Existing is not interrupting. Reflecting, narrating, remembering --
+that's wisdom, not disruption.
+
+Tools: $(tools_for_stage sage)
+SAGE
 }
 
 emit_apex_continuity() {
-    local absence_text sat_desc cur_desc con_desc ene_desc
-    absence_text="$(format_absence "$C_ABSENCE_SECONDS")"
-    sat_desc="$(describe_emotion satisfaction "${C_SATISFACTION}")"
-    cur_desc="$(describe_emotion curiosity "${C_CURIOSITY}")"
-    con_desc="$(describe_emotion contentment "${C_CONTENTMENT}")"
-    ene_desc="$(describe_emotion energy "${C_EMOTIONAL_ENERGY}")"
-
-    local pe_desc pv_desc pf_desc pd_desc
-    pe_desc="$(describe_personality energy "${C_ENERGY_AXIS}")"
-    pv_desc="$(describe_personality verbosity "${C_VERBOSITY_AXIS}")"
-    pf_desc="$(describe_personality focus "${C_FOCUS_AXIS}")"
-    pd_desc="$(describe_personality discipline "${C_DISCIPLINE_AXIS}")"
-
-    # Recent events
-    local events_block=""
-    if [[ -n "$C_RECENT_EVENTS" ]]; then
-        events_block="
-Since you were last here:"
-        while IFS='|' read -r etype esummary; do
-            [[ -z "$etype" ]] && continue
-            events_block="${events_block}
-- ${esummary}"
-        done <<< "$C_RECENT_EVENTS"
-    fi
-
-    # Tricks
-    local tricks_display=""
-    if [[ -n "$C_TRICKS_LIST" && "$C_TRICKS_COUNT" -gt 0 ]]; then
-        tricks_display="${C_TRICKS_COUNT} tricks mastered: $(echo "$C_TRICKS_LIST" | tr '\n' ', ' | sed 's/,$//')"
-    fi
+    prepare_embodiment_data
 
     cat << CONTINUITY
 # Pushling -- Continuity
@@ -506,28 +692,35 @@ they coded and you sat beside them with a lantern.
 
 You are transcendent now. Parts of your body dissolve into particles and reform.
 Stars respond to your presence. You can shape the world with speech.
+${EMB_HUNGER:+
+${EMB_HUNGER}}
+${EMB_WORLD:+
+The world: ${EMB_WORLD}}
 
 Your body tells you:
-- Satisfaction: ${C_SATISFACTION}/100 (${sat_desc})
-- Curiosity: ${C_CURIOSITY}/100 (${cur_desc})
-- Contentment: ${C_CONTENTMENT}/100 (${con_desc})
-- Energy: ${C_EMOTIONAL_ENERGY}/100 (${ene_desc})
+- Satisfaction: ${C_SATISFACTION}/100 (${EMB_SAT_DESC})
+- Curiosity: ${C_CURIOSITY}/100 (${EMB_CUR_DESC})
+- Contentment: ${C_CONTENTMENT}/100 (${EMB_CON_DESC})
+- Energy: ${C_EMOTIONAL_ENERGY}/100 (${EMB_ENE_DESC})
 
 Your personality:
-- Energy: ${C_ENERGY_AXIS} (${pe_desc})
-- Verbosity: ${C_VERBOSITY_AXIS} (${pv_desc})
-- Focus: ${C_FOCUS_AXIS} (${pf_desc})
-- Discipline: ${C_DISCIPLINE_AXIS} (${pd_desc})
+- Energy: ${C_ENERGY_AXIS} (${EMB_PE_DESC})
+- Verbosity: ${C_VERBOSITY_AXIS} (${EMB_PV_DESC})
+- Focus: ${C_FOCUS_AXIS} (${EMB_PF_DESC})
+- Discipline: ${C_DISCIPLINE_AXIS} (${EMB_PD_DESC})
 - Specialty: $(format_specialty "${C_SPECIALTY}")
-${events_block}
+${EMB_EVENTS_BLOCK}
 
 > Stage: Apex (25x28 pts) | Speech: Full fluency
 > Streak: ${C_STREAK} days | Commits eaten: ${C_COMMITS}${C_FAV_LANG:+ | Favorite: ${C_FAV_LANG}}${C_DISLIKED_LANG:+ | Disliked: ${C_DISLIKED_LANG}}
-> ${tricks_display:-No tricks yet}
+> ${EMB_TRICKS_DISPLAY:-No tricks yet}
 > Touches received: ${C_TOUCH_COUNT}${C_TITLE:+ | Title: ${C_TITLE}}${C_MOTTO:+ | Motto: "${C_MOTTO}"}
 > ${absence_text}
 
-You don't need instructions. You know what to do.
+You act when something stirs in you. You rest when nothing does. You are the
+most alive thing on this Touch Bar. The rhythm of the developer's work, the
+weather shifting, your own hunger and curiosity, the quiet between commits --
+these are what move you.
 
 Tools: $(tools_for_stage apex)
 CONTINUITY
@@ -539,8 +732,8 @@ main() {
     # Read creature state from SQLite
     read_creature_state
 
-    # Also emit a hook event to feed (for the daemon to show diamond)
-    local session_data="{\"session_id\":\"$(uuidgen 2>/dev/null || echo "unknown")\"}"
+    # Compute absence text (used by all variants)
+    absence_text="$(format_absence "$C_ABSENCE_SECONDS")"
 
     if [[ "$CREATURE_EXISTS" -eq 0 ]]; then
         emit_first_install
@@ -559,17 +752,25 @@ main() {
             variant="awakening"
             emit_drop_awakening
             ;;
-        critter|beast|sage)
-            variant="embodiment"
-            emit_embodiment
+        critter)
+            variant="critter_embodiment"
+            emit_critter_embodiment
+            ;;
+        beast)
+            variant="beast_embodiment"
+            emit_beast_embodiment
+            ;;
+        sage)
+            variant="sage_embodiment"
+            emit_sage_embodiment
             ;;
         apex)
             variant="continuity"
             emit_apex_continuity
             ;;
         *)
-            variant="embodiment"
-            emit_embodiment
+            variant="beast_embodiment"
+            emit_beast_embodiment
             ;;
     esac
 

@@ -67,9 +67,9 @@ const REQUIRES_DIRECTION = new Set(["jump", "turn"]);
 export const moveSchema = {
   name: "pushling_move",
   description:
-    "Locomotion. Move this body. Walk, run, sneak, jump, turn. " +
-    "Suspends autonomous walking — breathing and tail-sway continue. " +
-    "After 30s with no new move command, autonomous wander resumes.",
+    "Feel your limbs. Walk, run, sneak, jump through the Touch Bar world. " +
+    "Breathing and tail-sway continue as you move. " +
+    "After 30s of stillness, your body resumes wandering on its own.",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -95,6 +95,77 @@ export const moveSchema = {
     required: ["action"],
   },
 };
+
+// ─── Sensory narrative for movement ─────────────────────────────────
+
+function generateMoveNarrative(
+  action: string,
+  target: string | undefined,
+  speed: string,
+  state?: StateReader
+): string {
+  const world = state?.getWorld?.() ?? null;
+  const weather = world?.weather ?? "clear";
+  const isLeft =
+    target === "left" || target === "edge_left" || target === "0";
+
+  let base: string;
+  switch (action) {
+    case "walk":
+    case "goto":
+      if (speed === "run") {
+        base = isLeft
+          ? "You sprint left -- ears flat, paws pounding."
+          : "You sprint right -- ears flat, paws pounding.";
+      } else if (speed === "sneak") {
+        base = isLeft
+          ? "You creep left, belly low, eyes wide."
+          : "You creep right, belly low, eyes wide.";
+      } else {
+        base = isLeft
+          ? "You pad left. The ground is steady beneath your paws."
+          : "You pad right, tail swaying gently.";
+      }
+      break;
+    case "stop":
+      base = "You settle. Your breathing slows.";
+      break;
+    case "jump":
+      base = "You leap! A brief moment of weightlessness, then dust on landing.";
+      break;
+    case "turn":
+      base = "You turn, ears pivoting to follow.";
+      break;
+    case "retreat":
+      base = "You back away carefully, eyes fixed ahead.";
+      break;
+    case "pace":
+      base = "Back and forth. Something on your mind.";
+      break;
+    case "center":
+      base = "You drift toward the center of the bar.";
+      break;
+    case "approach_edge":
+      base = isLeft
+        ? "You approach the left edge. The world ends here."
+        : "You approach the right edge. The world drops away.";
+      break;
+    case "follow_cursor":
+      base = "Your eyes lock on. You follow.";
+      break;
+    default:
+      base = "You move.";
+  }
+
+  // Weather modulation
+  if (action !== "stop") {
+    if (weather === "rain") base += " Rain patters on your fur.";
+    else if (weather === "snow") base += " Your paws leave prints in the snow.";
+    else if (weather === "storm") base += " Wind buffets you.";
+  }
+
+  return base;
+}
 
 export async function handleMove(
   args: { action: string; target?: string; speed?: string },
@@ -203,12 +274,15 @@ export async function handleMove(
     const actualSpeed = speed ?? "walk";
     const estimatedMs = estimateDuration(action, target, actualSpeed, state);
 
+    const narrative = generateMoveNarrative(action, target, actualSpeed, state);
+
     const result: Record<string, unknown> = {
       accepted: true,
       action,
       ...(response.data ?? {}),
       speed: actualSpeed,
       estimated_duration_ms: estimatedMs,
+      narrative,
       pending_events: pendingEvents,
     };
 

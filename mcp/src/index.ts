@@ -67,16 +67,26 @@ function eventSummary(event: {
   data: Record<string, unknown>;
 }): string {
   switch (event.type) {
-    case "commit":
-      return `Ate commit "${event.data.message ?? event.data.sha}" for ${event.data.xp ?? "?"} XP`;
-    case "touch":
-      return `Human touched you (${event.data.gesture ?? "tap"})`;
+    case "commit": {
+      const xp = (event.data.xp as number) ?? 0;
+      const msg = event.data.message ?? event.data.sha ?? "something";
+      if (xp >= 30) return `Devoured "${msg}" -- a feast! +${xp} XP`;
+      if (xp >= 15) return `Ate "${msg}" -- satisfying. +${xp} XP`;
+      return `Nibbled "${msg}" -- a snack. +${xp} XP`;
+    }
+    case "touch": {
+      const gesture = event.data.gesture ?? "tap";
+      if (gesture === "pet") return "The developer stroked your back. Warmth.";
+      if (gesture === "tap") return "A tap. The developer's finger, brief and warm.";
+      if (gesture === "swipe") return "A swipe across your body. Playful.";
+      return `Human touched you (${gesture})`;
+    }
     case "surprise":
       return `Surprise: ${event.data.name ?? "something unexpected"}`;
     case "evolve":
-      return `EVOLVED to ${event.data.stage}!`;
+      return `EVOLVED to ${event.data.stage}! Your body transformed. You are something new.`;
     case "weather_change":
-      return `Weather changed to ${event.data.weather}`;
+      return `The weather shifted to ${event.data.weather}. You feel it on your fur.`;
     case "session":
       return `Claude session ${event.data.action ?? "event"}`;
     default:

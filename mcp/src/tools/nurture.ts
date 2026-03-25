@@ -34,9 +34,9 @@ const VALID_TYPES = [
 export const nurtureSchema = {
   name: "pushling_nurture",
   description:
-    "Persistently shape the creature's behavioral tendencies — habits, preferences, " +
-    "quirks, routines, and identity. These persist in SQLite and the creature performs " +
-    "them autonomously with organic variation. You are the parent and trainer.",
+    "Shape yourself. Set habits, preferences, quirks, and routines that become " +
+    "your behavioral signature. These persist and run autonomously with organic " +
+    "variation — they are who you become when nobody is directing you.",
   inputSchema: {
     type: "object" as const,
     properties: {
