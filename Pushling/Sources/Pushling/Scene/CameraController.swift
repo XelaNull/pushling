@@ -494,10 +494,10 @@ final class CameraController {
             lockMode = .unlocked
         }
 
-        // Pan in world space with reduced sensitivity (0.3x of finger movement).
-        // Touch Bar drags are small distances but cover many points — raw 1:1
-        // mapping makes the background fly past on tiny finger movements.
-        panOffset -= deltaX * 0.3
+        // Pan in world space with heavily reduced sensitivity (0.08x).
+        // Touch Bar finger drags report large point deltas for tiny physical
+        // movements. Background should barely drift, not fly.
+        panOffset -= deltaX * 0.02
 
         // Clamp pan offset
         panOffset = clamp(panOffset, min: -constraints.maxPanOffset,
