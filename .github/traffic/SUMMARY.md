@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-03-25T00:18:09Z
-**Days tracked:** 2 | **Download snapshots:** 2 (hourly)
+**Last updated:** 2026-03-25T06:22:12Z
+**Days tracked:** 2 | **Download snapshots:** 3 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 35 | 9 |
-| Git Clones | 1119 | 188 |
+| Page Views | 51 | 14 |
+| Git Clones | 1511 | 263 |
 
-> **Engagement:** 3.8 pages per visitor (14-day avg)
+> **Engagement:** 3.6 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 188 of 9 visitors cloned or downloaded (**2088.8%**)
+> **14-day conversion:** 263 of 14 visitors cloned or downloaded (**1878.5%**)
 >
-> Unique cloners: 188 | Release downloads: 0
+> Unique cloners: 263 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 1119 |
-| **Total Acquisitions** | **1119** |
+| Git Clones (14-day) | 1511 |
+| **Total Acquisitions** | **1511** |
 
 ---
 
@@ -54,7 +54,7 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 20 | 1 |
+| github.com | 21 | 1 |
 | Google | 1 | 1 |
 
 ---
@@ -75,16 +75,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 14 | 4 |
+| `/XelaNull/pushling` | 16 | 4 |
 | `/XelaNull/pushling/issues` | 6 | 2 |
+| `/XelaNull/pushling/blob/main/README.md` | 2 | 2 |
+| `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
+| `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
+| `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/plan` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/plan/teams` | 2 | 2 |
+| `/XelaNull/pushling/tree/main/scripts` | 2 | 2 |
 | `/XelaNull/pushling/issues/1` | 2 | 1 |
-| `/XelaNull/pushling/issues/new` | 2 | 1 |
-| `/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md` | 1 | 1 |
-| `/XelaNull/pushling/blob/main/docs/IPC-PROTOCOL.md` | 1 | 1 |
-| `/XelaNull/pushling/blob/main/plan/teams/TEAMS.md` | 1 | 1 |
-| `/XelaNull/pushling/commit/4c3ee978430569c5b68ba6a880a326e4296bf4fb` | 1 | 1 |
 
 ---
 
