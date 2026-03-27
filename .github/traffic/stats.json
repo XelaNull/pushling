@@ -270,21 +270,21 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-03-27T12:13:45Z",
+    "timestamp": "2026-03-27T18:17:12Z",
     "date": "2026-03-27",
     "views": {
-      "count": 51,
-      "uniques": 14
+      "count": 54,
+      "uniques": 17
     },
     "clones": {
-      "count": 1711,
-      "uniques": 295
+      "count": 1756,
+      "uniques": 308
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 21,
-        "uniques": 1
+        "count": 24,
+        "uniques": 4
       },
       {
         "referrer": "Google",
@@ -296,8 +296,8 @@
       {
         "path": "/XelaNull/pushling",
         "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 16,
-        "uniques": 4
+        "count": 19,
+        "uniques": 7
       },
       {
         "path": "/XelaNull/pushling/issues",
