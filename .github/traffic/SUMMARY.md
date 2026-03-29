@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-03-29T00:19:37Z
-**Days tracked:** 6 | **Download snapshots:** 18 (hourly)
+**Last updated:** 2026-03-29T06:23:55Z
+**Days tracked:** 6 | **Download snapshots:** 19 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 54 | 17 |
-| Git Clones | 1800 | 320 |
+| Page Views | 41 | 15 |
+| Git Clones | 1568 | 285 |
 
-> **Engagement:** 3.1 pages per visitor (14-day avg)
+> **Engagement:** 2.7 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 320 of 17 visitors cloned or downloaded (**1882.3%**)
+> **14-day conversion:** 285 of 15 visitors cloned or downloaded (**1900.0%**)
 >
-> Unique cloners: 320 | Release downloads: 0
+> Unique cloners: 285 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 1800 |
-| **Total Acquisitions** | **1800** |
+| Git Clones (14-day) | 1568 |
+| **Total Acquisitions** | **1568** |
 
 ---
 
@@ -54,7 +54,7 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 24 | 4 |
+| github.com | 16 | 4 |
 | Google | 1 | 1 |
 
 ---
@@ -75,16 +75,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 19 | 7 |
-| `/XelaNull/pushling/issues` | 6 | 2 |
-| `/XelaNull/pushling/blob/main/README.md` | 2 | 2 |
+| `/XelaNull/pushling` | 14 | 6 |
+| `/XelaNull/pushling/blob/main/README.md` | 3 | 3 |
+| `/XelaNull/pushling/issues` | 3 | 1 |
 | `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/plan` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/plan/teams` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/scripts` | 2 | 2 |
 | `/XelaNull/pushling/issues/1` | 2 | 1 |
+| `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md` | 1 | 1 |
 
 ---
 

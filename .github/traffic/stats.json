@@ -450,20 +450,20 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-03-29T00:19:23Z",
+    "timestamp": "2026-03-29T06:23:38Z",
     "date": "2026-03-29",
     "views": {
-      "count": 54,
-      "uniques": 17
+      "count": 41,
+      "uniques": 15
     },
     "clones": {
-      "count": 1800,
-      "uniques": 320
+      "count": 1568,
+      "uniques": 285
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 24,
+        "count": 16,
         "uniques": 4
       },
       {
@@ -476,20 +476,20 @@
       {
         "path": "/XelaNull/pushling",
         "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 19,
-        "uniques": 7
+        "count": 14,
+        "uniques": 6
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/README.md",
+        "title": "pushling/README.md at main · XelaNull/pushling · GitHub",
+        "count": 3,
+        "uniques": 3
       },
       {
         "path": "/XelaNull/pushling/issues",
         "title": "GitHub · Where software is built",
-        "count": 6,
-        "uniques": 2
-      },
-      {
-        "path": "/XelaNull/pushling/blob/main/README.md",
-        "title": "pushling/PUSHLING_VISION.md at main · XelaNull/pushling",
-        "count": 2,
-        "uniques": 2
+        "count": 3,
+        "uniques": 1
       },
       {
         "path": "/XelaNull/pushling/blob/main/build.sh",
@@ -510,18 +510,6 @@
         "uniques": 2
       },
       {
-        "path": "/XelaNull/pushling/tree/main/plan",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 2,
-        "uniques": 2
-      },
-      {
-        "path": "/XelaNull/pushling/tree/main/plan/teams",
-        "title": "pushling/plan at main · XelaNull/pushling",
-        "count": 2,
-        "uniques": 2
-      },
-      {
         "path": "/XelaNull/pushling/tree/main/scripts",
         "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
         "count": 2,
@@ -531,6 +519,18 @@
         "path": "/XelaNull/pushling/issues/1",
         "title": "Windows support? · Issue #1 · XelaNull/pushling",
         "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
+        "title": "pushling/mcp/src/ipc.ts at main · XelaNull/pushling",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md",
+        "title": "pushling/docs at main · XelaNull/pushling",
+        "count": 1,
         "uniques": 1
       }
     ],
