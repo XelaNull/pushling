@@ -538,5 +538,95 @@
     "stars": 2,
     "forks": 0,
     "watchers": 0
+  },
+  {
+    "timestamp": "2026-03-30T00:19:57Z",
+    "date": "2026-03-30",
+    "views": {
+      "count": 41,
+      "uniques": 15
+    },
+    "clones": {
+      "count": 1568,
+      "uniques": 285
+    },
+    "referrers": [
+      {
+        "referrer": "github.com",
+        "count": 16,
+        "uniques": 4
+      },
+      {
+        "referrer": "Google",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/XelaNull/pushling",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 14,
+        "uniques": 6
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/README.md",
+        "title": "pushling/README.md at main · XelaNull/pushling · GitHub",
+        "count": 3,
+        "uniques": 3
+      },
+      {
+        "path": "/XelaNull/pushling/issues",
+        "title": "GitHub · Where software is built",
+        "count": 3,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/build.sh",
+        "title": "pushling/README.md at main · XelaNull/pushling",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp/src",
+        "title": "pushling/mcp at main · XelaNull/pushling",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/scripts",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/issues/1",
+        "title": "Windows support? · Issue #1 · XelaNull/pushling",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
+        "title": "pushling/mcp/src/ipc.ts at main · XelaNull/pushling",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md",
+        "title": "pushling/docs at main · XelaNull/pushling",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "releases": [],
+    "stars": 2,
+    "forks": 0,
+    "watchers": 0
   }
 ]
