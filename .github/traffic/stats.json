@@ -540,20 +540,20 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-03-30T12:17:00Z",
+    "timestamp": "2026-03-30T18:18:22Z",
     "date": "2026-03-30",
     "views": {
-      "count": 41,
-      "uniques": 15
+      "count": 43,
+      "uniques": 17
     },
     "clones": {
-      "count": 1568,
-      "uniques": 285
+      "count": 954,
+      "uniques": 227
     },
     "referrers": [
       {
         "referrer": "github.com",
-        "count": 16,
+        "count": 7,
         "uniques": 4
       },
       {
@@ -566,7 +566,7 @@
       {
         "path": "/XelaNull/pushling",
         "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 14,
+        "count": 12,
         "uniques": 6
       },
       {
@@ -576,14 +576,26 @@
         "uniques": 3
       },
       {
-        "path": "/XelaNull/pushling/issues",
-        "title": "GitHub · Where software is built",
+        "path": "/XelaNull/pushling/tree/main/scripts",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
         "count": 3,
-        "uniques": 1
+        "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/blob/main/build.sh",
         "title": "pushling/README.md at main · XelaNull/pushling",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/issues/1",
+        "title": "Windows support? · Issue #1 · XelaNull/pushling",
+        "count": 2,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/.github/workflows",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
         "count": 2,
         "uniques": 2
       },
@@ -600,32 +612,20 @@
         "uniques": 2
       },
       {
-        "path": "/XelaNull/pushling/tree/main/scripts",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 2,
-        "uniques": 2
-      },
-      {
-        "path": "/XelaNull/pushling/issues/1",
-        "title": "Windows support? · Issue #1 · XelaNull/pushling",
+        "path": "/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml",
+        "title": "pushling/.github/workflows at main · XelaNull/pushling",
         "count": 2,
         "uniques": 1
       },
       {
-        "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
-        "title": "pushling/mcp/src/ipc.ts at main · XelaNull/pushling",
-        "count": 1,
-        "uniques": 1
-      },
-      {
-        "path": "/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md",
-        "title": "pushling/docs at main · XelaNull/pushling",
-        "count": 1,
+        "path": "/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml",
+        "title": "File not found",
+        "count": 2,
         "uniques": 1
       }
     ],
     "releases": [],
-    "stars": 2,
+    "stars": 3,
     "forks": 0,
     "watchers": 0
   }

@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-03-30T12:17:17Z
-**Days tracked:** 7 | **Download snapshots:** 24 (hourly)
+**Last updated:** 2026-03-30T18:18:36Z
+**Days tracked:** 7 | **Download snapshots:** 25 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 41 | 15 |
-| Git Clones | 1568 | 285 |
+| Page Views | 43 | 17 |
+| Git Clones | 954 | 227 |
 
-> **Engagement:** 2.7 pages per visitor (14-day avg)
+> **Engagement:** 2.5 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 285 of 15 visitors cloned or downloaded (**1900.0%**)
+> **14-day conversion:** 227 of 17 visitors cloned or downloaded (**1335.2%**)
 >
-> Unique cloners: 285 | Release downloads: 0
+> Unique cloners: 227 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 1568 |
-| **Total Acquisitions** | **1568** |
+| Git Clones (14-day) | 954 |
+| **Total Acquisitions** | **954** |
 
 ---
 
@@ -54,7 +54,7 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 16 | 4 |
+| github.com | 7 | 4 |
 | Google | 1 | 1 |
 
 ---
@@ -65,7 +65,7 @@
 
 | Metric | Current |
 |--------|---------|
-| Stars | 2 |
+| Stars | 3 |
 | Forks | 0 |
 | Watchers | 0 |
 
@@ -75,16 +75,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 14 | 6 |
+| `/XelaNull/pushling` | 12 | 6 |
 | `/XelaNull/pushling/blob/main/README.md` | 3 | 3 |
-| `/XelaNull/pushling/issues` | 3 | 1 |
+| `/XelaNull/pushling/tree/main/scripts` | 3 | 2 |
 | `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
+| `/XelaNull/pushling/issues/1` | 2 | 2 |
+| `/XelaNull/pushling/tree/main/.github/workflows` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/scripts` | 2 | 2 |
-| `/XelaNull/pushling/issues/1` | 2 | 1 |
-| `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 1 | 1 |
-| `/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml` | 2 | 1 |
+| `/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml` | 2 | 1 |
 
 ---
 
