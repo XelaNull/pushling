@@ -630,24 +630,29 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-03-31T12:17:05Z",
+    "timestamp": "2026-03-31T18:18:11Z",
     "date": "2026-03-31",
     "views": {
-      "count": 43,
-      "uniques": 17
+      "count": 62,
+      "uniques": 34
     },
     "clones": {
-      "count": 954,
-      "uniques": 227
+      "count": 990,
+      "uniques": 234
     },
     "referrers": [
       {
+        "referrer": "reddit.com",
+        "count": 6,
+        "uniques": 5
+      },
+      {
         "referrer": "github.com",
-        "count": 7,
+        "count": 5,
         "uniques": 4
       },
       {
-        "referrer": "Google",
+        "referrer": "com.reddit.frontpage",
         "count": 1,
         "uniques": 1
       }
@@ -655,9 +660,9 @@
     "popular_paths": [
       {
         "path": "/XelaNull/pushling",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
-        "count": 12,
-        "uniques": 6
+        "title": "GitHub - XelaNull/pushling: A virtual pet that lives on your MacBook Touch Ba...",
+        "count": 29,
+        "uniques": 23
       },
       {
         "path": "/XelaNull/pushling/blob/main/README.md",
@@ -669,6 +674,12 @@
         "path": "/XelaNull/pushling/tree/main/scripts",
         "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
         "count": 3,
+        "uniques": 2
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
+        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "count": 2,
         "uniques": 2
       },
       {
@@ -704,12 +715,6 @@
       {
         "path": "/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml",
         "title": "pushling/.github/workflows at main · XelaNull/pushling",
-        "count": 2,
-        "uniques": 1
-      },
-      {
-        "path": "/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml",
-        "title": "File not found",
         "count": 2,
         "uniques": 1
       }

@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-03-31T12:17:20Z
-**Days tracked:** 8 | **Download snapshots:** 28 (hourly)
+**Last updated:** 2026-03-31T18:18:28Z
+**Days tracked:** 8 | **Download snapshots:** 29 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 43 | 17 |
-| Git Clones | 954 | 227 |
+| Page Views | 62 | 34 |
+| Git Clones | 990 | 234 |
 
-> **Engagement:** 2.5 pages per visitor (14-day avg)
+> **Engagement:** 1.8 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 227 of 17 visitors cloned or downloaded (**1335.2%**)
+> **14-day conversion:** 234 of 34 visitors cloned or downloaded (**688.2%**)
 >
-> Unique cloners: 227 | Release downloads: 0
+> Unique cloners: 234 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 954 |
-| **Total Acquisitions** | **954** |
+| Git Clones (14-day) | 990 |
+| **Total Acquisitions** | **990** |
 
 ---
 
@@ -54,8 +54,9 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| github.com | 7 | 4 |
-| Google | 1 | 1 |
+| reddit.com | 6 | 5 |
+| github.com | 5 | 4 |
+| com.reddit.frontpage | 1 | 1 |
 
 ---
 
@@ -75,16 +76,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 12 | 6 |
+| `/XelaNull/pushling` | 29 | 23 |
 | `/XelaNull/pushling/blob/main/README.md` | 3 | 3 |
 | `/XelaNull/pushling/tree/main/scripts` | 3 | 2 |
+| `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 2 | 2 |
 | `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
 | `/XelaNull/pushling/issues/1` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/.github/workflows` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
 | `/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml` | 2 | 1 |
-| `/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml` | 2 | 1 |
 
 ---
 
