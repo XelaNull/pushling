@@ -820,26 +820,26 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-04-02T12:16:41Z",
+    "timestamp": "2026-04-02T18:16:07Z",
     "date": "2026-04-02",
     "views": {
-      "count": 66,
-      "uniques": 38
+      "count": 68,
+      "uniques": 39
     },
     "clones": {
-      "count": 1030,
-      "uniques": 245
+      "count": 1015,
+      "uniques": 252
     },
     "referrers": [
       {
         "referrer": "reddit.com",
-        "count": 7,
-        "uniques": 6
+        "count": 9,
+        "uniques": 8
       },
       {
         "referrer": "github.com",
-        "count": 5,
-        "uniques": 4
+        "count": 6,
+        "uniques": 5
       },
       {
         "referrer": "com.reddit.frontpage",
@@ -850,61 +850,61 @@
     "popular_paths": [
       {
         "path": "/XelaNull/pushling",
-        "title": "GitHub - XelaNull/pushling: A virtual pet that lives on your MacBook Touch Ba...",
-        "count": 34,
-        "uniques": 28
+        "title": "Overview",
+        "count": 37,
+        "uniques": 30
       },
       {
         "path": "/XelaNull/pushling/blob/main/README.md",
-        "title": "pushling/README.md at main · XelaNull/pushling · GitHub",
+        "title": "/blob/main/README.md",
         "count": 3,
         "uniques": 3
       },
       {
         "path": "/XelaNull/pushling/tree/main/scripts",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "title": "/tree/main/scripts",
         "count": 3,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "title": "/blob/main/PUSHLING_VISION.md",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/blob/main/build.sh",
-        "title": "pushling/README.md at main · XelaNull/pushling",
+        "title": "/blob/main/build.sh",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/issues/1",
-        "title": "Windows support? · Issue #1 · XelaNull/pushling",
+        "title": "/issues/1",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/tree/main/.github/workflows",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "title": "/tree/main/.github/workflows",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/tree/main/mcp",
-        "title": "XelaNull/pushling: A virtual pet that lives on your MacBook Touch Bar, fed by...",
+        "title": "/tree/main/mcp",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/tree/main/mcp/src",
-        "title": "pushling/mcp at main · XelaNull/pushling",
+        "title": "/tree/main/mcp/src",
         "count": 2,
         "uniques": 2
       },
       {
         "path": "/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml",
-        "title": "pushling/.github/workflows at main · XelaNull/pushling",
+        "title": "/blob/main/.github/workflows/traffic-stats.yml",
         "count": 2,
         "uniques": 1
       }
