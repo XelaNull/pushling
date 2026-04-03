@@ -137,13 +137,13 @@
   "2026-04-03": [
     {
       "referrer": "reddit.com",
-      "count": 9,
-      "uniques": 8
+      "count": 11,
+      "uniques": 10
     },
     {
       "referrer": "github.com",
-      "count": 6,
-      "uniques": 5
+      "count": 8,
+      "uniques": 6
     },
     {
       "referrer": "com.reddit.frontpage",

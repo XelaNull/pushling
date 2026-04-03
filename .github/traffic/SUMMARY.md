@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-04-03T00:19:49Z
-**Days tracked:** 11 | **Download snapshots:** 38 (hourly)
+**Last updated:** 2026-04-03T06:25:28Z
+**Days tracked:** 11 | **Download snapshots:** 39 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 68 | 39 |
-| Git Clones | 1015 | 252 |
+| Page Views | 72 | 44 |
+| Git Clones | 1052 | 261 |
 
-> **Engagement:** 1.7 pages per visitor (14-day avg)
+> **Engagement:** 1.6 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 252 of 39 visitors cloned or downloaded (**646.1%**)
+> **14-day conversion:** 261 of 44 visitors cloned or downloaded (**593.1%**)
 >
-> Unique cloners: 252 | Release downloads: 0
+> Unique cloners: 261 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 1015 |
-| **Total Acquisitions** | **1015** |
+| Git Clones (14-day) | 1052 |
+| **Total Acquisitions** | **1052** |
 
 ---
 
@@ -54,8 +54,8 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| reddit.com | 9 | 8 |
-| github.com | 6 | 5 |
+| reddit.com | 11 | 10 |
+| github.com | 8 | 6 |
 | com.reddit.frontpage | 1 | 1 |
 
 ---
@@ -76,16 +76,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 37 | 30 |
+| `/XelaNull/pushling` | 41 | 34 |
 | `/XelaNull/pushling/blob/main/README.md` | 3 | 3 |
+| `/XelaNull/pushling/tree/main/.github/workflows` | 3 | 3 |
 | `/XelaNull/pushling/tree/main/scripts` | 3 | 2 |
 | `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 2 | 2 |
 | `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
-| `/XelaNull/pushling/issues/1` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/.github/workflows` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
 | `/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml` | 2 | 1 |
+| `/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml` | 2 | 1 |
 
 ---
 
