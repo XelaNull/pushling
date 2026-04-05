@@ -171,8 +171,8 @@
   "2026-04-05": [
     {
       "referrer": "reddit.com",
-      "count": 11,
-      "uniques": 10
+      "count": 16,
+      "uniques": 12
     },
     {
       "referrer": "github.com",
@@ -181,8 +181,8 @@
     },
     {
       "referrer": "com.reddit.frontpage",
-      "count": 1,
-      "uniques": 1
+      "count": 2,
+      "uniques": 2
     }
   ]
 }
