@@ -167,5 +167,22 @@
       "count": 1,
       "uniques": 1
     }
+  ],
+  "2026-04-05": [
+    {
+      "referrer": "reddit.com",
+      "count": 11,
+      "uniques": 10
+    },
+    {
+      "referrer": "github.com",
+      "count": 9,
+      "uniques": 6
+    },
+    {
+      "referrer": "com.reddit.frontpage",
+      "count": 1,
+      "uniques": 1
+    }
   ]
 }
