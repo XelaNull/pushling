@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-04-08T00:21:35Z
-**Days tracked:** 16 | **Download snapshots:** 58 (hourly)
+**Last updated:** 2026-04-08T06:31:11Z
+**Days tracked:** 16 | **Download snapshots:** 59 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 79 | 46 |
-| Git Clones | 1110 | 301 |
+| Page Views | 64 | 42 |
+| Git Clones | 768 | 226 |
 
-> **Engagement:** 1.7 pages per visitor (14-day avg)
+> **Engagement:** 1.5 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 301 of 46 visitors cloned or downloaded (**654.3%**)
+> **14-day conversion:** 226 of 42 visitors cloned or downloaded (**538.0%**)
 >
-> Unique cloners: 301 | Release downloads: 0
+> Unique cloners: 226 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 1110 |
-| **Total Acquisitions** | **1110** |
+| Git Clones (14-day) | 768 |
+| **Total Acquisitions** | **768** |
 
 ---
 
@@ -54,8 +54,8 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| reddit.com | 16 | 12 |
-| github.com | 9 | 6 |
+| reddit.com | 17 | 13 |
+| github.com | 8 | 6 |
 | com.reddit.frontpage | 2 | 2 |
 
 ---
@@ -76,16 +76,16 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 45 | 37 |
+| `/XelaNull/pushling` | 44 | 38 |
 | `/XelaNull/pushling/tree/main/.github/workflows` | 4 | 4 |
-| `/XelaNull/pushling/blob/main/README.md` | 3 | 3 |
-| `/XelaNull/pushling/tree/main/scripts` | 3 | 2 |
-| `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 2 | 2 |
-| `/XelaNull/pushling/blob/main/build.sh` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/mcp` | 2 | 2 |
-| `/XelaNull/pushling/tree/main/mcp/src` | 2 | 2 |
 | `/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml` | 2 | 1 |
 | `/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml` | 2 | 1 |
+| `/XelaNull/pushling/tree/traffic-stats` | 2 | 1 |
+| `/XelaNull/pushling/blob/main/Formula/pushling.rb` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/PUSHLING_VISION.md` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/README.md` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md` | 1 | 1 |
+| `/XelaNull/pushling/blob/main/docs/TOUCHBAR-TECHNIQUES.md` | 1 | 1 |
 
 ---
 

@@ -222,12 +222,12 @@
   "2026-04-08": [
     {
       "referrer": "reddit.com",
-      "count": 16,
-      "uniques": 12
+      "count": 17,
+      "uniques": 13
     },
     {
       "referrer": "github.com",
-      "count": 9,
+      "count": 8,
       "uniques": 6
     },
     {
