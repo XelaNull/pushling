@@ -252,5 +252,22 @@
       "count": 2,
       "uniques": 2
     }
+  ],
+  "2026-04-10": [
+    {
+      "referrer": "reddit.com",
+      "count": 17,
+      "uniques": 13
+    },
+    {
+      "referrer": "github.com",
+      "count": 8,
+      "uniques": 6
+    },
+    {
+      "referrer": "com.reddit.frontpage",
+      "count": 2,
+      "uniques": 2
+    }
   ]
 }
