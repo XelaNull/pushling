@@ -1673,5 +1673,100 @@
     "stars": 3,
     "forks": 0,
     "watchers": 0
+  },
+  {
+    "timestamp": "2026-04-11T00:19:23Z",
+    "date": "2026-04-11",
+    "views": {
+      "count": 62,
+      "uniques": 40
+    },
+    "clones": {
+      "count": 607,
+      "uniques": 196
+    },
+    "referrers": [
+      {
+        "referrer": "reddit.com",
+        "count": 17,
+        "uniques": 13
+      },
+      {
+        "referrer": "github.com",
+        "count": 5,
+        "uniques": 3
+      },
+      {
+        "referrer": "com.reddit.frontpage",
+        "count": 2,
+        "uniques": 2
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/XelaNull/pushling",
+        "title": "Overview",
+        "count": 41,
+        "uniques": 35
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/.github/workflows",
+        "title": "/tree/main/.github/workflows",
+        "count": 4,
+        "uniques": 4
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/.github/workflows/traffic-stats.yml",
+        "title": "/blob/main/.github/workflows/traffic-stats.yml",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/traffic-stats/.github/workflows/traffic-stats.yml",
+        "title": "/blob/traffic-stats/.github/workflows/traffic-stats.yml",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/traffic-stats",
+        "title": "/tree/traffic-stats",
+        "count": 2,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/Formula/pushling.rb",
+        "title": "/blob/main/Formula/pushling.rb",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/PUSHLING_VISION.md",
+        "title": "/blob/main/PUSHLING_VISION.md",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/README.md",
+        "title": "/blob/main/README.md",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/CREATURE-VOICE-DESIGN.md",
+        "title": "/blob/main/docs/CREATURE-VOICE-DESIGN.md",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/docs/TOUCHBAR-TECHNIQUES.md",
+        "title": "/blob/main/docs/TOUCHBAR-TECHNIQUES.md",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "releases": [],
+    "stars": 3,
+    "forks": 0,
+    "watchers": 0
   }
 ]
