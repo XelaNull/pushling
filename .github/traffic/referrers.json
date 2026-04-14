@@ -324,8 +324,8 @@
   "2026-04-14": [
     {
       "referrer": "reddit.com",
-      "count": 17,
-      "uniques": 13
+      "count": 11,
+      "uniques": 8
     },
     {
       "referrer": "github.com",
@@ -334,8 +334,8 @@
     },
     {
       "referrer": "com.reddit.frontpage",
-      "count": 2,
-      "uniques": 2
+      "count": 1,
+      "uniques": 1
     }
   ]
 }
