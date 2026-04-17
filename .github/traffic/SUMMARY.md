@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-04-17T12:18:31Z
-**Days tracked:** 25 | **Download snapshots:** 96 (hourly)
+**Last updated:** 2026-04-17T18:17:32Z
+**Days tracked:** 25 | **Download snapshots:** 97 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 27 | 22 |
-| Git Clones | 681 | 205 |
+| Page Views | 21 | 16 |
+| Git Clones | 705 | 213 |
 
-> **Engagement:** 1.2 pages per visitor (14-day avg)
+> **Engagement:** 1.3 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 205 of 22 visitors cloned or downloaded (**931.8%**)
+> **14-day conversion:** 213 of 16 visitors cloned or downloaded (**1331.2%**)
 >
-> Unique cloners: 205 | Release downloads: 0
+> Unique cloners: 213 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 681 |
-| **Total Acquisitions** | **681** |
+| Git Clones (14-day) | 705 |
+| **Total Acquisitions** | **705** |
 
 ---
 
@@ -54,8 +54,8 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| reddit.com | 8 | 5 |
-| github.com | 6 | 5 |
+| reddit.com | 6 | 3 |
+| github.com | 4 | 3 |
 | com.reddit.frontpage | 1 | 1 |
 
 ---
@@ -76,14 +76,14 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 14 | 13 |
-| `/XelaNull/pushling/tree/main/.github/workflows` | 2 | 2 |
+| `/XelaNull/pushling` | 9 | 8 |
 | `/XelaNull/pushling/blob/main/Formula/pushling.rb` | 1 | 1 |
 | `/XelaNull/pushling/blob/main/README.md` | 1 | 1 |
 | `/XelaNull/pushling/blob/main/build.sh` | 1 | 1 |
 | `/XelaNull/pushling/issues` | 1 | 1 |
 | `/XelaNull/pushling/pulse` | 1 | 1 |
 | `/XelaNull/pushling/tree/main/.claude` | 1 | 1 |
+| `/XelaNull/pushling/tree/main/.github/workflows` | 1 | 1 |
 | `/XelaNull/pushling/tree/main/mcp` | 1 | 1 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 1 | 1 |
 
