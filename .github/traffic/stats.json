@@ -2338,5 +2338,100 @@
     "stars": 3,
     "forks": 0,
     "watchers": 0
+  },
+  {
+    "timestamp": "2026-04-18T00:21:37Z",
+    "date": "2026-04-18",
+    "views": {
+      "count": 21,
+      "uniques": 16
+    },
+    "clones": {
+      "count": 705,
+      "uniques": 213
+    },
+    "referrers": [
+      {
+        "referrer": "reddit.com",
+        "count": 6,
+        "uniques": 3
+      },
+      {
+        "referrer": "github.com",
+        "count": 4,
+        "uniques": 3
+      },
+      {
+        "referrer": "com.reddit.frontpage",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/XelaNull/pushling",
+        "title": "Overview",
+        "count": 9,
+        "uniques": 8
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/Formula/pushling.rb",
+        "title": "/blob/main/Formula/pushling.rb",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/README.md",
+        "title": "/blob/main/README.md",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/build.sh",
+        "title": "/blob/main/build.sh",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/issues",
+        "title": "/issues",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/pulse",
+        "title": "/pulse",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/.claude",
+        "title": "/tree/main/.claude",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/.github/workflows",
+        "title": "/tree/main/.github/workflows",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp",
+        "title": "/tree/main/mcp",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp/src",
+        "title": "/tree/main/mcp/src",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "releases": [],
+    "stars": 3,
+    "forks": 0,
+    "watchers": 0
   }
 ]
