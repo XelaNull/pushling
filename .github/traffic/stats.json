@@ -2435,45 +2435,34 @@
     "watchers": 0
   },
   {
-    "timestamp": "2026-04-19T12:09:48Z",
+    "timestamp": "2026-04-19T18:11:38Z",
     "date": "2026-04-19",
     "views": {
-      "count": 19,
-      "uniques": 15
+      "count": 14,
+      "uniques": 13
     },
     "clones": {
-      "count": 718,
-      "uniques": 218
+      "count": 730,
+      "uniques": 219
     },
     "referrers": [
-      {
-        "referrer": "reddit.com",
-        "count": 6,
-        "uniques": 3
-      },
       {
         "referrer": "github.com",
         "count": 3,
         "uniques": 2
       },
       {
-        "referrer": "com.reddit.frontpage",
-        "count": 1,
-        "uniques": 1
+        "referrer": "reddit.com",
+        "count": 2,
+        "uniques": 2
       }
     ],
     "popular_paths": [
       {
         "path": "/XelaNull/pushling",
         "title": "Overview",
-        "count": 8,
-        "uniques": 7
-      },
-      {
-        "path": "/XelaNull/pushling/blob/main/Formula/pushling.rb",
-        "title": "/blob/main/Formula/pushling.rb",
-        "count": 1,
-        "uniques": 1
+        "count": 6,
+        "uniques": 5
       },
       {
         "path": "/XelaNull/pushling/blob/main/README.md",
@@ -2500,18 +2489,6 @@
         "uniques": 1
       },
       {
-        "path": "/XelaNull/pushling/tree/main/.claude",
-        "title": "/tree/main/.claude",
-        "count": 1,
-        "uniques": 1
-      },
-      {
-        "path": "/XelaNull/pushling/tree/main/.github/workflows",
-        "title": "/tree/main/.github/workflows",
-        "count": 1,
-        "uniques": 1
-      },
-      {
         "path": "/XelaNull/pushling/tree/main/mcp",
         "title": "/tree/main/mcp",
         "count": 1,
@@ -2520,6 +2497,18 @@
       {
         "path": "/XelaNull/pushling/tree/main/mcp/src",
         "title": "/tree/main/mcp/src",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/xelanull/pushling/blob/main/mcp/src/index.ts",
+        "title": "/blob/main/mcp/src/index.ts",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/xelanull/pushling/blob/main/scripts/find-unwired-code.sh",
+        "title": "/blob/main/scripts/find-unwired-code.sh",
         "count": 1,
         "uniques": 1
       }

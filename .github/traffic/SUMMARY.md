@@ -1,7 +1,7 @@
 # Repository Traffic Dashboard
 
-**Last updated:** 2026-04-19T12:10:01Z
-**Days tracked:** 27 | **Download snapshots:** 104 (hourly)
+**Last updated:** 2026-04-19T18:11:53Z
+**Days tracked:** 27 | **Download snapshots:** 105 (hourly)
 
 ---
 
@@ -11,10 +11,10 @@
 
 | Metric | 14-Day Total | Unique |
 |--------|-------------|--------|
-| Page Views | 19 | 15 |
-| Git Clones | 718 | 218 |
+| Page Views | 14 | 13 |
+| Git Clones | 730 | 219 |
 
-> **Engagement:** 1.2 pages per visitor (14-day avg)
+> **Engagement:** 1.0 pages per visitor (14-day avg)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ![Conversion](charts/conversion.png)
 
-> **14-day conversion:** 218 of 15 visitors cloned or downloaded (**1453.3%**)
+> **14-day conversion:** 219 of 13 visitors cloned or downloaded (**1684.6%**)
 >
-> Unique cloners: 218 | Release downloads: 0
+> Unique cloners: 219 | Release downloads: 0
 
 ---
 
@@ -43,8 +43,8 @@
 | Channel | Count |
 |---------|-------|
 | Zip Downloads | 0 |
-| Git Clones (14-day) | 718 |
-| **Total Acquisitions** | **718** |
+| Git Clones (14-day) | 730 |
+| **Total Acquisitions** | **730** |
 
 ---
 
@@ -54,9 +54,8 @@
 
 | Source | Views | Unique |
 |--------|-------|--------|
-| reddit.com | 6 | 3 |
 | github.com | 3 | 2 |
-| com.reddit.frontpage | 1 | 1 |
+| reddit.com | 2 | 2 |
 
 ---
 
@@ -76,16 +75,15 @@
 
 | Page | Views | Unique |
 |------|-------|--------|
-| `/XelaNull/pushling` | 8 | 7 |
-| `/XelaNull/pushling/blob/main/Formula/pushling.rb` | 1 | 1 |
+| `/XelaNull/pushling` | 6 | 5 |
 | `/XelaNull/pushling/blob/main/README.md` | 1 | 1 |
 | `/XelaNull/pushling/blob/main/build.sh` | 1 | 1 |
 | `/XelaNull/pushling/issues` | 1 | 1 |
 | `/XelaNull/pushling/pulse` | 1 | 1 |
-| `/XelaNull/pushling/tree/main/.claude` | 1 | 1 |
-| `/XelaNull/pushling/tree/main/.github/workflows` | 1 | 1 |
 | `/XelaNull/pushling/tree/main/mcp` | 1 | 1 |
 | `/XelaNull/pushling/tree/main/mcp/src` | 1 | 1 |
+| `/xelanull/pushling/blob/main/mcp/src/index.ts` | 1 | 1 |
+| `/xelanull/pushling/blob/main/scripts/find-unwired-code.sh` | 1 | 1 |
 
 ---
 
