@@ -441,5 +441,17 @@
       "count": 3,
       "uniques": 2
     }
+  ],
+  "2026-04-22": [
+    {
+      "referrer": "reddit.com",
+      "count": 3,
+      "uniques": 3
+    },
+    {
+      "referrer": "github.com",
+      "count": 3,
+      "uniques": 2
+    }
   ]
 }
