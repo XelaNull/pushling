@@ -2787,5 +2787,95 @@
     "stars": 3,
     "forks": 0,
     "watchers": 0
+  },
+  {
+    "timestamp": "2026-04-23T00:26:52Z",
+    "date": "2026-04-23",
+    "views": {
+      "count": 17,
+      "uniques": 15
+    },
+    "clones": {
+      "count": 773,
+      "uniques": 232
+    },
+    "referrers": [
+      {
+        "referrer": "reddit.com",
+        "count": 4,
+        "uniques": 4
+      },
+      {
+        "referrer": "github.com",
+        "count": 3,
+        "uniques": 2
+      }
+    ],
+    "popular_paths": [
+      {
+        "path": "/XelaNull/pushling",
+        "title": "Overview",
+        "count": 8,
+        "uniques": 7
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/README.md",
+        "title": "/blob/main/README.md",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/blob/main/build.sh",
+        "title": "/blob/main/build.sh",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/issues",
+        "title": "/issues",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/pulse",
+        "title": "/pulse",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/releases",
+        "title": "/releases",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp",
+        "title": "/tree/main/mcp",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/XelaNull/pushling/tree/main/mcp/src",
+        "title": "/tree/main/mcp/src",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/xelanull/pushling/blob/main/mcp/src/index.ts",
+        "title": "/blob/main/mcp/src/index.ts",
+        "count": 1,
+        "uniques": 1
+      },
+      {
+        "path": "/xelanull/pushling/blob/main/scripts/find-unwired-code.sh",
+        "title": "/blob/main/scripts/find-unwired-code.sh",
+        "count": 1,
+        "uniques": 1
+      }
+    ],
+    "releases": [],
+    "stars": 3,
+    "forks": 0,
+    "watchers": 0
   }
 ]
