@@ -15,8 +15,8 @@
 
 <p align="center">
   <a href="PUSHLING_VISION.md">Design Spec</a> &middot;
-  <a href="docs/CREATURE-VOICE-DESIGN.md">Voice Design</a> &middot;
-  <a href="docs/TOUCHBAR-TECHNIQUES.md">Touch Bar Research</a> &middot;
+  <a href="docs/REFERENCE/creature-voice-design.md">Voice Design</a> &middot;
+  <a href="docs/REFERENCE/index.md">Touch Bar Research</a> &middot;
   <a href="https://github.com/XelaNull/pushling/issues">Report Issues</a> &middot;
   <a href="https://github.com/XelaNull/pushling/blob/traffic-stats/.github/traffic/SUMMARY.md">Live Metrics</a>
 </p>
@@ -224,9 +224,9 @@ Claude inhabits the creature through 9 MCP tools — first-person actions, not e
 | Document | What's Inside |
 |----------|--------------|
 | [PUSHLING_VISION.md](PUSHLING_VISION.md) | Complete design spec — creature, gameplay, embodiment, 78 surprises, world, voice, architecture |
-| [docs/CREATURE-VOICE-DESIGN.md](docs/CREATURE-VOICE-DESIGN.md) | Voice evolution — how babble becomes speech, TTS pipeline, audio architecture |
-| [docs/TTS-RESEARCH.md](docs/TTS-RESEARCH.md) | Local TTS engine comparison — espeak-ng, Piper, Kokoro-82M benchmarks |
-| [docs/TOUCHBAR-TECHNIQUES.md](docs/TOUCHBAR-TECHNIQUES.md) | Touch Bar hardware research — private APIs, rendering, what's proven |
+| [docs/REFERENCE/creature-voice-design.md](docs/REFERENCE/creature-voice-design.md) | Voice evolution — how babble becomes speech, TTS pipeline, audio architecture |
+| [docs/RESEARCH/tts-engine-evaluation.md](docs/RESEARCH/tts-engine-evaluation.md) | Local TTS engine comparison — espeak-ng, Piper, Kokoro-82M benchmarks |
+| [docs/REFERENCE/index.md](docs/REFERENCE/index.md) | Touch Bar hardware research — private APIs, rendering, what's proven (split across `touch-bar-hardware.md`, `touch-bar-private-api.md`, and `RESEARCH/touch-bar-prior-art.md`) |
 | [CLAUDE.md](CLAUDE.md) | Workspace guide — architecture reference, collaboration personas, operational modes |
 
 ---

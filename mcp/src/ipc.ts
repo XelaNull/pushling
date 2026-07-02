@@ -5,7 +5,7 @@
  * Each request gets a UUID, and responses are matched by ID to support
  * multiple in-flight requests.
  *
- * Protocol: See docs/IPC-PROTOCOL.md for the full specification.
+ * Protocol: See docs/ARCHITECTURE/ipc-wire-protocol.md for the full specification.
  */
 
 import { createConnection, Socket } from "node:net";

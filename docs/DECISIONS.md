@@ -59,6 +59,28 @@ RULES:
 **Resolution:** The shipped ceremony is canon: triggers at the Critter stage after 10+ commits, the creature speaks its **own name**, and the ceremony runs for 5 seconds. `CREATURE-VOICE-DESIGN.md`'s alternative design is preserved as **considered-and-rejected history**.
 **ADR:** pending
 
+### RESOLVED — R3-amended — First-word milestones
+
+**Filed:** 2026-07-02
+**Resolved:** 2026-07-02 (human ruling, option A)
+**Resolution:** R3's "considered-and-rejected" framing above is **dropped**. Code
+verification (SP4) found `CREATURE-VOICE-DESIGN.md` §10's alternative was not
+rejected — it shipped, nearly verbatim, as a **second, independent milestone**.
+Canon now documents **two complementary shipped milestones**, both real, neither
+superseding the other:
+
+1. **Critter — First Word Ceremony** (`FirstWordCeremony.swift`): the creature's
+   **own name**, spoken as a question, a scripted 5-second visual ceremony. (This
+   is the milestone R3 above originally ratified.)
+2. **Beast — First Audible Word** (`VoiceSystem.speakFirstWord()`): the
+   **developer's first name** (from `git config user.name`), whispered through
+   Kokoro 2.5s after first reaching Beast, audio-only, no visual fanfare.
+
+`CREATURE-VOICE-DESIGN.md`'s alternative design is **absorbed into canon**
+(partly live) as Milestone 2, not preserved as rejected history. Full detail:
+[speech-milestones](/REFERENCE/speech-milestones.md).
+**ADR:** pending
+
 ### RESOLVED — R4 — PUSHLING_VISION.md absorption
 
 **Filed:** 2026-07-02

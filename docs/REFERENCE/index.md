@@ -2,4 +2,22 @@
 
 # REFERENCE Index
 
-_No concepts yet._
+- [Biomes and Terrain Objects](biomes-and-terrain-objects.md) — The 5-biome catalog with gradient blending, and the 10 terrain object types with their biome-weighted spawn pools.
+- [Creature Identity & Birth](creature-identity-birth.md) — How a Pushling gets its name, personality, visual traits, and rarity — and the gap between the designed one-shot historical-scan birth and what actually runs today.
+- [Creature Visual Design](creature-visual-design.md) — The cat's Bezier-path body-part geometry across all six growth stages — proportions, the five cat-identity identifiers, the feature-introduction timeline, personality-driven scaling, and the Diamond Indicator's visual states for Claude's presence.
+- [Creature Voice Design — Aesthetic and Character Mapping](creature-voice-design.md) — The voice identity contract (small, organic, intelligent, endearing, otherworldly), the anti-patterns and golden references that shaped it, the per-stage emotional-register arc, and how emotion and personality map onto voice character.
+- [Gesture-to-Response Map](gesture-response-map.md) — Every GestureType x GestureTarget pairing and what it actually triggers in CreatureTouchHandler and its subsystems, verified against code.
+- [Growth Stages & Evolution](growth-stages.md) — The six XP-gated growth stages, their thresholds, sizes, and unlocks, plus the shared stage-transition ceremony.
+- [Journal & Dreams](journal-and-dreams.md) — The 18-type journal entry taxonomy that records every meaningful event, and the two distinct dream mechanics — a wake-time speech-fragment dream bubble, and a full autonomous nightly DreamEngine with personality drift.
+- [OLED Touch Bar Rendering Techniques](oled-rendering-techniques.md) — Rendering practices tuned for the Touch Bar's true-black OLED panel — texture caching, ambient-presence glow, stroke width, anti-aliasing policy, and the P3-never-sRGB rule.
+- [The 8-Color P3 Palette](palette.md) — The single source of color truth for Pushling — 8 Display P3 colors, their semantic roles, derived variants, and the palette-enforcement rule every visible pixel obeys.
+- [Performance Budgets](performance-budgets.md) — The per-frame time budget for 60fps Touch Bar rendering, SpriteKit node/texture ceilings, and voice-model memory budgets that all rendering and audio work must stay within.
+- [Personality & Emotional State](personality-emotional-state.md) — The 5 slow-drifting personality axes and the 4 fast-moving emotional axes that together drive every behavioral and visual variation between two creatures at the same growth stage.
+- [Procedural Animation](procedural-animation.md) — The breathing formula and layered noise-idle system that keep the creature perpetually alive, the segmented-tail spring-damper physics, the halflife-based camera easing, and the design-era spring-damper toolkit reconciled against what actually shipped in each body-part controller.
+- [Repo Landmarks](repo-landmarks.md) — The 9 permanent mid-parallax landmark types generated from a developer's tracked repos, the repo-type detection heuristics that choose them, and their placement and emergence animation.
+- [Speech Milestones](speech-milestones.md) — The two never-repeating speech milestones — the First Word ceremony (Critter stage, the creature's own name, visual) and the First Audible Word (Beast stage, the developer's name, audio-only) — both shipped, both canon.
+- [Speech Rendering](speech-rendering.md) — How speech appears on the Touch Bar — bubble anatomy, per-stage rendering modes and size budgets, the Drop-stage 17-symbol vocabulary, the narration overlay, and the 7 speech bubble styles.
+- [Surprise & Delight Catalog](surprise-catalog.md) — The full 78-surprise catalog across 8 categories, the scheduling/cooldown/drought model that fires them, cross-system surprise integration, and the 10 mutation badges.
+- [Touch Bar Hardware Reference](touch-bar-hardware.md) — Authoritative hardware facts about the MacBook Pro Touch Bar that constrain Pushling's rendering and input design — panel specs, touch controller, sensors, and model lifespan.
+- [NSTouchBar Private API and Native Rendering Reference](touch-bar-private-api.md) — The DFR private-API surface and the SKView-in-NSCustomTouchBarItem embedding technique the Pushling daemon uses to own the Touch Bar at 60fps, including the corrected touch-delivery limitation.
+- [Visual System & Art Direction](visual-system-art-direction.md) — The "Luminous Pixel Life" art direction — silhouette-first design principles, the Solid Fill Test, the one-new-feature-per-stage evolution rhythm, and the shape-language arc — plus the catalogued Wow Factor moments and the philosophy behind the cinematic no-UI HUD.

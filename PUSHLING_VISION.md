@@ -1,3 +1,11 @@
+> **📚 Canon has moved.** This file predates the project's OKF documentation
+> bundle and is retained as **historical/aspirational source material**
+> pending Phase-2 archival (`docs/DECISIONS.md` R4) — it is no longer the
+> authority for how Pushling actually behaves. Where this document and the
+> shipped code disagree, the code wins and the bundle documents that
+> reconciliation explicitly (see each concept's traceability notes). Start
+> at **[docs/index.md](docs/index.md)** for current canon.
+
 # PUSHLING: Virtual Pet for the MacBook Touch Bar
 
 **A spirit creature born from your commits. Rendered at 60fps on OLED. Inhabited by Claude. Fed by your code.**
