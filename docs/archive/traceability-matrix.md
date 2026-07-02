@@ -39,11 +39,14 @@ this file is the navigation and sign-off layer on top of them.
 - **371 source-section → concept mappings** (individual table rows) across
   the 9 waves' 38 sub-tables — the atomic unit of this migration's
   fidelity proof.
-- **57 items tagged `dropped-with-justification`** across all waves,
+- **56 items tagged `dropped-with-justification`** across all waves,
   collected in full immediately below for one-place Orchestrator review.
   Most are procedural (plan-wrapper scaffolding: Goal/Dependencies/QA-Gate
   headers, superseded MTMR/bash-era technique catalogs) rather than
   contested canon calls — the substantive ones are marked **⚑** below.
+  (SP8c reclassified one further item — MULTITOUCH §5 — from dropped to
+  migrated-as-unbuilt; see that source's entry below for the full
+  overturn rationale.)
 
 # Intentional Drops — Awaiting Orchestrator Sign-Off
 
@@ -87,8 +90,16 @@ treated as a close call.
 - **P5-T3-10 Sleeping Creature Commit Processing** — sleep-state/dream-rendering detail (how eating *renders* while asleep) with no XP or detection implications of its own; belongs with a creature/sleep-cycle concept, not commit-feeding.
 - Track 3 Goal/Dependencies header, QA Gate checklist — plan-wrapper scaffolding (SP7's slice).
 
-## `docs/MULTITOUCH-CAMERA-REFERENCE.md` (SP5)
-- **⚑ §5 Creature Scaling Under Zoom** — no `cappedZoom`/`worldZoom`/counter-scale code exists anywhere; `PushlingScene.swift`'s real `depthScale = 1.0 − z × 0.35` is unrelated depth-based scaling, not zoom-related.
+## `docs/MULTITOUCH-CAMERA-REFERENCE.md` (SP5) — RECLASSIFIED (SP8c)
+- ~~**⚑ §5 Creature Scaling Under Zoom**~~ — originally proposed as
+  dropped by SP5 ("no `cappedZoom`/`worldZoom`/counter-scale code exists
+  anywhere; `PushlingScene.swift`'s real `depthScale = 1.0 − z × 0.35` is
+  unrelated depth-based scaling, not zoom-related"). **Overturned this
+  pass**: unbuilt is not droppable under ruling R2 — this is part of the
+  live-pan-zoom design R2 made intent-canon. Migrated instead as 📐
+  unbuilt design intent into
+  `docs/FEATURES/interactivity-unbuilt.md#live-pan--zoom` (table, formula,
+  and hard cap preserved in full). No longer counted as a drop.
 
 ## `docs/plan/phase-6-interactivity/PHASE-6.md` (SP5)
 - Goal/Dependencies/Architecture Notes performance-budget table — no per-subsystem input-latency profiling exists in code to verify against (<0.5ms gesture recognition, etc.); unverifiable design targets, not measured/enforced values.
@@ -170,10 +181,13 @@ confirmation:
   behavior — `speech-milestones.md`'s own "Post-Milestone Progression"
   section already flags one adjacent piece of this (no frequency-cap code
   for the Critter first-word's "say it again max once per hour" idle
-  repeat). **Not closed this pass** — a full per-row code audit of the
-  remaining 5 triggers is beyond this finalize wave's scope; flagged for the
-  Orchestrator to decide whether it's worth a dedicated follow-up WO or
-  simply left as documented design intent with no current implementation.
+  repeat). **Closed this pass (SP8c)**: the 5 unbuilt triggers
+  (wake-greeting, sleepy-yawn, satisfaction-heart, weather-triggered
+  speech, idle-thought) are preserved as 📐 unbuilt design intent in
+  [Between-Session Autonomous Speech](/FEATURES/interactivity-unbuilt.md#between-session-autonomous-speech--unbuilt-p5-t1-16)
+  per the lossless-preservation mandate — the wire-or-descope decision
+  itself remains open, deferred to a phase-3-backlog item rather than
+  resolved here.
 
 ## `README.md` (repo root)
 
@@ -237,7 +251,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | Pipeline Overview, Gesture Types (13→12), Gesture Target Resolution | `/SYSTEMS/touch-input-pipeline.md` | migrated, corrected |
 | Routing Rules | `/REFERENCE/gesture-response-map.md`, `/SYSTEMS/touch-milestones.md` | migrated, corrected |
 | Camera Controller (pan/zoom math) | `/SYSTEMS/camera-and-parallax.md` | migrated, corrected (R2: pan/zoom disabled behind a `FIXED-VIEWPORT` early return; documented as transitional, intent-canon preserved) |
-| §5 Creature Scaling Under Zoom | *(dropped)* | see Intentional Drops |
+| §5 Creature Scaling Under Zoom | `/FEATURES/interactivity-unbuilt.md#live-pan--zoom` | migrated-as-unbuilt (SP8c, reclassified from dropped) |
 | §6 Zoom Detail Tiers | `/FEATURES/interactivity-unbuilt.md#live-pan--zoom` | migrated as unbuilt |
 | §7 Parallax Response | *(deferred to SP6a)* | deferred — wrong claim flagged (4 layers not 3) |
 | §9 Known Edge Cases | `/SYSTEMS/touch-input-pipeline.md`, `/REFERENCE/gesture-response-map.md`, `/SYSTEMS/camera-and-parallax.md` | migrated, corrected (real two-stage tap timer) |
@@ -397,7 +411,7 @@ beyond what's already migrated from their named primary sources.
 |---|---|---|---|
 | Track 1 (bubble rendering, Drop symbols, filtering, first-word ceremony, narration) | `/REFERENCE/speech-rendering.md`, `/SYSTEMS/speech-filtering.md`, `/REFERENCE/speech-milestones.md` | migrated, corrected throughout | SP4 |
 | P5-T1-12 Apex World-Shaping Speech | `/SYSTEMS/weather.md#apex-speech-triggered-world-effects-p5-t1-12` | **gap found and filled this pass** — see SP4 Deferral Findings below | SP4→SP8 |
-| P5-T1-16 Between-Session Autonomous Speech | *(partial gap)* | see SP4 Deferral Findings below | SP4→SP8 |
+| P5-T1-16 Between-Session Autonomous Speech (5 of 7 triggers) | `/FEATURES/interactivity-unbuilt.md#between-session-autonomous-speech--unbuilt-p5-t1-16` | migrated-as-unbuilt (SP8c, reclassified from partial gap) | SP4→SP8→SP8c |
 | Track 2 (sherpa-onnx integration, Piper/Kokoro tiers, audio pipeline, caching) | `/SYSTEMS/voice-tts-stack.md` | migrated, corrected (no `VoiceEngine` class; real API is `SherpaOnnxBridge`+`ModelManager`+`VoiceSystem`) | SP4 |
 | P5-T2-08 First Audible Word | `/REFERENCE/speech-milestones.md#milestone-2` | migrated, corrected (`first_audible_word` journal entry never written) | SP4 |
 | Track 3 (commit-eating theater, XP formula, fallow bonus, rate limiting) | `/SYSTEMS/commit-feeding-xp.md` | migrated verbatim + new defect found (award path bypasses `XPCalculator`) | SP7 |

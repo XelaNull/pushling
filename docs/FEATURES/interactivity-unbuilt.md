@@ -44,6 +44,23 @@ re-enabled anyway. Full rendering detail belongs to the creature-visual
 concept that owns `Creature/`; noted here because it's inert for the same
 root reason as pan/zoom above.
 
+📐 **Creature counter-scaling under zoom.** Designed to keep the creature
+from clipping the 30pt bar as zoom increases: below a "comfortable" size
+(26pt actual height) the creature scales linearly with zoom; past that
+point growth decelerates via logarithmic compression, capped hard at 28pt
+(leaving a 2pt margin on the 30pt bar). The designed formula:
+`scaleFactor = cappedZoom / worldZoom`, applied as
+`creature.setScale(depthScale * scaleFactor)`. No `cappedZoom`,
+`worldZoom`, or any counter-scale code exists anywhere in the codebase
+(grep-verified) — `PushlingScene.swift`'s real `depthScale = 1.0 - z * 0.35`
+is unrelated depth-based scaling, not zoom-related, and would need to
+compose with this mechanism rather than be confused for it. Like
+`ZoomDetailController` above, this is inert until the `CameraController`
+zoom `return`s are lifted — it's designed to activate the moment zoom
+becomes user-driven again. See
+[camera control](/SYSTEMS/camera-and-parallax.md) for the zoom range this
+would apply against.
+
 # Track 4: Advanced Gestures & Display Modes
 
 None of P6-T4-01 through P6-T4-03/05 exist in code (grep-verified — no
@@ -170,9 +187,46 @@ content and the pattern-comparison analysis that led to the recommended
 document is the canonical home for this design; this entry exists only so
 the unbuilt status is discoverable from the FEATURES index.
 
+# Between-Session Autonomous Speech — unbuilt (P5-T1-16)
+
+`PHASE-5.md`'s P5-T1-16 designed 7 Layer-1 autonomous-speech triggers —
+the creature speaking on its own, without Claude connected, using the
+same rendering pipeline but skipping the MCP/IPC path entirely. Of the 7,
+**2 are built and documented elsewhere**: commit-eaten reactions (see
+[commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md)) and dream mumble (see
+[journal-and-dreams](/REFERENCE/journal-and-dreams.md)). The other **5 have
+no call sites anywhere in `SpeechCoordinator`/`GameCoordinator`**
+(grep-verified) and are preserved here as designed-but-unbuilt intent:
+
+📐 **Wake-greeting.** Critter+ stage. On waking, the creature was designed
+to say `"morning!"` or a time-appropriate greeting, once per wake.
+
+📐 **Sleepy-yawn.** Critter+ stage. When energy drops below 15, the
+creature was designed to say `"sleepy..."` or display yawn text.
+
+📐 **Satisfaction-heart.** Drop+ stage. When satisfaction crosses 80, the
+creature was designed to show a heart symbol (Drop) or say `"happy!"`
+(Critter+).
+
+📐 **Weather-triggered speech.** Critter+ stage. On a weather change, the
+creature was designed to react with weather-appropriate lines
+(`"rain!"`, `"cold..."`, `"pretty!"`).
+
+📐 **Idle-thought.** Beast+ stage. During idle (no touch, no Claude), the
+creature was designed to surface a random thought from the speech cache
+or a new observation, capped at once per 10 minutes idle.
+
+All 5 are designed as template-driven Layer-1 behaviors (text generated
+directly by the daemon from templates + personality + context, same as
+the two built triggers) — none require new rendering machinery, only the
+trigger-detection call sites themselves. Whether to wire or descope these
+5 is a phase-3-backlog decision, not resolved here.
+
 # Citations
 
 [1] `docs/plan/phase-6-interactivity/PHASE-6.md` — Track 4, P6-T3-04/05/06/08/09 cooperative subsections
 [2] `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md`
 [3] `PUSHLING_VISION.md` — Touch Interactions, Human Milestones, Creature-Initiated Invitations, Mini-Games
-[4] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md)
+[4] `docs/MULTITOUCH-CAMERA-REFERENCE.md` — §5 Creature Scaling Under Zoom, §6 Zoom Detail Tiers
+[5] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T1-16 Between-Session Autonomous Speech
+[6] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md)
