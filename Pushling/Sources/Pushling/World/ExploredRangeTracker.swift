@@ -144,6 +144,23 @@ final class ExploredRangeTracker {
         ranges.removeAll()
     }
 
+    /// Restore explored territory from a previously serialized JSON string.
+    /// Replaces all current ranges with the deserialized ones.
+    func restore(from json: String) {
+        guard let data = json.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [[Double]]
+        else { return }
+
+        ranges.removeAll()
+        for pair in array {
+            guard pair.count == 2 else { continue }
+            ranges.append(Range(
+                minX: CGFloat(pair[0]),
+                maxX: CGFloat(pair[1])
+            ))
+        }
+    }
+
     // MARK: - Serialization
 
     /// Serialize to a JSON string for persistence.

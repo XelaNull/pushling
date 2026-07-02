@@ -25,6 +25,12 @@ final class GameCoordinator {
     /// Accumulates commit data during the egg stage for progressive personality.
     var eggAccumulator: EggAccumulator?
 
+    /// Rarity tier determined at egg→drop hatching. Persisted to SQLite.
+    internal var creatureRarity: RarityTier = .common
+
+    /// Whether the creature hatched as a shiny variant (1% chance). Persisted to SQLite.
+    internal var creatureShiny: Bool = false
+
     // MARK: - Subsystems
 
     let emotionalState: EmotionalState
@@ -184,9 +190,17 @@ final class GameCoordinator {
         wireEmotionalVisuals()
         wireNurture()
         wireTaughtBehaviors()
+        wireDreamEngine()
+
+        // Restore fog of war explored ranges from DB (before first frame)
+        restoreFogOfWar()
 
         // Start subsystems
         feedProcessor.start()
+
+        // Load skill stats and apply offline decay (after feedProcessor is started
+        // so callback chaining onto onCommitReceived/onSessionEvent works correctly)
+        loadAndWireSkillStats()
 
         NSLog("[Pushling/Coordinator] GameCoordinator initialized — "
               + "all subsystems wired. Stage: %@, Name: %@, XP: %d, "
@@ -266,7 +280,10 @@ final class GameCoordinator {
         // 10. Nurture subsystem updates (habits, decay, routines)
         updateNurtureSubsystems(deltaTime: deltaTime)
 
-        // 11. Late-night lantern (solidarity, not judgment)
+        // 11. Dream engine: sync current time period to autonomous layer
+        updateDreamTimePeriod()
+
+        // 12. Late-night lantern (solidarity, not judgment)
         if let creature = scene.creatureNode {
             let hour = Calendar.current.component(.hour, from: now)
             let isDeveloperActive = commandRouter.sessionManager.isSessionActive
@@ -289,6 +306,9 @@ final class GameCoordinator {
 
         // Persist XP and stage (synchronous — DB closes right after)
         persistXPAndStageSync()
+
+        // Persist fog of war explored ranges (synchronous — DB closes right after)
+        persistFogOfWarSync()
 
         NSLog("[Pushling/Coordinator] GameCoordinator shut down — "
               + "XP: %d, Stage: %@", totalXP, "\(creatureStage)")

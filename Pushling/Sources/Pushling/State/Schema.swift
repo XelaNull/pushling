@@ -10,7 +10,9 @@ import Foundation
 enum Schema {
 
     /// Current schema version. Bump this when adding migrations.
-    static let currentVersion = 4
+    static let currentVersion = 8
+
+    static let validRarities = ["common", "uncommon", "rare", "epic", "legendary"]
 
     // MARK: - Valid Enum Values
 

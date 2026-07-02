@@ -13,17 +13,33 @@ extension AutonomousLayer {
     /// Maximum Z depth the creature can wander to at each growth stage.
     /// Must remain readable on the 30pt Touch Bar at minimum scale.
     static func maxDepthZ(for stage: GrowthStage) -> CGFloat {
-        return 0.8
+        switch stage {
+        case .egg:    return 0.0   // Stays foreground — newly hatched, doesn't venture deep
+        case .drop:   return 0.15  // Barely leaves foreground
+        case .critter: return 0.35 // Mid-depth explorer
+        case .beast:  return 0.6   // Confident wanderer
+        case .sage:   return 0.7   // Wide range
+        case .apex:   return 0.8   // Full range
+        }
     }
 
     // MARK: - Destination Selection
 
     /// Picks a unified (X, Z) destination for the creature to walk toward.
     /// X: 80-400pt away in the creature's facing direction, clamped to scene bounds.
-    /// Z: Random depth within stage-gated range.
+    /// Z: Within ±0.15 of current Z — gradual depth drift, not random teleport.
     func selectDestination() -> (targetX: CGFloat, targetZ: CGFloat) {
         let maxZ = Self.maxDepthZ(for: stage)
-        let targetZ = CGFloat(randomDepthRange(0.05, Double(maxZ)))
+
+        // FIXED-VIEWPORT: depth wandering disabled for Day 1 proof-of-life
+        let targetZ: CGFloat = 0.0
+        _ = maxZ
+
+        // Drift Z by at most ±0.15 from current position so depth changes feel
+        // like gentle slopes rather than sudden jumps into/out of background.
+        // let driftRange: CGFloat = 0.15
+        // let rawTargetZ = currentZ + CGFloat(randomDepthRange(-Double(driftRange), Double(driftRange)))
+        // let targetZ = clamp(rawTargetZ, min: 0.0, max: maxZ)
 
         let distance = CGFloat(randomDepthRange(80, 400))
         let direction: CGFloat = facing == .right ? 1 : -1
@@ -34,7 +50,7 @@ extension AutonomousLayer {
         targetX = clamp(targetX, min: margin,
                         max: SceneConstants.sceneWidth - margin)
 
-        return (targetX: targetX, targetZ: clamp(targetZ, min: 0.0, max: maxZ))
+        return (targetX: targetX, targetZ: targetZ)
     }
 
     // MARK: - Slope-Based Z Step

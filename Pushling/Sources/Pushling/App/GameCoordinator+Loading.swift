@@ -67,6 +67,35 @@ extension GameCoordinator {
     }
 }
 
+// MARK: - Fog of War Persistence
+
+extension GameCoordinator {
+
+    /// Restore explored ranges from the world table into the active fog controller.
+    /// Called once after the scene is fully wired, during init.
+    func restoreFogOfWar() {
+        let db = stateCoordinator.database
+        guard let json = (try? db.queryScalarText(
+            "SELECT explored_ranges FROM world WHERE id = 1"
+        )) ?? nil else { return }
+
+        scene.worldManager.fogOfWar?.exploredRanges.restore(from: json)
+        NSLog("[Pushling/Coordinator] Fog of war restored from DB")
+    }
+
+    /// Persist current explored ranges to the world table.
+    /// Called from shutdown() — synchronous, DB closes right after.
+    func persistFogOfWarSync() {
+        guard let fogController = scene.worldManager.fogOfWar else { return }
+        let json = fogController.exploredRanges.toJSON()
+        let db = stateCoordinator.database
+        try? db.execute(
+            "UPDATE world SET explored_ranges = ? WHERE id = 1",
+            arguments: [json]
+        )
+    }
+}
+
 // MARK: - XP & Stage Persistence
 
 extension GameCoordinator {

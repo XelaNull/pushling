@@ -203,6 +203,56 @@ enum EyeShape: String, Codable {
     }
 }
 
+// MARK: - Rarity Tier
+
+/// Hatching rarity tier — determined by seeded PRNG at the moment of egg→drop.
+/// Same identity seed always produces the same tier (deterministic).
+enum RarityTier: String, Codable, CaseIterable {
+    case common    // 60% chance — no personality spread bonus
+    case uncommon  // 25% chance — +5% personality spread
+    case rare      // 10% chance — +10% personality spread
+    case epic      //  4% chance — +15% personality spread
+    case legendary //  1% chance — +20% personality spread
+
+    /// Human-readable display name.
+    var displayName: String { rawValue }
+
+    /// Minimum value for decayable skill stats — rarer creatures never decay below
+    /// their floor, giving them a permanent baseline advantage.
+    var statFloor: Int {
+        switch self {
+        case .common:    return 10
+        case .uncommon:  return 15
+        case .rare:      return 20
+        case .epic:      return 25
+        case .legendary: return 35
+        }
+    }
+
+    /// Personality spread bonus (fraction added to deviation from neutral).
+    /// e.g. 0.15 pushes axes 15% further from 0.5.
+    var spreadBonus: Double {
+        switch self {
+        case .common:    return 0.00
+        case .uncommon:  return 0.05
+        case .rare:      return 0.10
+        case .epic:      return 0.15
+        case .legendary: return 0.20
+        }
+    }
+
+    /// Determine tier from a uniform random float in [0, 1).
+    /// Cumulative distribution: common≤0.60, uncommon≤0.85, rare≤0.95,
+    /// epic≤0.99, legendary≤1.00
+    static func fromRoll(_ roll: Double) -> RarityTier {
+        if roll < 0.60 { return .common }
+        if roll < 0.85 { return .uncommon }
+        if roll < 0.95 { return .rare }
+        if roll < 0.99 { return .epic }
+        return .legendary
+    }
+}
+
 // MARK: - Personality Persistence
 
 /// Helpers for reading/writing personality from SQLite.

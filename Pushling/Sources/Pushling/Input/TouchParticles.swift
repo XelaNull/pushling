@@ -77,6 +77,78 @@ enum TouchParticles {
         }
     }
 
+    // MARK: - Heart Burst
+
+    /// Maximum number of concurrent heart bursts.
+    private static var activeBursts = 0
+    private static let maxConcurrentBursts = 2
+
+    /// Emits a burst of 5-8 hearts simultaneously at the given position.
+    /// Hearts rise with horizontal scatter, shrink from 6pt to 2pt, and fade over ~2s.
+    /// Capped at `maxConcurrentBursts` concurrent bursts.
+    static func emitHeartBurst(at position: CGPoint, in parent: SKNode) {
+        guard activeBursts < maxConcurrentBursts else { return }
+        activeBursts += 1
+
+        let count = Int.random(in: 5...8)
+        // Warm pink/red palette — ember base with slight variation toward rose
+        let baseColors: [SKColor] = [
+            PushlingPalette.ember,
+            PushlingPalette.ember.withAlphaComponent(0.9),
+            SKColor(red: 1.0, green: 0.35, blue: 0.45, alpha: 1.0),  // soft rose
+            SKColor(red: 0.95, green: 0.25, blue: 0.3, alpha: 1.0),  // deep pink
+        ]
+
+        for i in 0..<count {
+            let heart = SKLabelNode(text: "\u{2665}")
+            heart.fontSize = 6
+            heart.fontColor = baseColors.randomElement()!
+            heart.position = CGPoint(
+                x: position.x + CGFloat.random(in: -6...6),
+                y: position.y
+            )
+            heart.zPosition = 50
+            parent.addChild(heart)
+
+            // Each heart gets independent horizontal drift and wobble phase
+            // Rise slowly — Touch Bar is only 30pt tall, don't rush off screen
+            let driftX = CGFloat.random(in: -6...6)
+            let riseY: CGFloat = CGFloat.random(in: 6...10)
+            let duration: TimeInterval = Double.random(in: 2.5...3.5)
+
+            // Horizontal wobble: two sequential nudges for a sine-like feel
+            let wobbleA = SKAction.moveBy(x: driftX * 0.4, y: riseY * 0.4, duration: duration * 0.35)
+            wobbleA.timingMode = .easeOut
+            let wobbleB = SKAction.moveBy(x: -driftX * 0.2, y: riseY * 0.35, duration: duration * 0.35)
+            let wobbleC = SKAction.moveBy(x: driftX * 0.3, y: riseY * 0.25, duration: duration * 0.3)
+            wobbleC.timingMode = .easeIn
+            let rise = SKAction.sequence([wobbleA, wobbleB, wobbleC])
+
+            // Scale from 6pt → 2pt (shrink factor 1/3)
+            let shrink = SKAction.scale(to: 1.0 / 3.0, duration: duration)
+            shrink.timingMode = .easeIn
+
+            // Fade: hold briefly then fade out
+            let hold = SKAction.wait(forDuration: duration * 0.3)
+            let fade = SKAction.fadeOut(withDuration: duration * 0.7)
+            let fadeSeq = SKAction.sequence([hold, fade])
+
+            // Stagger start slightly so burst doesn't look perfectly simultaneous
+            let delay = SKAction.wait(forDuration: Double(i) * 0.04)
+
+            let burst = SKAction.group([rise, shrink, fadeSeq])
+
+            // Last heart in burst decrements the counter on completion
+            if i == count - 1 {
+                heart.run(SKAction.sequence([delay, burst, SKAction.removeFromParent()])) {
+                    activeBursts = max(0, activeBursts - 1)
+                }
+            } else {
+                heart.run(SKAction.sequence([delay, burst, SKAction.removeFromParent()]))
+            }
+        }
+    }
+
     /// Emits a pre-contact purr indicator (500-touch milestone).
     static func emitPreContactPurr(at position: CGPoint, in parent: SKNode) {
         for _ in 0..<3 {

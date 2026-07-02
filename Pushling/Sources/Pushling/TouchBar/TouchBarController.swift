@@ -231,7 +231,7 @@ final class TouchBarController: NSObject, TouchBarProvider, NSTouchBarDelegate {
         let item = NSCustomTouchBarItem(identifier: .pushlingScene)
 
         if let existingView = sceneView {
-            item.view = existingView
+            item.view = existingView.superview ?? existingView
             return item
         }
 

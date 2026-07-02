@@ -22,6 +22,8 @@ enum AutonomousState {
     case objectInteracting(objectID: String)
     /// Low-energy rest state (loaf, sit, sleep).
     case resting
+    /// Deep sleep dream cycle — DreamEngine drives sub-phases.
+    case dreaming
 }
 
 // MARK: - Autonomous Layer
@@ -61,6 +63,18 @@ final class AutonomousLayer: BehaviorLayer {
     /// Callback: (objectID, interactionName, satisfaction, consumed)
     var onObjectInteractionCompleted: ((String, String, Double, Bool) -> Void)?
 
+    // MARK: - Dream Dependencies (set by GameCoordinator)
+
+    /// The dream engine — manages settling/dreaming/waking state machine.
+    var dreamEngine: DreamEngine?
+
+    /// Read-only database reference for dream gate queries and last_dream_at load.
+    weak var dreamDB: DatabaseManager?
+
+    /// Current sky time period — set by GameCoordinator each frame (or at update).
+    /// Used by dream gate check. Defaults to .day (dreams won't trigger mid-day).
+    var currentTimePeriod: TimePeriod = .day
+
     // MARK: - Cinematic Freeze
 
     /// When true, the autonomous layer stops state machine transitions.
@@ -99,6 +113,8 @@ final class AutonomousLayer: BehaviorLayer {
     private var tailSwayPhase: Double = 0
     private var activeBehavior: ActiveBehavior?
     private var rng = SystemRandomNumberGenerator()
+    private var dreamGateAccumulator: TimeInterval = 0
+    private static let dreamGateCheckInterval: TimeInterval = 30.0
 
     // MARK: - Constants
 
@@ -140,6 +156,7 @@ final class AutonomousLayer: BehaviorLayer {
             case .taughtBehavior(let n): stateName = "taughtBehavior(\(n))"
             case .objectInteracting(let id): stateName = "objectInteracting(\(id))"
             case .resting: stateName = "resting"
+            case .dreaming: stateName = "dreaming"
             }
             NSLog("[Pushling/Autonomous] state=%@ timer=%.1f dur=%.1f frozen=%d x=%.1f z=%.3f destX=%.1f destZ=%.3f dwell=%d",
                   stateName, stateTimer, stateDuration, isFrozen ? 1 : 0,
@@ -209,6 +226,9 @@ final class AutonomousLayer: BehaviorLayer {
 
         case .resting:
             updateResting(deltaTime: deltaTime, output: &output)
+
+        case .dreaming:
+            updateDreaming(deltaTime: deltaTime, output: &output)
         }
 
         // Global check: energy-based resting (don't interrupt taught behaviors
@@ -216,6 +236,8 @@ final class AutonomousLayer: BehaviorLayer {
         // current state for at least 15 seconds to prevent rest-loop.
         if case .resting = state {
             // Resting exits are handled by the resting timeout (10s)
+        } else if case .dreaming = state {
+            // Dreaming exits are handled by DreamEngine phase completion
         } else if case .taughtBehavior = state {
             // Let taught behaviors finish — don't interrupt for rest
         } else if case .objectInteracting = state {
@@ -452,9 +474,22 @@ final class AutonomousLayer: BehaviorLayer {
         output.pawStates = ["fl": "tuck", "fr": "tuck",
                             "bl": "tuck", "br": "tuck"]
 
-        // Wake up after 10 seconds if energy hasn't recovered
+        // Keep refreshing the journal count cache while resting (throttled internally).
+        dreamGateAccumulator += deltaTime
+        let _ = dreamEngine?.refreshedJournalCount(
+            lastDreamAt: loadLastDreamAt(),
+            deltaTime: dreamGateAccumulator
+        )
+
+        // After 10s: evaluate dream gates once and act.
+        // If gates pass, enter dreaming. Otherwise, wake up.
         if stateTimer > 10.0 {
-            transitionTo(.idle)
+            if shouldBeginDream(deltaTime: 0,
+                                timePeriod: currentTimePeriod) {
+                beginDreamCycle()
+            } else {
+                transitionTo(.idle)
+            }
         }
     }
 
@@ -496,6 +531,7 @@ final class AutonomousLayer: BehaviorLayer {
             if blinkTimer >= nextBlinkInterval {
                 // Don't blink if eyes are already closed
                 if case .resting = state { return }
+                if case .dreaming = state { return }
                 isBlinking = true
                 blinkPhase = 0
                 blinkTimer = 0
@@ -515,6 +551,7 @@ final class AutonomousLayer: BehaviorLayer {
         if case .behavior = state, output.tailState != nil { return }
         if case .taughtBehavior = state, output.tailState != nil { return }
         if case .resting = state { return }
+        if case .dreaming = state { return }
 
         // Personality-modulated tail sway via PersonalityFilter
         let amplitude = PersonalityFilter.tailSwayAmplitude(
@@ -535,6 +572,7 @@ final class AutonomousLayer: BehaviorLayer {
         state = newState
         stateTimer = 0
         isDwelling = false
+        dreamGateAccumulator = 0
         regenerateStateDuration()
 
         // Select a unified (X, Z) destination on every walk start
@@ -570,7 +608,7 @@ final class AutonomousLayer: BehaviorLayer {
         case .behavior:
             stateDuration = activeBehavior?.definition.duration ?? 3.0
 
-        case .taughtBehavior, .objectInteracting, .resting:
+        case .taughtBehavior, .objectInteracting, .resting, .dreaming:
             stateDuration = .infinity  // External systems control duration
         }
 

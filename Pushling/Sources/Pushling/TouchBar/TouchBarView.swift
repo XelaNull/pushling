@@ -40,14 +40,11 @@ final class TouchBarView: SKView {
 
     // MARK: - Gesture Recognizer References
 
-    /// Magnification gesture for pinch-to-zoom (primary zoom method).
-    private var magnificationGesture: NSMagnificationGestureRecognizer?
-
-    /// Two-finger pan gesture (fallback zoom + two-finger drag).
-    private var twoFingerPanGesture: NSPanGestureRecognizer?
-
-    /// One-finger pan gesture (camera pan, petting, drag).
-    private var oneFingerPanGesture: NSPanGestureRecognizer?
+    /// Transparent overlay that receives touch events on the Touch Bar.
+    /// Gesture recognizers on SKView itself do NOT receive events on the
+    /// Touch Bar — only recognizers on regular NSView subviews work.
+    /// This overlay sits behind the P button and menu, covering the full bar.
+    private var touchOverlay: NSView?
 
     // MARK: - View Lifecycle
 
@@ -56,48 +53,10 @@ final class TouchBarView: SKView {
 
         self.allowedTouchTypes = [.direct]
 
-        if self.gestureRecognizers.isEmpty {
-            // Click (tap) — fires on touch-up with minimal movement
-            let click = NSClickGestureRecognizer(
-                target: self, action: #selector(handleClick(_:))
-            )
-            click.allowedTouchTypes = [.direct]
-            click.buttonMask = 0
-            addGestureRecognizer(click)
-
-            // Magnification (pinch) — primary zoom method.
-            // Detects finger spread/contract and reports magnification delta.
-            let magnify = NSMagnificationGestureRecognizer(
-                target: self, action: #selector(handleMagnification(_:))
-            )
-            magnify.allowedTouchTypes = [.direct]
-            addGestureRecognizer(magnify)
-            self.magnificationGesture = magnify
-
-            // Two-finger pan — fallback zoom (same-direction drag) and
-            // two-finger camera pan
-            let twoFingerPan = NSPanGestureRecognizer(
-                target: self, action: #selector(handleTwoFingerPan(_:))
-            )
-            twoFingerPan.allowedTouchTypes = [.direct]
-            twoFingerPan.buttonMask = 0
-            twoFingerPan.numberOfTouchesRequired = 2
-            addGestureRecognizer(twoFingerPan)
-            self.twoFingerPanGesture = twoFingerPan
-
-            // One-finger pan (drag) — camera pan and petting.
-            // Must not steal touches from two-finger gestures.
-            let pan = NSPanGestureRecognizer(
-                target: self, action: #selector(handlePan(_:))
-            )
-            pan.allowedTouchTypes = [.direct]
-            pan.buttonMask = 0
-            pan.numberOfTouchesRequired = 1
-            pan.delaysPrimaryMouseButtonEvents = false
-            pan.delaysSecondaryMouseButtonEvents = false
-            addGestureRecognizer(pan)
-            self.oneFingerPanGesture = pan
-        }
+        // TODO: Touch input on the scene area is broken — gesture recognizers
+        // on SKView and subview overlays do not receive Touch Bar events.
+        // Only the P button (ProgressButtonView) receives events. Need to
+        // investigate how open-source Touch Bar SpriteKit games handle this.
 
         // Add the [P] progress button as a native AppKit overlay
         if toggleButton == nil {
@@ -108,39 +67,75 @@ final class TouchBarView: SKView {
         }
 
         // Slide-out menu strip (initially collapsed, hidden)
-        // Show MCP button by default; async check hides it if MCP is already installed
         if menuStrip == nil {
-            let menu = MenuStripView(
-                frame: NSRect(x: 30, y: 0, width: 0, height: 30),
-                showMCPButton: true  // Default to showing; hidden async if installed
-            )
+            let menu = MenuStripView(frame: NSRect(x: 30, y: 0, width: 0, height: 30))
             menu.isHidden = true
-            menu.onStatsTap = { [weak self] in self?.menuStatsTapped() }
-            menu.onSoundToggle = { [weak self] muted in
+
+            // Sound toggle — mute state owned here, not in the strip
+            var isMuted = false
+            menu.addItem(label: "♪", width: 30) { [weak self, weak menu] in
                 guard let scene = self?.scene as? PushlingScene else { return }
-                scene.worldManager.soundSystem.isMuted = muted
+                isMuted.toggle()
+                scene.worldManager.soundSystem.isMuted = isMuted
+                if let btn = menu?.button(label: "♪") {
+                    btn.setTextColor(isMuted
+                        ? NSColor(displayP3Red: 0.6, green: 0.2, blue: 0.2, alpha: 0.5)
+                        : NSColor(white: 1.0, alpha: 0.8))
+                    btn.layer?.borderColor = (isMuted
+                        ? NSColor(displayP3Red: 0.5, green: 0.15, blue: 0.15, alpha: 0.8)
+                        : NSColor(white: 0.35, alpha: 1.0)).cgColor
+                }
             }
-            menu.onAboutTap = { [weak self] in
+            // Order: Sound, Stats, About, Pet, Feed, Play
+            // (Pet/Feed/Play placed AFTER the original 3 to test position theory)
+            menu.addItem(label: "Stats", width: 50) { [weak self] in
+                self?.menuStatsTapped()
+            }
+            menu.addItem(label: "About", width: 44) { [weak self] in
                 self?.closeMenu()
                 self?.showAbout()
             }
-            menu.onMCPInstall = { [weak menu] in
-                DispatchQueue.global(qos: .utility).async {
-                    HookInstaller.installMCP()
-                    UserDefaults.standard.set(true, forKey: "mcpInstalled")
-                    DispatchQueue.main.async {
-                        menu?.hideMCPButton()
-                        NSLog("[Pushling/Menu] MCP installed from Touch Bar menu")
+            menu.addItem(label: "Pet", width: 34) { [weak self] in
+                self?.menuPetTapped()
+            }
+            menu.addItem(label: "Feed", width: 40) { [weak self] in
+                self?.menuFeedTapped()
+            }
+            menu.addItem(label: "Play", width: 38) { [weak self] in
+                self?.menuPlayTapped()
+            }
+
+            // MCP Install button — added conditionally, removed once installed
+            let addMCPButton = {
+                menu.addItem(label: "MCP", width: 50) { [weak menu] in
+                    if let btn = menu?.button(label: "MCP") {
+                        btn.setTextColor(NSColor(
+                            displayP3Red: 1.0, green: 0.85, blue: 0.3, alpha: 1.0))
+                    }
+                    DispatchQueue.global(qos: .utility).async {
+                        HookInstaller.installMCP()
+                        UserDefaults.standard.set(true, forKey: "mcpInstalled")
+                        DispatchQueue.main.async {
+                            menu?.hideMCPButton()
+                            NSLog("[Pushling/Menu] MCP installed from Touch Bar menu")
+                        }
                     }
                 }
+                // Tint MCP button yellow after adding it
+                if let btn = menu.button(label: "MCP") {
+                    btn.setTextColor(NSColor(
+                        displayP3Red: 1.0, green: 0.85, blue: 0.3, alpha: 1.0))
+                }
             }
+
             addSubview(menu)
             self.menuStrip = menu
 
-            // Check MCP status — hide button if already installed
+            // Check MCP status — add button only if not yet installed
             if UserDefaults.standard.bool(forKey: "mcpInstalled") {
-                menu.hideMCPButton()
+                // Already installed — no MCP button
             } else {
+                addMCPButton()
                 // Async check via claude CLI as fallback
                 DispatchQueue.global(qos: .utility).async { [weak menu] in
                     let installed = HookInstaller.isMCPInstalled()
@@ -168,31 +163,45 @@ final class TouchBarView: SKView {
             window.makeFirstResponder(self)
         }
 
-        NSLog("[Pushling/TouchBarView] Ready — %d gesture recognizers, toggle button added",
-              self.gestureRecognizers.count)
+        NSLog("[Pushling/TouchBarView] Ready — overlay with %d gesture recognizers, toggle button added",
+              touchOverlay?.gestureRecognizers.count ?? 0)
     }
 
     // MARK: - Touch Event Overrides
-    // Override touch methods WITHOUT calling super to prevent SKView from
-    // forwarding to the scene (which would crash on normalizedPosition).
-    // The gesture recognizer receives touch data independently via AppKit's
-    // gesture recognition pipeline.
+    // Override WITHOUT calling super to prevent SKView.touchesBegan from
+    // accessing NSTouch.normalizedPosition (crashes on Touch Bar).
+    // Actual touch handling is on the touchOverlay's gesture recognizers.
 
-    override func touchesBegan(with event: NSEvent) {
-        // Do NOT call super — SKView.touchesBegan forwards to scene which
-        // accesses NSTouch.normalizedPosition and crashes for Touch Bar touches.
-    }
+    override func touchesBegan(with event: NSEvent) {}
+    override func touchesMoved(with event: NSEvent) {}
+    override func touchesEnded(with event: NSEvent) {}
+    override func touchesCancelled(with event: NSEvent) {}
 
-    override func touchesMoved(with event: NSEvent) {
-        // Intentionally empty — gesture recognizers handle movement
-    }
+    // MARK: - Gesture Wiring (called by TouchBarController)
 
-    override func touchesEnded(with event: NSEvent) {
-        // Intentionally empty — gesture recognizers handle end
-    }
+    /// Wire click and pan gesture recognizers onto the given container view.
+    /// Must be called AFTER the container is fully in the view hierarchy.
+    /// The container is the NSTouchBarItem's view — a plain NSView that
+    /// actually receives touch events (SKView itself does not on Touch Bar).
+    func wireGestureRecognizers(on container: NSView) {
+        let click = NSClickGestureRecognizer(
+            target: self, action: #selector(handleClick(_:))
+        )
+        click.allowedTouchTypes = [.direct]
+        click.buttonMask = 0
+        container.addGestureRecognizer(click)
 
-    override func touchesCancelled(with event: NSEvent) {
-        // Intentionally empty — gesture recognizers handle cancel
+        let pan = NSPanGestureRecognizer(
+            target: self, action: #selector(handlePan(_:))
+        )
+        pan.allowedTouchTypes = [.direct]
+        pan.buttonMask = 0
+        pan.numberOfTouchesRequired = 1
+        container.addGestureRecognizer(pan)
+
+        NSLog("[Pushling/TouchBarView] Gesture recognizers wired on container (%@) — %d recognizers",
+              String(describing: type(of: container)),
+              container.gestureRecognizers.count)
     }
 
     // MARK: - Toggle Button Handler
@@ -295,6 +304,24 @@ final class TouchBarView: SKView {
         showStats()
     }
 
+    private func menuPetTapped() {
+        closeMenu()
+        guard let scene = self.scene as? PushlingScene else { return }
+        scene.gameCoordinator?.menuPet()
+    }
+
+    private func menuFeedTapped() {
+        closeMenu()
+        guard let scene = self.scene as? PushlingScene else { return }
+        scene.gameCoordinator?.menuFeed()
+    }
+
+    private func menuPlayTapped() {
+        closeMenu()
+        guard let scene = self.scene as? PushlingScene else { return }
+        scene.gameCoordinator?.menuPlay()
+    }
+
     private func showStats() {
         guard let scene = self.scene as? PushlingScene else { return }
         let hud = scene.hudOverlay.currentState
@@ -357,8 +384,11 @@ final class TouchBarView: SKView {
     private var clickCounter: UInt64 = 0
 
     @objc private func handleClick(_ gesture: NSClickGestureRecognizer) {
+        NSLog("[Pushling/Click] state=%ld view=%@", gesture.state.rawValue,
+              String(describing: type(of: gesture.view ?? self)))
         guard gesture.state == .ended else { return }
         let point = gesture.location(in: self)
+        NSLog("[Pushling/Click] FIRED at (%.1f, %.1f)", point.x, point.y)
 
         guard let scene = self.scene as? PushlingScene else { return }
         scene.handleTouch(at: point)
@@ -371,66 +401,6 @@ final class TouchBarView: SKView {
         let tracker = scene.gameCoordinator?.touchTracker
         tracker?.touchBegan(id: id, normalizedPosition: point, currentTime: now)
         tracker?.touchEnded(id: id, normalizedPosition: point, currentTime: now + 0.05)
-    }
-
-    // MARK: - Magnification (Pinch-to-Zoom) Handler
-
-    /// Accumulated magnification at gesture start — used for converting
-    /// incremental magnification changes to zoom deltas.
-    private var magnifyStartZoom: CGFloat = 1.0
-
-    @objc private func handleMagnification(_ gesture: NSMagnificationGestureRecognizer) {
-        guard let scene = self.scene as? PushlingScene else { return }
-        let center = gesture.location(in: self)
-
-        // Convert view-space center to world-space for pan adjustment
-        let worldCenterX = viewToWorldX(center.x, scene: scene)
-
-        switch gesture.state {
-        case .began:
-            magnifyStartZoom = scene.cameraController.zoomLevel
-            scene.cameraController.recordTouch()
-        case .changed:
-            // magnification is cumulative: 0.0 = no change, 0.5 = 50% bigger
-            // Convert to absolute zoom and compute delta from current level
-            let targetZoom = magnifyStartZoom * (1.0 + gesture.magnification)
-            let delta = targetZoom - scene.cameraController.zoomLevel
-            scene.cameraController.zoom(delta: delta, centerWorldX: worldCenterX)
-        case .ended, .cancelled:
-            break
-        default:
-            break
-        }
-    }
-
-    // MARK: - Two-Finger Pan (Fallback Zoom) Handler
-
-    @objc private func handleTwoFingerPan(_ gesture: NSPanGestureRecognizer) {
-        guard let scene = self.scene as? PushlingScene else { return }
-        let center = gesture.location(in: self)
-
-        // Convert view-space center to world-space for pan adjustment
-        let worldCenterX = viewToWorldX(center.x, scene: scene)
-
-        switch gesture.state {
-        case .began:
-            scene.cameraController.recordTouch()
-        case .changed:
-            // Two-finger drag still works as zoom: drag left = zoom out,
-            // drag right = zoom in. This fires alongside magnification for
-            // same-direction two-finger drags (where magnification ≈ 0).
-            let translation = gesture.translation(in: self)
-            // 2000pt of finger travel = 1.0 zoom level change
-            // Touch Bar requires very low sensitivity for zoom
-            let zoomDelta = -translation.x / 2000.0
-            scene.cameraController.zoom(delta: CGFloat(zoomDelta),
-                                         centerWorldX: worldCenterX)
-            gesture.setTranslation(.zero, in: self)
-        case .ended, .cancelled:
-            break
-        default:
-            break
-        }
     }
 
     // MARK: - Pan Gesture Handler
@@ -532,17 +502,22 @@ final class TouchBarView: SKView {
         }
     }
 
-    // MARK: - Coordinate Conversion
+}
 
-    /// Converts a view-space X position to world-space X position.
-    /// The parallax foreground layer maps screen positions to world positions.
-    /// Screen center (542.5) = camera's effectiveWorldX.
-    private func viewToWorldX(_ viewX: CGFloat, scene: PushlingScene) -> CGFloat {
-        let sceneCenter = ParallaxSystem.sceneWidth / 2.0
-        let zoom = scene.cameraController.zoomLevel
-        // View offset from center, scaled inversely by zoom, plus camera world position
-        return scene.cameraController.effectiveWorldX + (viewX - sceneCenter) / max(zoom, 0.1)
+// MARK: - Touch Catcher View
+
+/// Transparent overlay that always returns itself from hitTest.
+/// AppKit skips fully-transparent views in hit testing; this override
+/// ensures touch events reach our gesture recognizers on the Touch Bar.
+private final class TouchCatcherView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        // If the point is within our bounds, claim it.
+        // Subviews (P button, menu) are added to TouchBarView, not here,
+        // so they get priority via the normal superview hit test order.
+        guard bounds.contains(convert(point, from: superview)) else { return nil }
+        return self
     }
+    override var acceptsFirstResponder: Bool { true }
 }
 
 // MARK: - Progress Button View

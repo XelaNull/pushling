@@ -241,23 +241,73 @@ extension GameCoordinator {
         NSLog("[Pushling/Coordinator] Egg ready to hatch — %d commits absorbed",
               accumulator.commitCount)
 
-        // Compute personality and traits from accumulated commits
-        let personality = accumulator.computePersonality()
-        let visualTraits = accumulator.computeVisualTraits()
+        // Determine rarity and identity biases from git email (deterministic:
+        // same email → same rarity, same biases, every time).
+        let seed = EggAccumulator.gitEmailHash()
+        let (rarity, isShiny) = EggAccumulator.determineRarity(seed: seed)
+        let identityBiases = EggAccumulator.computeIdentityBiases(seed: seed)
+
+        NSLog("[Pushling/Coordinator] Identity biases — hue: %.3f, eye: %.2f, "
+              + "tail: %.2f, energy: %.3f, verbosity: %.3f, focus: %.3f, "
+              + "discipline: %.3f",
+              identityBiases.hueShift, identityBiases.eyeTendency,
+              identityBiases.tailTendency, identityBiases.energyBias,
+              identityBiases.verbosityBias, identityBiases.focusBias,
+              identityBiases.disciplineBias)
+
+        // Compute personality and traits from accumulated commits.
+        // Identity bias is applied first, then rarity spread amplifies it.
+        let personality = accumulator.computePersonality(
+            raritySpread: rarity.spreadBonus,
+            identityBias: identityBiases)
+        let visualTraits = accumulator.computeVisualTraits(
+            identityBias: identityBiases)
 
         // Update in-memory state
         self.personality = personality
         self.visualTraits = visualTraits
         self.creatureStage = .drop
+        self.creatureRarity = rarity
+        self.creatureShiny = isShiny
 
-        // Save to SQLite
+        // Save personality/traits to SQLite
         PersonalityPersistence.save(personality, to: stateCoordinator.database)
         PersonalityPersistence.saveVisualTraits(
             visualTraits, to: stateCoordinator.database)
 
+        // Save rarity + shiny to SQLite
+        let db = stateCoordinator.database
+        let rarityLabel = isShiny ? "\(rarity.rawValue) shiny" : rarity.rawValue
+        db.performWriteAsync({
+            try db.execute(
+                "UPDATE creature SET rarity = ?, shiny = ? WHERE id = 1",
+                arguments: [rarity.rawValue, isShiny ? 1 : 0]
+            )
+            let now = ISO8601DateFormatter().string(from: Date())
+            try db.execute(
+                """
+                INSERT INTO journal (type, summary, timestamp)
+                VALUES ('evolve', ?, ?)
+                """,
+                arguments: ["Hatched as a \(rarityLabel) drop", now]
+            )
+        }, completion: { error in
+            if let error = error {
+                NSLog("[Pushling/Coordinator] ERROR saving rarity: %@", "\(error)")
+            } else {
+                NSLog("[Pushling/Coordinator] Rarity '%@' (shiny: %@) saved to DB",
+                      rarity.rawValue, isShiny ? "yes" : "no")
+            }
+        })
+
         // Update creature appearance for Drop stage
         scene.creatureNode?.visualTraits = visualTraits
         scene.creatureNode?.configureForStage(.drop)
+
+        // Apply rarity visual effects
+        scene.creatureNode?.setupRarityEffects(rarity: rarity,
+                                                shiny: isShiny,
+                                                stage: .drop)
 
         // Update behavior stack
         if let stack = scene.behaviorStack {
@@ -272,6 +322,9 @@ extension GameCoordinator {
         // Update voice for Drop stage
         voiceSystem.initialize(stage: .drop,
                                 personality: personality.toSnapshot())
+
+        // Initialize skill stats from egg data before clearing the accumulator
+        initializeSkillStatsFromEgg()
 
         // Clear the accumulator — no longer needed
         eggAccumulator = nil

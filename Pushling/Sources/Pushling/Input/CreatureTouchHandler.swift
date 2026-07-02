@@ -93,6 +93,7 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
         self.miniGameManager = MiniGameManager(db: db)
 
         setupMilestoneCallbacks()
+        setupPettingCallback()
     }
 
     /// Wires the handler to the scene and behavior stack.
@@ -157,10 +158,6 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
             handleTwoFinger(event)
         case .multiFingerThree:
             handleThreeFinger(event)
-        case .pinchZoom:
-            handlePinchZoom(event)
-        case .twoFingerDrag:
-            handleTwoFingerDrag(event)
         }
     }
 
@@ -426,32 +423,6 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
         // Display mode cycling (handled by scene)
     }
 
-    // MARK: - Pinch Zoom
-
-    /// Previous pinch midpoint for computing deltas.
-    private var lastPinchMidpoint: CGPoint?
-
-    private func handlePinchZoom(_ event: GestureEvent) {
-        // The velocity carries the finger movement info.
-        // Use the horizontal spread of the velocity as zoom signal.
-        // GestureRecognizer dispatches pinchZoom continuously during the gesture,
-        // so we use a small per-frame increment based on velocity magnitude.
-        let speed = event.velocity.magnitude
-        let direction: CGFloat = event.velocity.dx > 0 ? 1.0 : -1.0
-        let zoomDelta = direction * speed * 0.0005
-        cameraController?.zoom(delta: zoomDelta,
-                                centerWorldX: event.position.x)
-        lastPinchMidpoint = event.position
-    }
-
-    // MARK: - Two-Finger Drag
-
-    private func handleTwoFingerDrag(_ event: GestureEvent) {
-        // Use the midpoint velocity to pan the camera
-        let deltaX = event.velocity.dx / 60.0
-        cameraController?.pan(deltaX: deltaX)
-    }
-
     // MARK: - Belly Rub
 
     private func handleBellyRub() {
@@ -532,6 +503,19 @@ final class CreatureTouchHandler: GestureRecognizerDelegate {
     private func emitFingerTrailParticle(at position: CGPoint) {
         guard let scene = scene else { return }
         TouchParticles.emitFingerTrail(at: position, in: scene)
+    }
+
+    // MARK: - Petting Callback
+
+    /// Wires the petting event callback. Called after full initialization.
+    private func setupPettingCallback() {
+        pettingStroke.onPettingEvent = { [weak self] event in
+            guard let self = self, let scene = self.scene else { return }
+            if case .strokeComplete = event {
+                let burstOrigin = CGPoint(x: self.creatureWorldX, y: 15)
+                TouchParticles.emitHeartBurst(at: burstOrigin, in: scene)
+            }
+        }
     }
 
     // MARK: - Milestone Callbacks

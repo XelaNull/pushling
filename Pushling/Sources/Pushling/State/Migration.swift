@@ -31,7 +31,19 @@ enum MigrationManager {
                   migrate: migrateV3),
         Migration(version: 4,
                   description: "Add wear_rate column to world_objects",
-                  migrate: migrateV4)
+                  migrate: migrateV4),
+        Migration(version: 5,
+                  description: "Add rarity and shiny columns to creature table",
+                  migrate: migrateV5),
+        Migration(version: 6,
+                  description: "Add 6 developer skill stat columns to creature table",
+                  migrate: migrateV6),
+        Migration(version: 7,
+                  description: "Add dream tracking columns to creature table",
+                  migrate: migrateV7),
+        Migration(version: 8,
+                  description: "Add explored_ranges column to world table for fog of war persistence",
+                  migrate: migrateV8)
     ]
 
     /// Runs all pending migrations on the given database.
@@ -268,6 +280,60 @@ enum MigrationManager {
             "ALTER TABLE world_objects ADD COLUMN wear_rate REAL NOT NULL DEFAULT 0.01"
         )
         NSLog("[Pushling/Migration] v4: Added wear_rate column to world_objects")
+    }
+
+    // MARK: - Migration V5: Rarity System
+
+    private static func migrateV5(db: DatabaseManager) throws {
+        try db.executeRaw(
+            "ALTER TABLE creature ADD COLUMN rarity TEXT NOT NULL DEFAULT 'common' "
+            + "CHECK (rarity IN ('common','uncommon','rare','epic','legendary'))"
+        )
+        try db.executeRaw(
+            "ALTER TABLE creature ADD COLUMN shiny INTEGER NOT NULL DEFAULT 0 "
+            + "CHECK (shiny IN (0, 1))"
+        )
+        NSLog("[Pushling/Migration] v5: Added rarity and shiny columns to creature")
+    }
+
+    // MARK: - Migration V6: Developer Skill Stats
+
+    private static func migrateV6(db: DatabaseManager) throws {
+        let columns = [
+            "stat_debugging",
+            "stat_patience",
+            "stat_chaos",
+            "stat_wisdom",
+            "stat_snark",
+            "stat_speed"
+        ]
+        for col in columns {
+            try db.executeRaw(
+                "ALTER TABLE creature ADD COLUMN \(col) INTEGER NOT NULL DEFAULT 10"
+            )
+        }
+        NSLog("[Pushling/Migration] v6: Added 6 skill stat columns to creature")
+    }
+
+    // MARK: - Migration V7: Dream Tracking
+
+    private static func migrateV7(db: DatabaseManager) throws {
+        try db.executeRaw(
+            "ALTER TABLE creature ADD COLUMN last_dream_at TEXT"
+        )
+        try db.executeRaw(
+            "ALTER TABLE creature ADD COLUMN dream_count INTEGER NOT NULL DEFAULT 0"
+        )
+        NSLog("[Pushling/Migration] v7: Added last_dream_at and dream_count to creature")
+    }
+
+    // MARK: - Migration V8: Fog of War Persistence
+
+    private static func migrateV8(db: DatabaseManager) throws {
+        try db.executeRaw(
+            "ALTER TABLE world ADD COLUMN explored_ranges TEXT"
+        )
+        NSLog("[Pushling/Migration] v8: Added explored_ranges column to world")
     }
 
     // MARK: - Creature Name Generator

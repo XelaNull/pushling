@@ -85,7 +85,8 @@ final class FogOfWarController {
     // MARK: - Init
 
     init(config: FogOfWarConfig = FogOfWarConfig(
-        visibilityRadius: 40, edgeGradientWidth: 20,
+        // FIXED-VIEWPORT: full-scene radius disables fog on Day 1 proof-of-life
+        visibilityRadius: 1085, edgeGradientWidth: 0,
         exploredAlpha: 0.0, exploredEnabled: false
     )) {
         self.config = config

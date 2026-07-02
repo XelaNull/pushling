@@ -26,35 +26,33 @@ struct CameraConstraints {
     static func constraints(for stage: GrowthStage) -> CameraConstraints {
         switch stage {
         case .egg:
-            // Closer than default but not so close that terrain overwhelms
             return CameraConstraints(
-                maxPanOffset: 0, minZoom: 1.3, maxZoom: 2.0,
+                maxPanOffset: 0, minZoom: 1.0, maxZoom: 2.0,
                 panAllowed: false, autoLock: true,
                 decayDelay: 0, decayHalfLife: 0.5)
         case .drop:
-            // Slightly wider view as world opens up
             return CameraConstraints(
-                maxPanOffset: 20, minZoom: 1.2, maxZoom: 2.0,
+                maxPanOffset: 20, minZoom: 1.0, maxZoom: 2.0,
                 panAllowed: false, autoLock: true,
                 decayDelay: 1.0, decayHalfLife: 1.0)
         case .critter:
             return CameraConstraints(
-                maxPanOffset: 200, minZoom: 0.7, maxZoom: 2.5,
+                maxPanOffset: 200, minZoom: 1.0, maxZoom: 2.5,
                 panAllowed: true, autoLock: false,
                 decayDelay: 2.0, decayHalfLife: 1.5)
         case .beast:
             return CameraConstraints(
-                maxPanOffset: 400, minZoom: 0.5, maxZoom: 3.0,
+                maxPanOffset: 400, minZoom: 1.0, maxZoom: 3.0,
                 panAllowed: true, autoLock: false,
                 decayDelay: 3.0, decayHalfLife: 2.3)
         case .sage:
             return CameraConstraints(
-                maxPanOffset: 600, minZoom: 0.5, maxZoom: 3.0,
+                maxPanOffset: 600, minZoom: 1.0, maxZoom: 3.0,
                 panAllowed: true, autoLock: false,
                 decayDelay: 3.0, decayHalfLife: 2.3)
         case .apex:
             return CameraConstraints(
-                maxPanOffset: 800, minZoom: 0.5, maxZoom: 3.0,
+                maxPanOffset: 800, minZoom: 1.0, maxZoom: 3.0,
                 panAllowed: true, autoLock: false,
                 decayDelay: 3.0, decayHalfLife: 2.3)
         }
@@ -154,6 +152,10 @@ final class CameraController {
     private var recenterProgress: TimeInterval = 0
     private var recenterStartOffset: CGFloat = 0
     private var recenterStartZoom: CGFloat = 1.0
+    private var recenterStartWorldY: CGFloat = 15.0
+
+    /// Target zoom level for the current recenter/setZoom animation (default 1.0).
+    private var targetZoomLevel: CGFloat = 1.0
 
     /// Whether the user has actively panned (to distinguish from default state).
     var hasActivePan: Bool {
@@ -324,17 +326,18 @@ final class CameraController {
             cameraWorldY += error * lerpFactor
         }
 
-        // Hard clamp backstop — creature center must be within [3pt, 27pt] of screen
-        // Adjusted for zoom: effective margins shrink with zoom
-        let effectiveMin = Self.yHardClampMin / zoomLevel
-        let effectiveMax = Self.yHardClampMax / zoomLevel
+        // Hard clamp backstop — creature edge must stay within screen-space bounds.
+        // Constants are in screen points (not world points), so no zoom scaling needed.
+        // screenCreatureY is the screen-space position of the creature center.
         let halfHeight = creatureHeight / 2.0
-        let screenCreatureY = creatureFocusY - cameraWorldY + Self.sceneHeight / 2.0
+        let screenCreatureY = (creatureFocusY - cameraWorldY) * zoomLevel + Self.sceneHeight / 2.0
 
-        if screenCreatureY - halfHeight < effectiveMin {
-            cameraWorldY = creatureFocusY - halfHeight - effectiveMin + Self.sceneHeight / 2.0
-        } else if screenCreatureY + halfHeight > effectiveMax {
-            cameraWorldY = creatureFocusY + halfHeight - effectiveMax + Self.sceneHeight / 2.0
+        if screenCreatureY - halfHeight * zoomLevel < Self.yHardClampMin {
+            cameraWorldY = creatureFocusY
+                - (Self.yHardClampMin - Self.sceneHeight / 2.0 + halfHeight * zoomLevel) / zoomLevel
+        } else if screenCreatureY + halfHeight * zoomLevel > Self.yHardClampMax {
+            cameraWorldY = creatureFocusY
+                - (Self.yHardClampMax - Self.sceneHeight / 2.0 - halfHeight * zoomLevel) / zoomLevel
         }
     }
 
@@ -370,11 +373,13 @@ final class CameraController {
         let eased = CGFloat(Easing.easeInOut(t))
 
         panOffset = recenterStartOffset * (1.0 - eased)
-        zoomLevel = recenterStartZoom + (1.0 - recenterStartZoom) * eased
+        zoomLevel = recenterStartZoom + (targetZoomLevel - recenterStartZoom) * eased
+        cameraWorldY = recenterStartWorldY + (15.0 - recenterStartWorldY) * eased
 
         if t >= 1.0 {
             panOffset = 0
-            zoomLevel = 1.0
+            zoomLevel = targetZoomLevel
+            cameraWorldY = 15.0
             isRecentering = false
         }
     }
@@ -446,6 +451,14 @@ final class CameraController {
             newConstraints = target
             constraintTransitionProgress = 0
             isTransitioningConstraints = true
+            // On evolution, smoothly pull zoom back to 1.0 so the full
+            // creature is visible at the new (larger) stage.
+            recenterStartOffset = panOffset
+            recenterStartZoom = zoomLevel
+            recenterStartWorldY = cameraWorldY
+            targetZoomLevel = 1.0
+            recenterProgress = 0
+            isRecentering = true
         } else {
             // Immediately apply — clamp current values
             panOffset = clamp(panOffset, min: -target.maxPanOffset,
@@ -480,6 +493,8 @@ final class CameraController {
     ///
     /// - Parameter deltaX: Screen-space drag distance in points.
     func pan(deltaX: CGFloat) {
+        // FIXED-VIEWPORT: pan disabled for Day 1 proof-of-life
+        return
         // Ignore user pan during cinematic sequences
         guard !isCinematicActive else { return }
         // Reject pan if constraints disallow it
@@ -494,10 +509,10 @@ final class CameraController {
             lockMode = .unlocked
         }
 
-        // Pan in world space with heavily reduced sensitivity (0.08x).
+        // Pan in world space with reduced sensitivity.
         // Touch Bar finger drags report large point deltas for tiny physical
-        // movements. Background should barely drift, not fly.
-        panOffset -= deltaX * 0.02
+        // movements, but the user should see clear scrolling on drag.
+        panOffset -= deltaX * 0.15
 
         // Clamp pan offset
         panOffset = clamp(panOffset, min: -constraints.maxPanOffset,
@@ -510,6 +525,8 @@ final class CameraController {
     ///   - delta: Zoom change (positive = zoom in, negative = zoom out).
     ///   - centerWorldX: World-X position that should stay fixed during zoom.
     func zoom(delta: CGFloat, centerWorldX: CGFloat) {
+        // FIXED-VIEWPORT: zoom disabled for Day 1 proof-of-life
+        return
         // Ignore user zoom during cinematic sequences
         guard !isCinematicActive else { return }
         // Cancel any ongoing recenter
@@ -533,12 +550,50 @@ final class CameraController {
         timeSinceLastTouch = 0
     }
 
-    /// Animated recenter to creature position + reset zoom.
+    /// Animated recenter to creature position + reset zoom to 1.0.
     /// Called on triple-tap on empty world space.
     func recenter() {
-        isRecentering = true
-        recenterProgress = 0
         recenterStartOffset = panOffset
         recenterStartZoom = zoomLevel
+        recenterStartWorldY = cameraWorldY
+        targetZoomLevel = 1.0
+        recenterProgress = 0
+        isRecentering = true
+    }
+
+    /// Smoothly animate to an arbitrary zoom level, centering on the creature
+    /// (panOffset → 0) and resetting cameraWorldY to scene center.
+    ///
+    /// - Parameters:
+    ///   - level: Target zoom level (will be clamped to current stage constraints).
+    ///   - animated: Whether to animate (default: true). If false, applies instantly.
+    func setZoom(_ level: CGFloat, animated: Bool = true) {
+        // FIXED-VIEWPORT: programmatic zoom disabled for Day 1 proof-of-life
+        return
+        guard !isCinematicActive else { return }
+        let clamped = clamp(level, min: constraints.minZoom, max: constraints.maxZoom)
+        if animated {
+            recenterStartOffset = panOffset
+            recenterStartZoom = zoomLevel
+            recenterStartWorldY = cameraWorldY
+            targetZoomLevel = clamped
+            recenterProgress = 0
+            isRecentering = true
+        } else {
+            zoomLevel = clamped
+            panOffset = 0
+        }
+    }
+
+    /// Returns the zoom level that frames the creature's face (top ~40% of body)
+    /// to fill ~70% of the Touch Bar height.
+    ///
+    /// - Parameter stage: The creature's current growth stage.
+    /// - Returns: Clamped face zoom level for the given stage.
+    static func faceZoomLevel(for stage: GrowthStage) -> CGFloat {
+        guard let config = StageConfiguration.all[stage] else { return 2.0 }
+        let faceHeight = config.size.height * 0.4
+        let target = (sceneHeight * 0.7) / faceHeight
+        return min(target, CameraConstraints.constraints(for: stage).maxZoom)
     }
 }

@@ -72,6 +72,8 @@ extension PushlingScene {
         behaviorStack?.updateStage(stage)
         onCreatureStageChanged(stage)
         debugSpeechCoordinator.onStageChanged(stage)
+        gameCoordinator?.creatureStage = stage
+        gameCoordinator?.persistXPAndStage()
         NSLog("[Pushling/Debug] Stage set to: %@", "\(stage)")
     }
 
@@ -87,11 +89,13 @@ extension PushlingScene {
         guard let next = GrowthStage(rawValue: current.rawValue + 1)
         else { return }
 
+        gameCoordinator?.creatureStage = next
         onCreatureStageChanged(next)
         creature.evolve(to: next) { [weak self] in
             self?.behaviorStack?.updateStage(next)
             self?.onEvolutionCeremonyComplete()
             self?.debugSpeechCoordinator.onStageChanged(next)
+            self?.gameCoordinator?.persistXPAndStage()
             NSLog("[Pushling/Debug] Evolution: %@ -> %@",
                   "\(current)", "\(next)")
         }

@@ -64,8 +64,8 @@ extension WorldManager {
         let foreHeight = generator.heightAt(worldX: worldX)
 
         // Depth height reduction: creature walks lower as it moves deeper.
-        // At max depth (0.8), drops ~10pt — pushes creature toward bottom.
-        let depthDrop = depth * 12.0
+        // At max depth (0.8), drops ~3.2pt — subtle parallax without hopping.
+        let depthDrop = depth * 4.0
 
         // Micro-terrain: gentle sine waves instead of integer noise.
         // Two overlapping frequencies create organic undulation without jitter.

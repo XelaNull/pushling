@@ -1,6 +1,7 @@
 // TouchBarMenu.swift — Slide-out menu and stats popup for the P button
 //
-// MenuStripView: horizontal strip that slides out from P button with [Stats]
+// MenuStripView: horizontal strip that slides out from P button.
+//   Buttons are added via addItem(label:width:action:) after init.
 // StatsPopupView: 280x30 overlay showing creature stats with [X] close
 // MenuButton: reusable tappable button for Touch Bar (uses gesture recognizer)
 
@@ -9,110 +10,95 @@ import AppKit
 // MARK: - Menu Strip View
 
 /// Horizontal menu that slides out to the right of the P/M button.
-/// Contains [Stats] button. Fades out over 20 seconds, then calls onFadeComplete.
+/// Buttons are registered via addItem(label:width:action:) — no hardcoded layout.
+/// Fades out over 20 seconds, then calls onFadeComplete.
 final class MenuStripView: NSView {
 
-    var onStatsTap: (() -> Void)?
-    var onSoundToggle: ((_ muted: Bool) -> Void)?
-    var onMCPInstall: (() -> Void)?
-    var onAboutTap: (() -> Void)?
     /// Called when the 20s fade completes — used to restore P label.
     var onFadeComplete: (() -> Void)?
     /// Called when a button is pressed during fade — restore M button brightness.
     var onRestoreBrightness: (() -> Void)?
 
-    private let soundButton: MenuButton
-    private let statsButton: MenuButton
-    private var mcpButton: MenuButton?
-    private var fadeTimer: Timer?
-    private var isMuted = false
-    private var showMCPInstall: Bool
+    // MARK: - Item Model
+
+    private struct MenuItem {
+        let label: String
+        let width: CGFloat
+        let button: MenuButton
+    }
+
+    private var items: [MenuItem] = []
+    private let gap: CGFloat = 2.0
+    private let stripHeight: CGFloat = 30.0
+
     /// Incremented on each show() to invalidate stale fade completions.
     private var fadeGeneration: Int = 0
     static let fadeDuration: TimeInterval = 20.0
 
-    var expandedWidth: CGFloat = 130  // 30 + 2 + 50 + 2 + 44 + 2
-    private let stripHeight: CGFloat = 30
+    /// Computed from the registered items. Updated after every addItem / removeItem.
+    private(set) var expandedWidth: CGFloat = 0
 
-    init(frame: NSRect, showMCPButton: Bool = false) {
-        self.showMCPInstall = showMCPButton
+    // MARK: - Init
 
-        soundButton = MenuButton(
-            frame: NSRect(x: 0, y: 0, width: 30, height: 30), label: "♪"
-        )
-        let statsX: CGFloat = 32
-        statsButton = MenuButton(
-            frame: NSRect(x: statsX, y: 0, width: 50, height: 30), label: "Stats"
-        )
-
+    override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         clipsToBounds = true
-
-        soundButton.onTap = { [weak self] in
-            guard let self = self else { return }
-            self.restoreBrightness()
-            self.isMuted.toggle()
-            if self.isMuted {
-                self.soundButton.setLabel("♪")
-                self.soundButton.setTextColor(
-                    NSColor(displayP3Red: 0.6, green: 0.2, blue: 0.2, alpha: 0.5))
-                self.soundButton.layer?.borderColor =
-                    NSColor(displayP3Red: 0.5, green: 0.15, blue: 0.15, alpha: 0.8).cgColor
-            } else {
-                self.soundButton.setLabel("♪")
-                self.soundButton.setTextColor(
-                    NSColor(white: 1.0, alpha: 0.8))
-                self.soundButton.layer?.borderColor =
-                    NSColor(white: 0.35, alpha: 1.0).cgColor
-            }
-            self.onSoundToggle?(self.isMuted)
-        }
-        statsButton.onTap = { [weak self] in
-            self?.restoreBrightness()
-            self?.onStatsTap?()
-        }
-
-        let aboutButton = MenuButton(
-            frame: NSRect(x: 84, y: 0, width: 44, height: 30), label: "About"
-        )
-        aboutButton.onTap = { [weak self] in
-            self?.restoreBrightness()
-            self?.onAboutTap?()
-        }
-
-        addSubview(soundButton)
-        addSubview(statsButton)
-        addSubview(aboutButton)
-
-        // Conditionally add MCP Install button
-        if showMCPInstall {
-            let mcpX: CGFloat = 130  // After about button
-            let btn = MenuButton(
-                frame: NSRect(x: mcpX, y: 0, width: 50, height: 30),
-                label: "MCP"
-            )
-            btn.setTextColor(NSColor(
-                displayP3Red: 1.0, green: 0.85, blue: 0.3, alpha: 1.0))
-            btn.onTap = { [weak self] in
-                self?.restoreBrightness()
-                self?.onMCPInstall?()
-                // Hide the button after install
-                btn.isHidden = true
-                self?.expandedWidth = 130  // Shrink to standard (with About)
-            }
-            addSubview(btn)
-            self.mcpButton = btn
-            expandedWidth = 182  // 30 + 2 + 50 + 2 + 44 + 2 + 50 + 2
-        }
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
     }
 
-    deinit {
-        fadeTimer?.invalidate()
+    // MARK: - Item Management
+
+    /// Add a button to the right of all existing buttons.
+    /// Safe to call after the view is in the hierarchy.
+    func addItem(label: String, width: CGFloat, action: @escaping () -> Void) {
+        let x: CGFloat = items.isEmpty ? 0 : items.last!.button.frame.maxX + gap
+        let button = MenuButton(
+            frame: NSRect(x: x, y: 0, width: width, height: stripHeight),
+            label: label
+        )
+        button.onTap = { [weak self] in
+            self?.restoreBrightness()
+            action()
+        }
+        addSubview(button)
+        items.append(MenuItem(label: label, width: width, button: button))
+        recalculateWidth()
+    }
+
+    /// Remove the first button matching label. Remaining buttons slide left.
+    func removeItem(label: String) {
+        guard let idx = items.firstIndex(where: { $0.label == label }) else { return }
+        items[idx].button.removeFromSuperview()
+        items.remove(at: idx)
+        relayout()
+    }
+
+    /// Return the MenuButton for a registered item, or nil if not found.
+    /// Useful for tinting or adjusting a button after it has been added.
+    func button(label: String) -> MenuButton? {
+        items.first(where: { $0.label == label })?.button
+    }
+
+    /// Hide the MCP button (API compatibility — delegates to removeItem).
+    func hideMCPButton() {
+        removeItem(label: "MCP")
+    }
+
+    private func recalculateWidth() {
+        expandedWidth = items.last.map { $0.button.frame.maxX } ?? 0
+    }
+
+    private func relayout() {
+        var x: CGFloat = 0
+        for item in items {
+            item.button.frame.origin.x = x
+            x += item.width + gap
+        }
+        recalculateWidth()
     }
 
     // MARK: - Show / Hide
@@ -158,7 +144,6 @@ final class MenuStripView: NSView {
     }
 
     private func startFade() {
-        fadeTimer?.invalidate()
         let currentGen = fadeGeneration
         // Fade alpha from 1 to 0 over 20 seconds
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -206,14 +191,6 @@ final class MenuStripView: NSView {
         onRestoreBrightness?()
         // Restart the fade from the beginning
         startFade()
-    }
-
-    /// Hide the MCP button (called async when MCP is already installed).
-    func hideMCPButton() {
-        mcpButton?.isHidden = true
-        mcpButton = nil
-        expandedWidth = 130  // Standard width with About button (no MCP)
-        showMCPInstall = false
     }
 
     var isExpanded: Bool { !isHidden && frame.width > 0 }

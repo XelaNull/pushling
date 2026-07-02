@@ -30,3 +30,9 @@ dist/
 *.swiftdeps
 *.swiftdeps~
 *.d~
+
+# VS Code
+*.code-workspace
+
+# Samantha (local agent memory/plans)
+.samantha/

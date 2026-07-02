@@ -304,8 +304,13 @@ final class PushlingScene: SKScene {
             creatureHeight = 6.0  // Fallback (spore size)
         }
 
-        // Compute creature focus Y for camera Y-tracking
-        let creatureFocusY = creatureNode?.position.y ?? 15.0
+        // Compute creature focus Y for camera Y-tracking.
+        // When zoomed in, shift focus upward toward the face (top third of body)
+        // so ears/head stay visible instead of clipping off the top.
+        let baseY = creatureNode?.position.y ?? 15.0
+        let zoomFactor = max(0, cameraController.zoomLevel - 1.0)  // 0 at 1x, grows unbounded
+        let faceOffset = creatureHeight * 0.35 * zoomFactor
+        let creatureFocusY = baseY + faceOffset
 
         // Update camera controller with full Y-tracking support
         cameraController.update(deltaTime: deltaTime,
@@ -327,8 +332,10 @@ final class PushlingScene: SKScene {
             )
             let config = StageConfiguration.all[creature.currentStage]!
             let creatureY = terrainY + config.size.height / 2
-            // Clamp Y so creature never goes off the bottom of the screen
-            let clampedY = max(creatureY, config.size.height / 2 + 1.0)
+            // Clamp Y so creature stays fully visible within the 30pt scene
+            let minY = config.size.height / 2 + 1.0
+            let maxY = SceneConstants.sceneHeight - config.size.height / 2 - 1.0
+            let clampedY = min(max(creatureY, minY), maxY)
             creature.position = CGPoint(
                 x: creatureWorldX,
                 y: clampedY
@@ -362,8 +369,8 @@ final class PushlingScene: SKScene {
                 creature.yScale = 1.0
                 creature.zPosition = 10.0
             } else {
-                // positionZ: 0.0 = foreground (full size), 1.0 = background (0.5x size)
-                let depthScale = 1.0 - z * 0.5
+                // positionZ: 0.0 = foreground (full size), 1.0 = background (0.65x size)
+                let depthScale = 1.0 - z * 0.35
 
                 // xScale: preserve facing sign from setFacing, apply depth scale
                 creature.xScale = depthScale * creature.facing.xScale
@@ -806,7 +813,7 @@ final class PushlingScene: SKScene {
 
         // Update tracked world position, depth, and creature facing
         creatureWorldX = state.positionX
-        creaturePositionZ = state.positionZ
+        creaturePositionZ = 0.0  // FIXED-VIEWPORT: depth disabled for Day 1 proof-of-life
         creature.setFacing(state.facing)
 
         // Sleep state (modifies CreatureNode's internal breathing)
