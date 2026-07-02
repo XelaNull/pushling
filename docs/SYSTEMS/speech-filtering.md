@@ -9,8 +9,8 @@ timestamp: 2026-07-02T00:00:00Z
 
 This is **the** authority for the speech-filtering pipeline, superseding the
 filtering sections of `PUSHLING_VISION.md` ("The Filtering Approach"),
-`docs/plan/phase-4-embodiment/PHASE-4.md` (P4-T2-03), and
-`docs/plan/phase-5-speech/PHASE-5.md` (P5-T1-06, P5-T1-07, P5-T1-13,
+`docs/archive/plan/phase-4-embodiment/PHASE-4.md` (P4-T2-03), and
+`docs/archive/plan/phase-5-speech/PHASE-5.md` (P5-T1-06, P5-T1-07, P5-T1-13,
 P5-T1-15). [The MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md)'s
 `pushling_speak` section explicitly defers the pipeline's internals here.
 Verified against `Pushling/Sources/Pushling/Speech/SpeechFilterEngine.swift`,
@@ -56,7 +56,7 @@ Both live implementations (`speak.ts STAGE_LIMITS` and
 `SpeechFilterEngine.stageLimits()`) agree exactly on critter/beast/sage/apex:
 20/3, 50/8, 80/20, 120/30. This resolves the drift the survey flagged against
 `PUSHLING_VISION.md`'s older table (12/40/100/140 chars) and
-`docs/plan/phase-4-embodiment/PHASE-4.md`'s table (also 20/3, 50/8, 80/20,
+`docs/archive/plan/phase-4-embodiment/PHASE-4.md`'s table (also 20/3, 50/8, 80/20,
 120/30 — that one already matched) — per DOCS WIN, code wins; the vision
 doc's 12/40/100/140 row is stale and superseded.
 
@@ -256,5 +256,5 @@ is ever contacted.
 [5] `mcp/src/tools/speak.ts`
 [6] `Pushling/Sources/Pushling/Behavior/LayerTypes.swift` (`PersonalitySnapshot`)
 [7] `PUSHLING_VISION.md` — Speech Evolution: The Filtering Approach
-[8] `docs/plan/phase-4-embodiment/PHASE-4.md` — P4-T2-03
-[9] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T1-06, P5-T1-07, P5-T1-13, P5-T1-15
+[8] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — P4-T2-03
+[9] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-06, P5-T1-07, P5-T1-13, P5-T1-15

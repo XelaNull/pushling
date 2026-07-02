@@ -49,7 +49,7 @@ context only; nothing from them was lifted as truth into an SP2b concept.
 | Installation (brew/npm install commands, `pushling` CLI subcommands, "replaces the system Touch Bar" note) | `build-run-deploy.md#binpushling--standalone-operator-cli`, `#formulapushlingrb--homebrew-cask-not-yet-publishable` | migrated, **corrected from an initial wrong assumption during this wave** — early in verification this row was drafted as "100% aspirational, no CLI/cask exist"; a direct repo check found that is false. `bin/pushling` (~660 lines) and `bin/pushling-voice-setup` (~500 lines) are fully-implemented, non-stub scripts implementing nearly every subcommand the Vision doc lists, and `Formula/pushling.rb` is a real (if unpublishable — placeholder `sha256`, no matching GitHub release, and it expects Resources paths `build.sh` doesn't populate) Homebrew cask. Documented in `build-run-deploy.md` as real-but-unwired operator tooling (the CLI) and a not-yet-publishable distribution mechanism (the cask) respectively — the `npm install -g pushling` form specifically remains unverified/likely-aspirational (no `bin` entry in `mcp/package.json`, no npm publish config), noted as such rather than asserted either way |
 | Technical Performance (per-frame budget table, texture memory, voice model memory) | `development-pitfalls.md` (SpriteKit-node-budget pitfall row, citing the table) | migrated by reference — the full budget table itself already exists verbatim in `PUSHLING_VISION.md` and is cited, not re-transcribed a second time, since no SP2b concept is the natural single authority for a cross-cutting performance-budget table (a future ARCHITECTURE or REFERENCE concept is the better home — flagged for the Orchestrator/SP8, not claimed as covered) |
 
-# docs/plan/phase-1-foundation/PHASE-1.md (background source per the brief; substantively verified against, not just skimmed)
+# docs/archive/plan/phase-1-foundation/PHASE-1.md (background source per the brief; substantively verified against, not just skimmed)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -64,4 +64,4 @@ context only; nothing from them was lifted as truth into an SP2b concept.
 [1] `pushling/CLAUDE.md`
 [2] `mcp/README.md`
 [3] `PUSHLING_VISION.md`
-[4] `docs/plan/phase-1-foundation/PHASE-1.md`
+[4] `docs/archive/plan/phase-1-foundation/PHASE-1.md`

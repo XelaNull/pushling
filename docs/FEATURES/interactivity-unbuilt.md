@@ -224,9 +224,9 @@ trigger-detection call sites themselves. Whether to wire or descope these
 
 # Citations
 
-[1] `docs/plan/phase-6-interactivity/PHASE-6.md` — Track 4, P6-T3-04/05/06/08/09 cooperative subsections
-[2] `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md`
+[1] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — Track 4, P6-T3-04/05/06/08/09 cooperative subsections
+[2] `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md`
 [3] `PUSHLING_VISION.md` — Touch Interactions, Human Milestones, Creature-Initiated Invitations, Mini-Games
-[4] `docs/MULTITOUCH-CAMERA-REFERENCE.md` — §5 Creature Scaling Under Zoom, §6 Zoom Detail Tiers
-[5] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T1-16 Between-Session Autonomous Speech
+[4] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` — §5 Creature Scaling Under Zoom, §6 Zoom Detail Tiers
+[5] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-16 Between-Session Autonomous Speech
 [6] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md)

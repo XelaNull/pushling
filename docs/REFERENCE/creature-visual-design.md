@@ -73,7 +73,7 @@ tracked repos displays nine tails, kitsune-style.
 originally listed Egg at 6×6pt (per `PUSHLING_VISION.md`); it has since been
 corrected to the same code-verified **9×11pt** this concept uses throughout
 (`StageConfiguration.all[.egg].size`, matching
-`docs/VECTOR-GRAPHICS-RESEARCH.md`'s own proportions table). No live
+`docs/archive/VECTOR-GRAPHICS-RESEARCH.md`'s own proportions table). No live
 cross-concept discrepancy remains — `PUSHLING_VISION.md`'s original 6×6pt is
 preserved in `growth-stages.md` as superseded design history only.
 
@@ -163,5 +163,5 @@ thinking states).
 [4] `Pushling/Sources/Pushling/Creature/BodyPartController.swift` (`StageConfiguration`)
 [5] `Pushling/Sources/Pushling/Creature/PersonalitySystem.swift` (`VisualTraits`)
 [6] `Pushling/Sources/Pushling/Scene/DiamondIndicator.swift`
-[7] `docs/VECTOR-GRAPHICS-RESEARCH.md` §3-6 (Design Philosophy, Proportions, Stage-by-Stage Recommendations, Feature Introduction Timeline)
-[8] `docs/3D-RENDERING-RESEARCH.md` §14 "Cat Visual Enhancement" — target-state part table, cross-verified against `CatShapes.swift`
+[7] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3-6 (Design Philosophy, Proportions, Stage-by-Stage Recommendations, Feature Introduction Timeline)
+[8] `docs/archive/3D-RENDERING-RESEARCH.md` §14 "Cat Visual Enhancement" — target-state part table, cross-verified against `CatShapes.swift`

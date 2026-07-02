@@ -449,4 +449,4 @@ mechanism); each runs in its own transaction with rollback on failure.
 [3] `Pushling/Sources/Pushling/State/DatabaseManager.swift`
 [4] `Pushling/Sources/Pushling/State/StateCoordinator.swift` (`MutationQueryProvider` — `commits.language`/`has_tests` mismatch)
 [5] `mcp/src/state.ts` (TypeScript interfaces mirroring this schema)
-[6] `docs/plan/phase-1-foundation/PHASE-1.md` — P1-T2-01 through P1-T2-09 (superseded snapshot; StateManager class name and table-count claims are stale)
+[6] `docs/archive/plan/phase-1-foundation/PHASE-1.md` — P1-T2-01 through P1-T2-09 (superseded snapshot; StateManager class name and table-count claims are stale)

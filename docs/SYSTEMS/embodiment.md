@@ -190,6 +190,6 @@ table is the addressability index, not a restatement):
 
 # Citations
 
-[1] `docs/EMBODIMENT-REVIEW.md` §1 (Philosophy), §2 (How Embodiment Works), §7 (The Embodiment Test), §8 (File Reference)
+[1] `docs/archive/EMBODIMENT-REVIEW.md` §1 (Philosophy), §2 (How Embodiment Works), §7 (The Embodiment Test), §8 (File Reference)
 [2] `Pushling/Sources/Pushling/IPC/SessionManager.swift` — `staleSessionThreshold`
 [3] `Pushling/Sources/Pushling/Behavior/AIDirectedLayer.swift` — `timeoutDuration`, `warmStandbyMild`, `warmStandbyModerate`

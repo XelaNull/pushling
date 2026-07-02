@@ -22,7 +22,7 @@ final bundle but out of this wave's assigned scope — not a fidelity loss,
 routed to the wave that owns that subject. All deferred sections were read
 for context only; nothing from them was lifted as truth into an SP4 concept.
 
-# `docs/TTS-RESEARCH.md` (primary source — entire file assigned)
+# `docs/archive/TTS-RESEARCH.md` (primary source — entire file assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -46,7 +46,7 @@ justification, since documenting a non-existent teach mode as a canonical
 speech source would mint incorrect prescriptive content. Flagged for the
 Orchestrator (the teach-system wave should confirm this is fully stale).
 
-# `docs/CREATURE-VOICE-DESIGN.md` (primary source — entire file assigned)
+# `docs/archive/CREATURE-VOICE-DESIGN.md` (primary source — entire file assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -72,13 +72,13 @@ Orchestrator (the teach-system wave should confirm this is fully stale).
 | Appendix C Key Technical References | `game-voice-sound-design.md#citations` (sound-design links only) | migrated (partial) — the sound-design/game-reference links were migrated; the `AVSpeechSynthesizer`/AudioKit/vDSP API-documentation links were not, since that API path is documented as superseded rather than needing further reference links |
 | Opening/closing collaborative-dialogue framing (the full Claude/Samantha conversation structuring the whole document) | *(presentation only)* | dropped-with-justification — narrative device, not content; every substantive claim made within the dialogue is accounted for in the rows above |
 
-# `docs/plan/phase-4-embodiment/PHASE-4.md` (assigned: P4-T2-03 only)
+# `docs/archive/plan/phase-4-embodiment/PHASE-4.md` (assigned: P4-T2-03 only)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
 | P4-T2-03 stage-gated limits table, 7-styles table, filtering-layer description, IPC example, implementation notes, error handling | `speech-filtering.md` (stage limits, style gates, round-trip, error path) | migrated, corrected — Drop's "Max Chars 1" corrected to the reconciled 3 (daemon)/6 (MCP, dead value) numbers; verification checklist items folded into the relevant prose sections rather than reproduced as a QA list |
 
-# `docs/plan/phase-5-speech/PHASE-5.md` (assigned: Track 1 P5-T1-01 through P5-T1-16, Track 2 P5-T2-01 through P5-T2-11; Track 3 explicitly NOT assigned)
+# `docs/archive/plan/phase-5-speech/PHASE-5.md` (assigned: Track 1 P5-T1-01 through P5-T1-16, Track 2 P5-T2-01 through P5-T2-11; Track 3 explicitly NOT assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|

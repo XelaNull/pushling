@@ -17,8 +17,8 @@ Wave SP3b authored seven concepts:
 [roadmap](/FEATURES/roadmap.md).
 
 Per the wave brief, teach/objects/nurture were authored **fresh from code +
-vision**, never from PHASE-7's stale schemas — `docs/plan/phase-7-creation-systems/PHASE-7.md`
-and `docs/plan/phase-8-polish/PHASE-8.md` were read for background context
+vision**, never from PHASE-7's stale schemas — `docs/archive/plan/phase-7-creation-systems/PHASE-7.md`
+and `docs/archive/plan/phase-8-polish/PHASE-8.md` were read for background context
 only; nothing was lifted from either as truth. Where their driftSignals
 overlapped this wave's code checks, the resolution is noted below rather
 than silently repeated.
@@ -64,7 +64,7 @@ than silently repeated.
 | Installation — aspirational `brew`/`npm` distribution parts | `roadmap.md#aspirational-distribution-story` | migrated, corrected — documented as unbuilt against the real `install.sh` path, matching the survey's pre-existing driftSignal on this exact gap |
 | Installation — CLI subcommand list (`pushling track`, `hooks install`, etc.) | `roadmap.md#aspirational-distribution-story` | migrated as target-CLI-contract-not-yet-built, explicitly flagged as not-yet-real to avoid implying it works today |
 
-# docs/plan/phase-7-creation-systems/PHASE-7.md (background only — no proposedConcepts, read for context)
+# docs/archive/plan/phase-7-creation-systems/PHASE-7.md (background only — no proposedConcepts, read for context)
 
 Not migrated as a source; read in full per the wave brief's "read for
 context, never lift stale schemas" instruction. Its driftSignals informed
@@ -80,7 +80,7 @@ adjudication rather than content:
 | habits schema columns (energy_cost, priority, personality_conflict) absent from real table | Confirmed still true; `nurture-system.md`'s Schema section documents the real `habits` table columns only |
 | category CHECK vocabulary (6 values) undocumented by PHASE-7 | Documented directly in `teach-system.md`'s action/category listing |
 
-# docs/plan/phase-8-polish/PHASE-8.md (background only — no proposedConcepts, read for context)
+# docs/archive/plan/phase-8-polish/PHASE-8.md (background only — no proposedConcepts, read for context)
 
 | PHASE-8 driftSignal | Resolution in this wave's concepts |
 |---|---|

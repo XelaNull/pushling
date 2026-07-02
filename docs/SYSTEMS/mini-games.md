@@ -111,5 +111,5 @@ in-memory unlock-progression counters survive a restart.
 [1] `Pushling/Sources/Pushling/Input/Games/MiniGameManager.swift`
 [2] `Pushling/Sources/Pushling/Input/Games/{CatchGame,MemoryGame,TreasureHuntGame,RhythmTapGame,TugOfWarGame,GameResultScreen}.swift`
 [3] `mcp/src/tools/perform.ts` (`VALID_BEHAVIORS` — no game parameter)
-[4] `docs/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-04 through P6-T3-11
+[4] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-04 through P6-T3-11
 [5] [state database schema](/DATA_MODELS/state-database-schema.md), [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)

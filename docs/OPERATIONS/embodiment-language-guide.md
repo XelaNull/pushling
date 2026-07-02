@@ -111,5 +111,5 @@ rewritten into embodied voice.
 
 # Citations
 
-[1] `docs/EMBODIMENT-REVIEW.md` §6 (Embodiment Language Guide)
+[1] `docs/archive/EMBODIMENT-REVIEW.md` §6 (Embodiment Language Guide)
 [2] `mcp/src/tools/{sense,move,express,speak,perform,world,recall,teach,nurture}.ts` — `description` fields, verbatim

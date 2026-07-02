@@ -8,8 +8,8 @@ timestamp: 2026-07-02T00:00:00Z
 ---
 
 This is **the** authority for the 9 `pushling_*` MCP tools — it supersedes the
-tool-contract sections of `PUSHLING_VISION.md`, `docs/EMBODIMENT-REVIEW.md`
-§4, `docs/plan/phase-4-embodiment/PHASE-4.md` Tracks 1–2, and `mcp/README.md`'s
+tool-contract sections of `PUSHLING_VISION.md`, `docs/archive/EMBODIMENT-REVIEW.md`
+§4, `docs/archive/plan/phase-4-embodiment/PHASE-4.md` Tracks 1–2, and `mcp/README.md`'s
 "The 9 Tools" table. Those four sources described four overlapping, partially
 inconsistent versions of the same contract; this concept folds them into one,
 verified against the shipping code (`mcp/src/tools/*.ts`,
@@ -63,7 +63,7 @@ for the rare case it's called before `gameCoordinator` exists):
 }
 ```
 
-**Adjudicated drift:** both `docs/IPC-PROTOCOL.md`'s example and
+**Adjudicated drift:** both `docs/archive/IPC-PROTOCOL.md`'s example and
 `mcp/src/ipc.ts`'s `CreatureSnapshot` TypeScript interface promise
 `speech.max_chars` and `speech.max_words` fields. The live daemon path never
 sends them — `speech` carries `styles` only. Per DOCS-WIN, this concept
@@ -258,7 +258,7 @@ requires the daemon. Cap: 30 taught behaviors total
 (`mcp/src/tools/teach.ts MAX_TAUGHT`).
 
 This tool was described as "stubbed with helpful coming-soon messages,
-completed in Phase 7" in `docs/plan/phase-4-embodiment/PHASE-4.md` — that
+completed in Phase 7" in `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — that
 scope note is stale. `mcp/src/tools/teach.ts` plus
 `Pushling/Sources/Pushling/IPC/CreationHandlers.swift` are fully implemented.
 
@@ -285,6 +285,6 @@ quirks / 10 routine slots; `identity` cannot be removed or reinforced (only
 [3] `Pushling/Sources/Pushling/IPC/CommandRouter.swift` (`buildCreatureSnapshot`)
 [4] `mcp/src/ipc.ts` (`CreatureSnapshot` interface)
 [5] `PUSHLING_VISION.md` — MCP Integration: Claude as the Creature's Mind
-[6] `docs/EMBODIMENT-REVIEW.md` §4 — MCP Tools: The Motor Cortex
-[7] `docs/plan/phase-4-embodiment/PHASE-4.md` — Tracks 1–2 (superseded scope notes)
+[6] `docs/archive/EMBODIMENT-REVIEW.md` §4 — MCP Tools: The Motor Cortex
+[7] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — Tracks 1–2 (superseded scope notes)
 [8] `mcp/README.md` — The 9 Tools (superseded seed table)

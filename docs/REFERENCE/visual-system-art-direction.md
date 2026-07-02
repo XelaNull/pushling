@@ -57,7 +57,7 @@ was applied to the six growth-stage bodies.
 # Silhouette-First Design Principles
 
 Eight numbered principles from the graphics-overhaul planning pass
-(`docs/plan/TODO-GRAPHICS-OVERHAUL.md`), governing every object and body
+(`docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md`), governing every object and body
 part rendered on the Touch Bar — not just the creature:
 
 1. **Recognize in under 200ms** — a glance should register "campfire," not
@@ -192,6 +192,6 @@ this entry records the principle that shaped that implementation.
 # Citations
 
 [1] `PUSHLING_VISION.md` — Visual System: Art Direction, Visual Earned Complexity, The "Wow Factor" Moments, HUD Philosophy
-[2] `docs/VECTOR-GRAPHICS-RESEARCH.md` §3 (Design Philosophy — Solid Fill Test, One New Feature Per Stage, Shape Language Arc, the Ori Principle, Animation Over Detail)
-[3] `docs/plan/TODO-GRAPHICS-OVERHAUL.md` — Design Principles (8 numbered), Success Criteria
-[4] `docs/3D-RENDERING-RESEARCH.md` §1, §12 — "what reads at 20 feet..." framing, aspect-ratio-driven readability argument
+[2] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3 (Design Philosophy — Solid Fill Test, One New Feature Per Stage, Shape Language Arc, the Ori Principle, Animation Over Detail)
+[3] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` — Design Principles (8 numbered), Success Criteria
+[4] `docs/archive/3D-RENDERING-RESEARCH.md` §1, §12 — "what reads at 20 feet..." framing, aspect-ratio-driven readability argument

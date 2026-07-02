@@ -43,7 +43,7 @@ pseudo-3D techniques" verdict.
 
 # Sprite-Stacking: The Shipped Variant
 
-The original research (`docs/3D-RENDERING-RESEARCH.md` §9) proposed sprite
+The original research (`docs/archive/3D-RENDERING-RESEARCH.md` §9) proposed sprite
 stacking as **10-18 horizontal texture slices** rendered like a CT-scan
 played back — each an independent `SKSpriteNode` with a 1pt vertical offset,
 giving the creature a rounded, rotatable volumetric form. **This is not what
@@ -97,7 +97,7 @@ exists for it. Both are preserved here as intent, not scheduled work.
 
 # Citations
 
-[1] `docs/3D-RENDERING-RESEARCH.md` §9 (Sprite Stacking), §14 (Recommended Approach: Enhanced 2.5D — stack table, Implementation Priority)
+[1] `docs/archive/3D-RENDERING-RESEARCH.md` §9 (Sprite Stacking), §14 (Recommended Approach: Enhanced 2.5D — stack table, Implementation Priority)
 [2] `Pushling/Sources/Pushling/Creature/SpriteStackRenderer.swift`
 [3] `Pushling/Sources/Pushling/Creature/CreatureNode+Effects.swift`
 [4] `Pushling/Sources/Pushling/World/ParallaxSystem.swift`, `World/PushlingPalette.swift`

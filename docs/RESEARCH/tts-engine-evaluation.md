@@ -7,7 +7,7 @@ tags: [research, voice, tts, decision-record]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
-Migrated from `docs/TTS-RESEARCH.md` (compiled 2026-03-14), which evaluated
+Migrated from `docs/archive/TTS-RESEARCH.md` (compiled 2026-03-14), which evaluated
 11 named options across 15 numbered sections (two additional native-Swift
 variants were folded in as options 12–13). This is a historical decision
 record — it explains *why* the architecture in
@@ -123,5 +123,5 @@ change rather than keeping multiple tiers resident).
 
 # Citations
 
-[1] `docs/TTS-RESEARCH.md` (source document, compiled 2026-03-14)
+[1] `docs/archive/TTS-RESEARCH.md` (source document, compiled 2026-03-14)
 [2] [voice-tts-stack](/SYSTEMS/voice-tts-stack.md) — the shipped architecture this research led to

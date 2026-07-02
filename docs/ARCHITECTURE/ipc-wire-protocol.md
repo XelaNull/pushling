@@ -84,7 +84,7 @@ reaches the router:
 
 The codes actually emitted by the Swift daemon today (grepped across
 `SocketServer.swift`, `CommandRouter.swift`, and every `*Handlers.swift`) —
-this supersedes the older `docs/IPC-PROTOCOL.md` list, which named two codes
+this supersedes the older `docs/archive/IPC-PROTOCOL.md` list, which named two codes
 (`STAGE_GATE`, `SESSION_NOT_FOUND`) that do not exist in code and omitted
 about ten that do:
 
@@ -156,4 +156,4 @@ about ten that do:
 [2] `Pushling/Sources/Pushling/IPC/CommandRouter.swift`
 [3] `Pushling/Sources/Pushling/IPC/IPCTypes.swift`
 [4] `mcp/src/ipc.ts`
-[5] `docs/IPC-PROTOCOL.md` (superseded by this concept — see [SP2a traceability](/archive/traceability/SP2a.md))
+[5] `docs/archive/IPC-PROTOCOL.md` (superseded by this concept — see [SP2a traceability](/archive/traceability/SP2a.md))

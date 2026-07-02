@@ -130,7 +130,7 @@ test, ., tmp, save}`.
 # The XP Formula
 
 `XPCalculator.calculate` — the complete, documented formula, matching both
-`PUSHLING_VISION.md` and `docs/plan/phase-5-speech/PHASE-5.md` P5-T3-07
+`PUSHLING_VISION.md` and `docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T3-07
 exactly:
 
 ```
@@ -263,7 +263,7 @@ depth before being asserted as canon.
 # Citations
 
 [1] `PUSHLING_VISION.md` — "The Commit-as-Food System" (lines 398–465), "Git Integration" (lines 1370–1398)
-[2] `docs/plan/phase-5-speech/PHASE-5.md` Track 3 (P5-T3-01..10, P5-T3-08b)
+[2] `docs/archive/plan/phase-5-speech/PHASE-5.md` Track 3 (P5-T3-01..10, P5-T3-08b)
 [3] `hooks/post-commit.sh` (full read, 319 lines)
 [4] `Pushling/Sources/Pushling/Feed/XPCalculator.swift`, `CommitTypeDetector.swift`, `FeedTypes.swift`, `HookEventProcessor.swift`
 [5] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`wireFeedProcessor`, lines ~358–462)

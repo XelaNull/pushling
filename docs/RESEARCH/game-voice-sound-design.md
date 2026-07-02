@@ -7,7 +7,7 @@ tags: [research, voice, sound-design, prior-art]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
-Migrated from `docs/CREATURE-VOICE-DESIGN.md` §7 (Sound Design References)
+Migrated from `docs/archive/CREATURE-VOICE-DESIGN.md` §7 (Sound Design References)
 and Appendix C (external citations). See
 [creature-voice-design](/REFERENCE/creature-voice-design.md) for how these
 references distilled into Pushling's own voice-identity contract, and
@@ -115,7 +115,7 @@ heavily rather than relying on synthesis alone.
 
 # Citations
 
-[1] `docs/CREATURE-VOICE-DESIGN.md` §7, Appendix C
+[1] `docs/archive/CREATURE-VOICE-DESIGN.md` §7, Appendix C
 [2] [Formant Shifting Techniques (Baby Audio)](https://babyaud.io/blog/formant-shifting)
 [3] [Animalese — Nookipedia](https://nookipedia.com/wiki/Animalese)
 [4] [Character Voicing Techniques (Mitchell Vitez)](https://vitez.me/character-voicing)

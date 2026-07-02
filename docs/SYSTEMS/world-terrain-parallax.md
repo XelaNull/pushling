@@ -28,7 +28,7 @@ those catalog entries plug into. Source: `World/ParallaxSystem.swift`,
 # Parallax Layers
 
 **Four** depth layers, not the three originally planned in
-`docs/plan/phase-3-world/PHASE-3.md` and `PUSHLING_VISION.md` — a "deep"
+`docs/archive/plan/phase-3-world/PHASE-3.md` and `PUSHLING_VISION.md` — a "deep"
 layer was added between far and mid (commit `5a2ece5`, "Add deep parallax
 layer") to smooth the visual jump between distant and midground terrain:
 
@@ -168,7 +168,7 @@ for the per-stage `TerrainTextureConfig` values.
 
 # Depth & Atmospheric Perspective — Reconciled History
 
-An earlier plan document (`docs/plan/TODO-GRAPHICS-OVERHAUL.md`, "Phase 0")
+An earlier plan document (`docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md`, "Phase 0")
 proposed a creature depth axis (`positionZ`, 0.0 = far / 1.0 = near) with
 per-depth scale/Y-offset/alpha and object-layer routing with atmospheric
 desaturation. Reconciling that plan against the shipped code:
@@ -213,5 +213,5 @@ desaturation. Reconciling that plan against the shipped code:
 [3] `Pushling/Sources/Pushling/World/BiomeManager.swift`, `World/TerrainObjectPool.swift`
 [4] `Pushling/Sources/Pushling/Behavior/LayerTypes.swift`, `Behavior/PhysicsLayer.swift`, `IPC/ActionHandlers.swift`
 [5] `Pushling/Sources/Pushling/World/WorldObjectRenderer.swift`, `World/PushlingPalette.swift`
-[6] `docs/plan/phase-3-world/PHASE-3.md` (P3-T1-01 through P3-T1-06) — superseded 3-layer/50pt-transition numbers
-[7] `docs/plan/TODO-GRAPHICS-OVERHAUL.md` (Phase 0A-0E) — depth-system plan, reconciled above
+[6] `docs/archive/plan/phase-3-world/PHASE-3.md` (P3-T1-01 through P3-T1-06) — superseded 3-layer/50pt-transition numbers
+[7] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` (Phase 0A-0E) — depth-system plan, reconciled above

@@ -161,7 +161,7 @@ second-order spring with independent velocity state.
 
 # The Design-Era Spring-Damper Toolkit (Reference Formulas)
 
-`docs/VECTOR-GRAPHICS-RESEARCH.md` §7-8 proposed a general-purpose animation
+`docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §7-8 proposed a general-purpose animation
 toolkit, preserved here as a formula reference even though — per the
 reconciliation above — only the tail and camera use spring/exponential
 physics resembling it; ears and whiskers use simpler ad-hoc easing instead.
@@ -255,4 +255,4 @@ Explicit rejections from the design research, still valid guidance:
 [2] `Pushling/Sources/Pushling/Creature/SegmentedTailController.swift`
 [3] `Pushling/Sources/Pushling/Creature/EarController.swift`, `Creature/WhiskerController.swift`
 [4] `Pushling/Sources/Pushling/Scene/CameraController.swift` (`updateYTracking`, `adaptiveYHalfLife`, pan decay)
-[5] `docs/VECTOR-GRAPHICS-RESEARCH.md` §7 (Animation Architecture), §8 (Procedural Animation Formulas)
+[5] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §7 (Animation Architecture), §8 (Procedural Animation Formulas)

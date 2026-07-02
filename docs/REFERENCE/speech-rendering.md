@@ -11,7 +11,7 @@ Authority for the visual side of speech — `SpeechBubbleNode`,
 `DropSymbolSet`, and `NarrationOverlay`. See
 [speech-filtering](/SYSTEMS/speech-filtering.md) for what text reaches the
 bubble and [voice-tts-stack](/SYSTEMS/voice-tts-stack.md) for the audio that
-plays alongside it. Sources: `docs/plan/phase-5-speech/PHASE-5.md`
+plays alongside it. Sources: `docs/archive/plan/phase-5-speech/PHASE-5.md`
 (P5-T1-01 through P5-T1-05, P5-T1-09, P5-T1-11, P5-T1-14),
 `PUSHLING_VISION.md` (Speech Evolution: Text Speech Bubbles).
 
@@ -168,5 +168,5 @@ once the active count exceeds `maxBubbles`.
 [3] `Pushling/Sources/Pushling/Speech/NarrationOverlay.swift`
 [4] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift`
 [5] `mcp/src/tools/speak.ts` (`DROP_SYMBOLS`)
-[6] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T1-01 through P5-T1-05, P5-T1-09, P5-T1-11, P5-T1-14
+[6] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-01 through P5-T1-05, P5-T1-09, P5-T1-11, P5-T1-14
 [7] `PUSHLING_VISION.md` — Speech Evolution: Text Speech (Speech Bubbles)

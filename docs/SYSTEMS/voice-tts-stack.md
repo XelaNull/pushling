@@ -8,12 +8,12 @@ timestamp: 2026-07-02T00:00:00Z
 ---
 
 This is **the** single authority for the TTS stack, merging
-`docs/TTS-RESEARCH.md` §16 (Recommended Architecture) and
-`docs/plan/phase-5-speech/PHASE-5.md` Track 2 (P5-T2-01 through P5-T2-11)
+`docs/archive/TTS-RESEARCH.md` §16 (Recommended Architecture) and
+`docs/archive/plan/phase-5-speech/PHASE-5.md` Track 2 (P5-T2-01 through P5-T2-11)
 into one concept verified against
 `Pushling/Sources/Pushling/Voice/*.swift`. Both source documents also
 described an `AVSpeechSynthesizer`-based pipeline
-(`docs/CREATURE-VOICE-DESIGN.md` §8–9) as an alternative architecture — that
+(`docs/archive/CREATURE-VOICE-DESIGN.md` §8–9) as an alternative architecture — that
 path was **not** what shipped; see below.
 
 # The 3 Tiers (Not 6)
@@ -27,8 +27,8 @@ path was **not** what shipped; see below.
 | `speaking` | Kokoro-82M (ONNX) | Beast, Sage, **and** Apex — all three collapse to the same tier |
 
 `VoiceTier.forStage(.egg)` returns `nil` (silent — no model needed).
-`docs/TTS-RESEARCH.md`'s Executive Summary table and
-`docs/CREATURE-VOICE-DESIGN.md` §2's stage table both describe **six**
+`docs/archive/TTS-RESEARCH.md`'s Executive Summary table and
+`docs/archive/CREATURE-VOICE-DESIGN.md` §2's stage table both describe **six**
 distinct voice types (adding "Eloquent" at Sage and "Transcendent" at Apex,
 each with its own described tuning). No such distinction exists in code —
 Sage and Apex share the exact same `VoiceTier.speaking` / Kokoro-82M path as
@@ -41,8 +41,8 @@ future tier split — not current architecture.
 
 # Download-on-Demand, Not Bundled
 
-Both `docs/TTS-RESEARCH.md` ("Every engine is bundled. No downloads.") and
-`docs/CREATURE-VOICE-DESIGN.md` assume all TTS models ship inside
+Both `docs/archive/TTS-RESEARCH.md` ("Every engine is bundled. No downloads.") and
+`docs/archive/CREATURE-VOICE-DESIGN.md` assume all TTS models ship inside
 Pushling.app (~100–120MB total). **This is not what shipped.**
 `ModelDownloader.swift` fetches model archives at runtime from
 `k2-fsa/sherpa-onnx`'s GitHub releases (`piperArchiveURL`,
@@ -61,7 +61,7 @@ The `babble` tier is installed from the **Piper archive** (there is no
 standalone espeak-ng-only download) — `ModelDownloader`'s
 `installEspeakFiles` copies the same `en_US-amy-low.onnx` used by the
 `emerging` tier into the `espeak-ng/` directory and renames it `model.onnx`.
-`docs/TTS-RESEARCH.md`'s claimed "espeak-ng ~2MB" figure describes the
+`docs/archive/TTS-RESEARCH.md`'s claimed "espeak-ng ~2MB" figure describes the
 upstream espeak-ng project's own footprint, not what Pushling actually
 downloads for its babble tier (~16MB, since it's really a Piper voice file).
 `espeak-ng-data/` is symlinked from the babble tier into the emerging/
@@ -81,13 +81,13 @@ primary path is the in-app `requestDownload`/`downloadAllMissing` API.
 `SherpaOnnxBridge.swift` dynamically resolves symbols from the sherpa-onnx C
 API (`isNativeAvailable`, `isModelLoaded`, `sampleRate`,
 `espeakConfig`/`piperConfig`/`kokoroConfig` factory methods) — this is the
-"STRONG CANDIDATE" runtime `docs/TTS-RESEARCH.md` §8 recommended, and it won
+"STRONG CANDIDATE" runtime `docs/archive/TTS-RESEARCH.md` §8 recommended, and it won
 outright. A repo-wide search finds **zero** references to
 `AVSpeechSynthesizer` or `AVSpeechUtterance` anywhere in
 `Pushling/Sources/`. Two design-doc claims about this are stale:
 
-- `docs/CREATURE-VOICE-DESIGN.md` §8–9's entire pipeline — `AVSpeechSynthesizer.write(_:toBufferCallback:)` capturing audio to a buffer, then processing through a custom `AVAudioEngine` chain with `AudioKit` for independent formant control — was the **design-time plan**, never built. The sherpa-onnx architecture from `docs/TTS-RESEARCH.md` was chosen instead.
-- `docs/TTS-RESEARCH.md` §16's own "Fallback: AVSpeechSynthesizer (if sherpa-onnx fails to load)" was also never implemented. If no sherpa-onnx model is available, `VoiceSystem.isEnabled` is simply `false` and the creature stays silent (text bubbles only) — there is no synthesizer fallback tier.
+- `docs/archive/CREATURE-VOICE-DESIGN.md` §8–9's entire pipeline — `AVSpeechSynthesizer.write(_:toBufferCallback:)` capturing audio to a buffer, then processing through a custom `AVAudioEngine` chain with `AudioKit` for independent formant control — was the **design-time plan**, never built. The sherpa-onnx architecture from `docs/archive/TTS-RESEARCH.md` was chosen instead.
+- `docs/archive/TTS-RESEARCH.md` §16's own "Fallback: AVSpeechSynthesizer (if sherpa-onnx fails to load)" was also never implemented. If no sherpa-onnx model is available, `VoiceSystem.isEnabled` is simply `false` and the creature stays silent (text bubbles only) — there is no synthesizer fallback tier.
 
 # Tier Loading & Switching
 
@@ -120,7 +120,7 @@ AVAudioPlayerNode → AVAudioUnitTimePitch → AVAudioUnitEQ (3-band) → AVAudi
 - Pitch: `AVAudioUnitTimePitch.pitch` in cents (100 cents = 1 semitone),
   `.rate` clamped to `[0.25, 4.0]` (the hardware's own limits).
 
-This matches `docs/TTS-RESEARCH.md` §16's proposed
+This matches `docs/archive/TTS-RESEARCH.md` §16's proposed
 pitch→EQ→reverb→AVAudioEngine pipeline and `PHASE-5.md` P5-T2-05 closely —
 one of the few places in this domain where the design intent and the shipped
 code line up almost exactly.
@@ -214,7 +214,7 @@ sessions" paragraph exactly.
 
 # Aspirational: The Never-Built Formant / Chorus / Breathiness Layer
 
-`docs/CREATURE-VOICE-DESIGN.md` §4/§6/§9 and `docs/TTS-RESEARCH.md`'s Voice
+`docs/archive/CREATURE-VOICE-DESIGN.md` §4/§6/§9 and `docs/archive/TTS-RESEARCH.md`'s Voice
 Character Design section both call for independent formant shifting
 (`AudioKit`'s `FormantFilter`, or a custom vDSP/FFT pipeline), breathiness
 (pink-noise mixed into the voiced signal, envelope-shaped), a subtle chorus
@@ -223,7 +223,7 @@ creature" rather than "pitch-shifted human." **None of this exists in the
 shipped `AudioPlayer.swift` pipeline.** Only pitch (`AVAudioUnitTimePitch`,
 which shifts formants together with pitch — precisely the "chipmunk risk"
 both source documents warn against), a 3-band EQ, and reverb are
-implemented; this is "Option A" from `docs/CREATURE-VOICE-DESIGN.md` §4's
+implemented; this is "Option A" from `docs/archive/CREATURE-VOICE-DESIGN.md` §4's
 own framework, the prototyping starting point that document explicitly
 recommended graduating away from ("Graduate to Option B [AudioKit] for
 production quality"). That graduation never happened. See
@@ -241,6 +241,6 @@ aesthetic recipe tables — both describe intent, not current code.
 [5] `Pushling/Sources/Pushling/Voice/SherpaOnnxBridge.swift`
 [6] `Pushling/Sources/Pushling/Voice/AudioPlayer.swift`
 [7] `Pushling/Sources/Pushling/Voice/VoiceIntegration.swift`
-[8] `docs/TTS-RESEARCH.md` §1, §16
-[9] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T2-01 through P5-T2-11
-[10] `docs/CREATURE-VOICE-DESIGN.md` §4, §8–9 (superseded architecture)
+[8] `docs/archive/TTS-RESEARCH.md` §1, §16
+[9] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T2-01 through P5-T2-11
+[10] `docs/archive/CREATURE-VOICE-DESIGN.md` §4, §8–9 (superseded architecture)

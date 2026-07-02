@@ -357,4 +357,4 @@ as the reasoning that led to the "stay in SpriteKit" decision.
 [43] [touch-bar-simulator | GitHub](https://github.com/sindresorhus/touch-bar-simulator)
 
 ### Primary Source
-[44] `docs/3D-RENDERING-RESEARCH.md` (full source document, compiled 2026-03-15)
+[44] `docs/archive/3D-RENDERING-RESEARCH.md` (full source document, compiled 2026-03-15)

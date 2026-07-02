@@ -144,4 +144,4 @@ per-Claude-Code-session by design, not meant to survive a daemon restart).
 [2] `Pushling/Sources/Pushling/State/HeartbeatManager.swift`
 [3] `Pushling/Sources/Pushling/State/BackupManager.swift`
 [4] `Pushling/Sources/Pushling/App/HotReloadMonitor.swift`
-[5] `docs/plan/phase-1-foundation/PHASE-1.md` — P1-T2-08 (crash recovery), P1-T2-09 (backup system) — superseded snapshot; class names corrected above (no `StateManager` type exists; the shipped classes are `DatabaseManager` + `StateCoordinator`)
+[5] `docs/archive/plan/phase-1-foundation/PHASE-1.md` — P1-T2-08 (crash recovery), P1-T2-09 (backup system) — superseded snapshot; class names corrected above (no `StateManager` type exists; the shipped classes are `DatabaseManager` + `StateCoordinator`)

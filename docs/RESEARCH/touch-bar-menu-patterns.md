@@ -7,7 +7,7 @@ tags: [research, touch, ux, touchbar]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
-Preserved research from `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md` — a
+Preserved research from `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md` — a
 context-menu system designed but never built. Its discoverability goal
 (surfacing available actions without requiring the human to already know
 specific gesture types) was ultimately met by a different shipped
@@ -215,7 +215,7 @@ creature-centric interaction language Pattern 6 was designed around.
 
 # Citations
 
-[1] `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md` — full original research (UX Alternatives & Interaction Patterns section)
+[1] `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md` — full original research (UX Alternatives & Interaction Patterns section)
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarMenu.swift` (`MenuStripView`, `StatsPopupView`)
 [3] `Pushling/Sources/Pushling/App/GameCoordinator+MenuActions.swift` (`menuPet`, `menuFeed`, `menuPlay`)
 [4] [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)

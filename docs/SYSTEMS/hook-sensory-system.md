@@ -142,7 +142,7 @@ Commit-specific processing (XP, eating reaction) is documented in
 
 # Citations
 
-[1] `docs/EMBODIMENT-REVIEW.md` §5 (The Sensory Loop: Hooks)
-[2] `docs/plan/phase-4-embodiment/PHASE-4.md` Track 3 (P4-T3-01..09)
+[1] `docs/archive/EMBODIMENT-REVIEW.md` §5 (The Sensory Loop: Hooks)
+[2] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` Track 3 (P4-T3-01..09)
 [3] `hooks/lib/pushling-hook-lib.sh`, `hooks/{session-start,session-end,post-tool-use,user-prompt-submit,subagent-start,subagent-stop,post-compact}.sh`, `hooks/install.sh`
 [4] `Pushling/Sources/Pushling/Feed/HookEventProcessor.swift`, `Pushling/Sources/Pushling/Feed/FeedTypes.swift`

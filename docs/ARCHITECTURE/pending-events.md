@@ -73,7 +73,7 @@ the drained array (not inserted into the ring buffer itself):
 {"seq": 0, "type": "events_dropped", "timestamp": "<now>", "data": {"count": 12}}
 ```
 
-This differs from the original `docs/IPC-PROTOCOL.md` description, which
+This differs from the original `docs/archive/IPC-PROTOCOL.md` description, which
 described `events_dropped` as injected into the buffer at push time with
 `count: 1`, then incremented on consecutive drops. The actual mechanism is
 simpler and cursor-based: no `events_dropped` entry ever occupies a ring slot;
@@ -105,4 +105,4 @@ socket round-trip.
 [2] `Pushling/Sources/Pushling/IPC/SocketServer.swift` (`drainEvents`, `buildResponse`)
 [3] `mcp/src/ipc.ts` (`PendingEvent`, `handleResponse`)
 [4] `mcp/src/index.ts` (`formatPendingEvents`, `eventSummary`)
-[5] `docs/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))
+[5] `docs/archive/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))

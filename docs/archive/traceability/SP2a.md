@@ -21,7 +21,7 @@ fidelity loss, it is routed to the wave that owns that subject. All deferred
 sections were read for context only; nothing from them was lifted as truth
 into an SP2a concept.
 
-# docs/IPC-PROTOCOL.md (primary source — entire file assigned)
+# docs/archive/IPC-PROTOCOL.md (primary source — entire file assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -40,7 +40,7 @@ into an SP2a concept.
 | Wire Examples | `ipc-wire-protocol.md#wire-examples` | migrated |
 | Implementation Notes — Swift daemon / Node client / General | `ipc-wire-protocol.md#implementation-notes` | migrated |
 
-# docs/EMBODIMENT-REVIEW.md (assigned: §4 only)
+# docs/archive/EMBODIMENT-REVIEW.md (assigned: §4 only)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -49,7 +49,7 @@ into an SP2a concept.
 | §5 Sensory Loop: Hooks | *(not this wave)* | deferred — owned by SP7 (hooks/feed concept) |
 | §6 Embodiment Language Guide | *(not this wave)* | deferred — owned by SP7 |
 
-# docs/plan/phase-4-embodiment/PHASE-4.md (assigned: Tracks 1–2; Track 4 additionally folded for session-lifecycle detail)
+# docs/archive/plan/phase-4-embodiment/PHASE-4.md (assigned: Tracks 1–2; Track 4 additionally folded for session-lifecycle detail)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -96,8 +96,8 @@ into an SP2a concept.
 
 # Citations
 
-[1] `docs/IPC-PROTOCOL.md`
-[2] `docs/EMBODIMENT-REVIEW.md`
-[3] `docs/plan/phase-4-embodiment/PHASE-4.md`
+[1] `docs/archive/IPC-PROTOCOL.md`
+[2] `docs/archive/EMBODIMENT-REVIEW.md`
+[3] `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
 [4] `mcp/README.md`
 [5] `PUSHLING_VISION.md`

@@ -50,7 +50,7 @@ were read for context only.
 | Stage Transitions (5-second ceremony) | *(not this wave)* | deferred — owned by `growth-stages.md` (already landed, confirmed to cover this) |
 | Technical Performance (frame budget table) | `rendering-stack-2-5d.md#frame-budget` (brief reference only — full budget table ownership undetermined, flagged) | partially migrated — this wave's Frame Budget section references the ~5.7ms/16.6ms/120-node figures already established project-wide (per `pushling/CLAUDE.md`) without re-authoring a full Performance Budgets reference concept, since no such concept was found to exist yet across any wave's traceability at authoring time |
 
-# `docs/3D-RENDERING-RESEARCH.md` (assigned: §14 only — §1-13, §15 owned by SP6b)
+# `docs/archive/3D-RENDERING-RESEARCH.md` (assigned: §14 only — §1-13, §15 owned by SP6b)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -58,7 +58,7 @@ were read for context only.
 | §14 "What We Explicitly Reject" | *(not duplicated)* | dropped-with-justification — identical content to §1-13's rejected-options analysis, already fully owned by SP6b's `3d-rendering-feasibility.md#what-was-explicitly-rejected`; this wave's `rendering-stack-2-5d.md` cross-links there instead of restating |
 | §1-13, §15 (executive summary, aspect-ratio constraint, all 8 option analyses, Doom precedent, comparison matrix, sources) | *(not this wave)* | deferred — owned by SP6b's `3d-rendering-feasibility.md`, which landed during this wave's authoring; this wave's `rendering-stack-2-5d.md` was trimmed to cross-link there rather than duplicate the now-existing Research Note |
 
-# `docs/VECTOR-GRAPHICS-RESEARCH.md` (assigned: design half only — Sec 3, 4, 6, 7, 8, plus Sec 12 citations; audit half Sec 1/2/5/10/11 explicitly excluded)
+# `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` (assigned: design half only — Sec 3, 4, 6, 7, 8, plus Sec 12 citations; audit half Sec 1/2/5/10/11 explicitly excluded)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -73,7 +73,7 @@ were read for context only.
 | Sec 1 Bugs Found, Sec 2 Dead Code to Wire Up | *(not canon — backlog only)* | **BUG-4** (`tongue_blep` registered at `.drop` minimum stage while Drop has no mouth, `BehaviorSelector.swift:230-232`) verified still live and reported as a backlog item in this wave's return message per dispatch instruction — NOT minted as canon in any concept. BUG-1/2/3 confirmed fixed in code (stage-param passthrough, egg coreGlow, head-color-from-bodyColor) and not migrated as "bugs" since they no longer exist; the Dead Code table's items (nose, fur texture, toe pads) confirmed wired and folded into `creature-visual-design.md`'s per-stage table as ordinary shipped features, not flagged as former dead code |
 | Sec 10 Codebase Grades, Sec 11 Implementation Priority | *(not canon)* | dropped-with-justification — the survey explicitly flags these as a point-in-time snapshot overtaken by commits within days of the document's date; not authored as canon by any wave |
 
-# `docs/plan/phase-3-world/PHASE-3.md` (assigned: entire file)
+# `docs/archive/plan/phase-3-world/PHASE-3.md` (assigned: entire file)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -104,7 +104,7 @@ were read for context only.
 | P3-T3-11 Ruin Inscriptions | `world-complexity-ambient-effects.md#ruin-inscriptions` | migrated |
 | Integration Points, QA Gate | *(not migrated as a section)* | dropped-with-justification — the Integration Points table describes Phase 4/6/7/8 cross-references from the original multi-phase build plan, all of which are now historical scaffolding superseded by the shipped, already-integrated system; the QA Gate checklist's items are individually satisfied and verified throughout this wave's concepts rather than reproduced as a standalone checklist artifact |
 
-# `docs/plan/TODO-GRAPHICS-OVERHAUL.md` (assigned: entire file)
+# `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` (assigned: entire file)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -118,7 +118,7 @@ were read for context only.
 | Phase 5 Texture Atlas Swap | `rendering-stack-2-5d.md#deferred--not-pursued` | migrated as a one-line deferred-intent note — no art pipeline exists, not scheduled |
 | Implementation Order table, Key Files to Modify, Success Criteria | *(not migrated as standalone sections)* | dropped-with-justification — the Implementation Order/Key-Files tables are project-management scaffolding for a now-largely-complete plan, superseded by the shipped state each relevant concept documents; Success Criteria migrated into `visual-system-art-direction.md` instead (see Design Principles row above) |
 
-# `docs/TOUCHBAR-TECHNIQUES.md` (assigned per this wave's dispatch; largely pre-empted by SP6b)
+# `docs/archive/TOUCHBAR-TECHNIQUES.md` (assigned per this wave's dispatch; largely pre-empted by SP6b)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -128,8 +128,8 @@ were read for context only.
 # Citations reconciliation note
 
 Several citations in this wave's 8 concepts point to source documents already
-fully migrated by sibling waves (`docs/3D-RENDERING-RESEARCH.md`,
-`docs/TOUCHBAR-TECHNIQUES.md`). Those citations remain in this wave's
+fully migrated by sibling waves (`docs/archive/3D-RENDERING-RESEARCH.md`,
+`docs/archive/TOUCHBAR-TECHNIQUES.md`). Those citations remain in this wave's
 concepts only where the specific claim being cited is genuinely this wave's
 authority (e.g. §14's stack table, §9's sprite-stacking technique) — never
 as a substitute for cross-linking to the sibling concept that now owns the

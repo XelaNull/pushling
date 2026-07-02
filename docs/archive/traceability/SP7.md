@@ -19,7 +19,7 @@ the final bundle but is owned by another wave — not a fidelity loss.
 "Corrected" means the concept preserves the content but fixes a verified
 doc↔code drift rather than copying the doc's claim forward.
 
-# docs/EMBODIMENT-REVIEW.md (assigned: §1, §2, §3, §5, §6, §7, §8 — §4 was SP2a's)
+# docs/archive/EMBODIMENT-REVIEW.md (assigned: §1, §2, §3, §5, §6, §7, §8 — §4 was SP2a's)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -32,7 +32,7 @@ doc↔code drift rather than copying the doc's claim forward.
 | §7 The Embodiment Test — failing/passing state, the measure | `embodiment.md#the-embodiment-test` | migrated, with an added note that this is a qualitative human/Samantha judgment, not an automatable assertion |
 | §8 File Reference — file/role table | `embodiment.md#file-reference` | migrated, corrected — the four helper `mcp/src/tools/` modules missing from the source table (`nurture-validation.ts`, `sense-helpers.ts`, `teach-handlers.ts`, `world-validation.ts`) and `hooks/install.sh` are still not restated here individually (they're implementation detail of concepts this table already points to); every row now cross-links to the concept that owns that file's detail rather than describing it inline, since several files (EventBuffer, SessionManager) are owned by SP2a concepts this wave doesn't re-author |
 
-# docs/plan/phase-4-embodiment/PHASE-4.md (assigned: Track 3 only — Tracks 1/2/4 were SP2a's)
+# docs/archive/plan/phase-4-embodiment/PHASE-4.md (assigned: Track 3 only — Tracks 1/2/4 were SP2a's)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -47,7 +47,7 @@ doc↔code drift rather than copying the doc's claim forward.
 | P4-T3-09 Daemon-Side Hook Event Processing — event→reaction table, XP formula reference, rate limiting | `hook-sensory-system.md#daemon-side-processing`, `commit-feeding-xp.md` (XP sections) | migrated, corrected — this section's own restated XP formula (`base(1) + lines(min(5,lines/20)) + message(2 if >20chars) + breadth(1 if 3+ files) × streak_multiplier`) omits the fallow and rate-limit multipliers from its own bullet list despite the surrounding doc discussing both; the full six-term formula is documented in `commit-feeding-xp.md` from `XPCalculator.swift` directly, and the discovery that the *shipped* award path doesn't call `XPCalculator` at all is flagged as a new defect there |
 | Track 3 Goal/Agents/Estimated-effort header | *(plan-wrapper scaffolding)* | dropped-with-justification — historical planning metadata (agent names, day estimates), no prescriptive content; archival of the residual `PHASE-4.md` file is SP8's job |
 
-# docs/plan/phase-5-speech/PHASE-5.md (assigned: Track 3 only — Tracks 1/2 belong to the speech/voice wave)
+# docs/archive/plan/phase-5-speech/PHASE-5.md (assigned: Track 3 only — Tracks 1/2 belong to the speech/voice wave)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -73,7 +73,7 @@ doc↔code drift rather than copying the doc's claim forward.
 
 # Citations
 
-[1] `docs/EMBODIMENT-REVIEW.md`
-[2] `docs/plan/phase-4-embodiment/PHASE-4.md`
-[3] `docs/plan/phase-5-speech/PHASE-5.md`
+[1] `docs/archive/EMBODIMENT-REVIEW.md`
+[2] `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
+[3] `docs/archive/plan/phase-5-speech/PHASE-5.md`
 [4] `PUSHLING_VISION.md`

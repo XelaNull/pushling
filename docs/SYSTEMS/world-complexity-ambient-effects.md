@@ -136,7 +136,7 @@ event — `VisualEventManager` runs exactly one at a time:
 | `bloom` | 5s | 8 staggered Moss particles rise from the ground with drift and fade, plus a brief low-alpha Moss pulse across the whole scene |
 | `eclipse` | 20s | A Void darken layer (peaks at 0.4 alpha) plus a Dusk tint layer (peaks at 0.15), each ramping over 5s, holding 10s, then releasing over 5s |
 | `festival` | 15s | 12 confetti pieces in all 6 palette colors fall from the top with randomized drift/spin/fade, staggered over the full event window |
-| `fireflies` | 45s | 8-15 Gilt dots with per-frame random-walk drift, a sine-based pulse tied to position, and an inversely-pulsing trail child node on each — this is the shipped implementation of the "gentle streaking" trail effect once proposed as future work in `docs/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 |
+| `fireflies` | 45s | 8-15 Gilt dots with per-frame random-walk drift, a sine-based pulse tied to position, and an inversely-pulsing trail child node on each — this is the shipped implementation of the "gentle streaking" trail effect once proposed as future work in `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 |
 | `rainbow` | 20s | Five staggered-radius arcs in the 5 non-Bone/Void palette colors, each fading in over 3s and holding before fading out over 4s |
 
 Events layer above the world and below speech bubbles (`zPosition: 300`);
@@ -185,5 +185,5 @@ visible past the 95% threshold).
 [6] `Pushling/Sources/Pushling/World/RuinInscriptions.swift`
 [7] `Pushling/Sources/Pushling/World/VisualEvents.swift`, `World/VisualEventBuilders.swift`
 [8] `Pushling/Sources/Pushling/Scene/HUDOverlay.swift`, `Scene/EvolutionProgressBar.swift`
-[9] `docs/plan/phase-3-world/PHASE-3.md` (P3-T1-09, P3-T3-03 through P3-T3-11) — original spec, numbers confirmed
+[9] `docs/archive/plan/phase-3-world/PHASE-3.md` (P3-T1-09, P3-T3-03 through P3-T3-11) — original spec, numbers confirmed
 [10] `PUSHLING_VISION.md` "Visual Earned Complexity", "HUD Philosophy", "The 'Wow Factor' Moments"

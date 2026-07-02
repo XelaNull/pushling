@@ -10,7 +10,7 @@ timestamp: 2026-07-02T00:00:00Z
 **A note on canon history.** `docs/DECISIONS.md` R3 (filed and resolved
 2026-07-02) originally ratified the shipped `FirstWordCeremony.swift`
 (Critter stage, the creature's own name) as canon, and characterized
-`docs/CREATURE-VOICE-DESIGN.md` §10's alternative design (Beast stage, the
+`docs/archive/CREATURE-VOICE-DESIGN.md` §10's alternative design (Beast stage, the
 developer's first name, deliberately no visual fanfare) as
 "considered-and-rejected history." Code verification during the SP4 wave
 found that characterization **incomplete**: the CREATURE-VOICE-DESIGN
@@ -19,7 +19,7 @@ independent milestone** (`VoiceSystem.speakFirstWord()` orchestrated by
 `VoiceIntegration.triggerFirstWordCeremony()`), which fires automatically
 2.5 seconds after the creature first reaches Beast stage.
 `PUSHLING_VISION.md`'s "Audio Voice (TTS)" section and
-`docs/plan/phase-5-speech/PHASE-5.md` P5-T2-08 both independently document
+`docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T2-08 both independently document
 this same second milestone under the name "the first audible word" — three
 of the four source documents (and the shipped code) agree it exists as
 designed. **R3-amended** (ratified 2026-07-02) has since corrected the
@@ -100,7 +100,7 @@ whisper-volume ratio (0.7×), and one-time nature.
 
 # Design Lineage: How Two Milestones Emerged From One Idea
 
-`docs/CREATURE-VOICE-DESIGN.md` §10 (dated 2026-03-14, well before R3's
+`docs/archive/CREATURE-VOICE-DESIGN.md` §10 (dated 2026-03-14, well before R3's
 2026-07-02 ruling) originally proposed a *single* "First Word Moment": Beast
 stage (200+ commits, under that document's now-superseded commits-eaten
 model — see [growth-stages](/REFERENCE/growth-stages.md)), the developer's
@@ -143,7 +143,7 @@ yours.
 [2] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`checkFirstWordCeremony`)
 [3] `Pushling/Sources/Pushling/Voice/VoiceSystem.swift` (`speakFirstWord`, `extractDeveloperFirstName`)
 [4] `Pushling/Sources/Pushling/Voice/VoiceIntegration.swift` (`triggerFirstWordCeremony`)
-[5] `docs/CREATURE-VOICE-DESIGN.md` §10 — The First Word Moment
-[6] `docs/plan/phase-5-speech/PHASE-5.md` — P5-T1-10, P5-T2-08
+[5] `docs/archive/CREATURE-VOICE-DESIGN.md` §10 — The First Word Moment
+[6] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-10, P5-T2-08
 [7] `PUSHLING_VISION.md` — Speech Evolution: The First Word; Audio Voice (TTS)
 [8] `docs/DECISIONS.md` — R3

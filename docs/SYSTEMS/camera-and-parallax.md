@@ -149,4 +149,4 @@ sequences belong to a creature-visual concept, not this one.
 [2] `git log -p -- Pushling/Sources/Pushling/Scene/CameraController.swift` — commits `4159177`, `f13b1e0`, `8860e91`
 [3] [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md) — 📐 status for live pan/zoom
 [4] [world & terrain parallax](/SYSTEMS/world-terrain-parallax.md) — parallax layer configuration that consumes this camera's state
-[5] `docs/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — described pan/zoom as already-live; several numeric claims there don't match the code's designed values either, e.g. pan dampening `deltaX * 0.003` vs code's `deltaX * 0.15`, zoom range `[0.5, 3.0]` vs code's per-stage `minZoom` always 1.0)
+[5] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — described pan/zoom as already-live; several numeric claims there don't match the code's designed values either, e.g. pan dampening `deltaX * 0.003` vs code's `deltaX * 0.15`, zoom range `[0.5, 3.0]` vs code's per-stage `minZoom` always 1.0)

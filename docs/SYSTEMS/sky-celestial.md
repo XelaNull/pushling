@@ -105,7 +105,7 @@ sinusoidal vertical bob (0.5pt amplitude × per-cloud 0.7-1.3 jitter, ~8s
 period). This canonizes the shipped direction over the design-era doc's
 "drift slowly left-to-right" — `CloudSystem.swift`'s own header and its
 `CloudConfig` doc comment both say leftward, and that is what ships; the
-"left-to-right" phrasing in `docs/3D-RENDERING-RESEARCH.md` §14 is
+"left-to-right" phrasing in `docs/archive/3D-RENDERING-RESEARCH.md` §14 is
 superseded design history. Clouds wrap around a virtual strip wider than the
 viewport (`sceneWidth / scrollFactor + 2×recyclePadding`) and recycle
 (reconfigure with fresh random parameters, reposition just past the right
@@ -142,6 +142,6 @@ position/bob math (no per-frame texture or shader work).
 [2] `Pushling/Sources/Pushling/World/MoonPhase.swift`
 [3] `Pushling/Sources/Pushling/World/StarField.swift`
 [4] `Pushling/Sources/Pushling/World/CloudSystem.swift`
-[5] `docs/plan/phase-3-world/PHASE-3.md` (P3-T2-01 through P3-T2-03) — original spec, all numbers confirmed unchanged except cloud drift direction
-[6] `docs/3D-RENDERING-RESEARCH.md` §14 "Clouds System" — superseded drift-direction/size/count claims, corrected above
+[5] `docs/archive/plan/phase-3-world/PHASE-3.md` (P3-T2-01 through P3-T2-03) — original spec, all numbers confirmed unchanged except cloud drift direction
+[6] `docs/archive/3D-RENDERING-RESEARCH.md` §14 "Clouds System" — superseded drift-direction/size/count claims, corrected above
 [7] `PUSHLING_VISION.md` "World Composition" (Sky, Clouds subsections)

@@ -33,7 +33,7 @@ this file is the navigation and sign-off layer on top of them.
 
 - **24 source documents** surveyed (per the original OKF migration survey);
   all 24 are accounted for below — either actively migrated by a wave,
-  covered as background-verification-only, or (for the two `docs/plan/`
+  covered as background-verification-only, or (for the two `docs/archive/plan/`
   artifacts no wave was ever dispatched to trace individually)
   reconciled directly in this pass against the survey's own disposition.
 - **371 source-section → concept mappings** (individual table rows) across
@@ -67,30 +67,30 @@ treated as a close call.
 - **Setup, Register with Claude Code, Development commands** — README-native onboarding instructions (`npm install`, `claude mcp add`, `npm run dev`); not canon knowledge, README stays `keep-as-is`. *(Note: SP2b later re-included the two `claude mcp add` registration forms specifically in `mcp-server.md#registration`, judging the prod-vs-dev choice a real gotcha rather than pure onboarding fluff — flagged by SP2b as diverging from SP2a's original call.)*
 - **File Structure tree** (flagged independently by both SP2a and SP2b) — directory listing is derivable from the repo and was already known-stale at survey time (missing `nurture-validation.ts`, `sense-helpers.ts`, `teach-handlers.ts`, `world-validation.ts`); not worth re-freezing.
 
-## `docs/plan/phase-4-embodiment/PHASE-4.md` (SP2a, SP3a, SP7)
+## `docs/archive/plan/phase-4-embodiment/PHASE-4.md` (SP2a, SP3a, SP7)
 - **⚑ P4-T2-06 Command Queue in Daemon** (4 modes, capacity 20) — SP2a's initial pass dropped this as unverified; SP3a's follow-up code search confirmed zero implementation exists (`CommandQueue`, queue-mode params: no matches) and **did** migrate it into `ai-command-queue.md#what-is-built-the-command-queue-as-it-runs-today` as documented-unbuilt design intent. Net effect: not lost, but downgraded from "built" to "designed, never shipped" — worth the Orchestrator's awareness since it's a real gap between `PUSHLING_VISION.md`'s implication and shipped behavior.
 - Goal, Dependencies, Integration Points, QA Gate — plan-wrapper scaffolding (agent assignments, effort estimates, phase-completion checklist); archival of the residual file is this wave's job.
 - Track 3 Goal/Agents/Estimated-effort header — same rationale, SP7's Track 3 slice.
 
-## `docs/plan/phase-2-creature/PHASE-2.md` (SP3a, background-only)
+## `docs/archive/plan/phase-2-creature/PHASE-2.md` (SP3a, background-only)
 - **P2-T2-01/07** ("AI-Directed layer is inert in Phase 2") — a historical build-state scoping statement from a moment in development long past; `AIDirectedLayer` is fully live today, documented fresh from code in `behavior-stack.md`.
 
-## `docs/CREATURE-VOICE-DESIGN.md` (SP4)
+## `docs/archive/CREATURE-VOICE-DESIGN.md` (SP4)
 - §2, §10, and opening/closing in-line Claude/Samantha dialogue framing — theatrical presentation device; every substantive claim the dialogue wraps is accounted for in the concept's prose.
 - §12 Implementation Roadmap — historical planning artifact, no content beyond what §2–11 already state as design targets.
 - **Appendix A Audio Budget** — per-operation cost estimates (`AVSpeechSynthesizer.write()`, AudioKit) for an architecture that was never built; shipped performance characteristics are in `voice-tts-stack.md`, verified against real code instead.
 - **Appendix B Sound File Inventory** (~575KB pre-recorded asset budget) — superseded entirely; the shipped system synthesizes everything programmatically (`SoundGenerators.swift` — "No audio files needed").
 
-## `docs/TTS-RESEARCH.md` (SP4)
+## `docs/archive/TTS-RESEARCH.md` (SP4)
 - §18 Implementation Roadmap — historical phase-sequencing narrative, no content beyond §16/§17 (already migrated); the Performance Targets sub-table was separately migrated.
 
-## `docs/plan/phase-5-speech/PHASE-5.md` (SP4, SP7)
+## `docs/archive/plan/phase-5-speech/PHASE-5.md` (SP4, SP7)
 - Goal, Dependencies, Architecture Notes, Performance Budget — plan-wrapper scaffolding; the "where speech lives" file-path claims (`SpeechFilter.swift`, `Feed/CommitEater.swift`) are stale, superseded by the wave's verified code paths.
 - QA Gate (Track 1/2/3 checklists) — testing artifact, not canon; every claim it verifies is confirmed/corrected in the prose sections it covers.
 - **P5-T3-10 Sleeping Creature Commit Processing** — sleep-state/dream-rendering detail (how eating *renders* while asleep) with no XP or detection implications of its own; belongs with a creature/sleep-cycle concept, not commit-feeding.
 - Track 3 Goal/Dependencies header, QA Gate checklist — plan-wrapper scaffolding (SP7's slice).
 
-## `docs/MULTITOUCH-CAMERA-REFERENCE.md` (SP5) — RECLASSIFIED (SP8c)
+## `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (SP5) — RECLASSIFIED (SP8c)
 - ~~**⚑ §5 Creature Scaling Under Zoom**~~ — originally proposed as
   dropped by SP5 ("no `cappedZoom`/`worldZoom`/counter-scale code exists
   anywhere; `PushlingScene.swift`'s real `depthScale = 1.0 − z × 0.35` is
@@ -101,46 +101,46 @@ treated as a close call.
   `docs/FEATURES/interactivity-unbuilt.md#live-pan--zoom` (table, formula,
   and hard cap preserved in full). No longer counted as a drop.
 
-## `docs/plan/phase-6-interactivity/PHASE-6.md` (SP5)
+## `docs/archive/plan/phase-6-interactivity/PHASE-6.md` (SP5)
 - Goal/Dependencies/Architecture Notes performance-budget table — no per-subsystem input-latency profiling exists in code to verify against (<0.5ms gesture recognition, etc.); unverifiable design targets, not measured/enforced values.
 - HUD overlay + near-evolution progress bar visual detail (from P6-T1-02b) — `HUDOverlay`/`EvolutionProgressBar` rendering concerns, not touch-routing; belongs to a scene/rendering concept.
 - Milestone unlock journal-entry JSON examples (P6-T2-04) and per-type invitation self-resolution animations + journal JSON (P6-T3-03) — no implementing/journal-write call sites found to verify against.
 - Mini-Game Result Screen visual layout (P6-T3-10) — rendering detail, belongs to a creature-visual/UI concept.
 - QA Gate (all Track 1-3 checklist items) — no prescriptive content beyond what the concepts already establish as built/verified.
 
-## `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md` (SP5)
+## `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md` (SP5)
 - Visual Design (item-sizing math, palette, ASCII mockups) — implementation detail for a never-built system; the design's *conclusions* are captured in `touch-bar-menu-patterns.md`'s prose instead.
 - **Technical Architecture** (`ContextMenuItem`/`ContextMenuDefinition`/etc. Swift signatures) — unbuilt code sketches; OKF concepts document built or clearly-scoped systems, not speculative unimplemented class APIs. The system's *existence and scope* is preserved; its hypothetical signatures are not.
 - Animation Specifications, Implementation Phases/File List/Integration Points/Node Budget/Performance Considerations, Open Questions, Success Criteria, Implementation Priority — project-planning scaffolding and open questions for a system that was never built and was superseded before they needed answering.
 - ASCII mockups within the Six Patterns evaluation and the Pattern 6 frame-budget table — visual aids / unverifiable-against-nonexistent-code detail with no standalone value beyond the evaluation prose already captured.
 
-## `docs/3D-RENDERING-RESEARCH.md` (SP6a, SP6b)
+## `docs/archive/3D-RENDERING-RESEARCH.md` (SP6a, SP6b)
 - **§14 "What We Explicitly Reject"** — identical content to §1-13's rejected-options analysis, already fully owned by `3d-rendering-feasibility.md#what-was-explicitly-rejected`; cross-linked, not restated.
 - §1 Claude/Samantha dialogue framing — narrative/roleplay flavor text; the substantive conclusion it wraps is preserved in prose.
 
-## `docs/VECTOR-GRAPHICS-RESEARCH.md` (SP6a, SP6b)
+## `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` (SP6a, SP6b)
 - **Sec 7's spine-chain/two-bone-IK skeleton-upgrade phases** — zero code trace found for this multi-phase plan; re-authoring an entirely-unbuilt plan as canon risked minting speculative content beyond what any wave's code search surfaced. (The "what NOT to do" half of the same section *was* migrated.)
 - Sec 10-11 (Codebase Grades, Implementation Priority) — the survey itself flags these as a point-in-time snapshot overtaken by commits within days of the document's date.
 - Sec 12 Sources (OLED-specific citation subset) — one shared bibliography backing Sec 3-11 as a whole; splitting out only the OLED-relevant entries would require editorial judgment calls about a bibliography this wave doesn't fully own.
 
-## `docs/plan/phase-3-world/PHASE-3.md` (SP6a)
+## `docs/archive/plan/phase-3-world/PHASE-3.md` (SP6a)
 - Integration Points, QA Gate — historical Phase 4/6/7/8 cross-references and a per-item checklist, superseded by the shipped, already-integrated system each concept documents directly.
 
-## `docs/plan/TODO-GRAPHICS-OVERHAUL.md` (SP6a)
+## `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` (SP6a)
 - The Problems (Problem 1/2: Flat Geometry, No Depth) — describes a pre-implementation state that no longer exists in any form; both are fully resolved in shipped code and are historical motivation, not current or intended state.
 - Implementation Order table, Key Files to Modify, Success Criteria — project-management scaffolding for a now-largely-complete plan (Success Criteria's substance was migrated into `visual-system-art-direction.md` instead).
 
-## `docs/TOUCHBAR-TECHNIQUES.md` (SP6a, SP6b)
+## `docs/archive/TOUCHBAR-TECHNIQUES.md` (SP6a, SP6b)
 - §1 Executive Summary, §4 Rendering Techniques, §5 Animation & Motion, §7 Game Design Patterns, §8 World Building & Terrain, §9 Performance Engineering, §12 Recommended Architecture & Roadmap — every one of these describes techniques for the **retired MTMR/bash-shell tamagotchi prototype** that predates and was fully replaced by the native daemon; none have any bearing on the shipped system. A single historical footnote survives in `touch-bar-prior-art.md`'s rendering-taxonomy row.
 - §1 line 36 / §3.1 (MTMR "Our Current Stack"), §3.2 BetterTouchTool, §6.1/§6.4/§6.5/§6.6 (MTMR/BTT-specific input mechanisms), §6.2 Input Latency by Tool, §10.1/§10.2/§10.6/§10.7 — same superseded-runtime or out-of-subject reasoning; the native mechanism each nominally maps to is separately documented from code where a live equivalent exists.
 
-## `docs/plan/PLAN.md` (not assigned to any wave — see note below)
+## `docs/archive/plan/PLAN.md` (not assigned to any wave — see note below)
 - **⚑ Entire file** — never individually traced by a wave sub-matrix. The survey's own disposition (`retire-archive`) already judged this a project-execution artifact whose durable facts (the "Shared Interfaces (Frozen After Phase 1)" bullets: IPC wire format, feed path) are secondary copies of `PUSHLING_VISION.md`/code-level truth, both fully migrated elsewhere (`ipc-wire-protocol.md`, `hook-sensory-system.md`). The survey's conditional "mint a Shared Interface Contracts Reference concept **only if** no other surveyed doc covers these contracts" was correctly never triggered — SP2a (IPC), SP2b (schema/deploy), and SP2a's `mcp-tool-contract.md` (tool signatures) collectively already cover every bullet. No content loss; confirmed in this pass, not a prior wave's oversight.
 
-## `docs/plan/teams/TEAMS.md` (not assigned to any wave — see note below)
-- **⚑ Entire file** — same situation as `PLAN.md`. The survey's own disposition (`retire-archive`) judged its unique content (agent roster, file-ownership table, sequential/parallel-track coordination rules) as describing a one-shot March 2026 build process superseded by the live M9 STAR coordination protocol; its durable facts (frame/node/latency budgets, tool lists, subsystem responsibilities, schema) are secondary copies of `PUSHLING_VISION.md`/`docs/TOUCHBAR-TECHNIQUES.md`/`CLAUDE.md`, all migrated elsewhere. Confirmed in this pass: no wave found unique canon-worthy content here beyond what those primary sources already carry.
+## `docs/archive/plan/teams/TEAMS.md` (not assigned to any wave — see note below)
+- **⚑ Entire file** — same situation as `PLAN.md`. The survey's own disposition (`retire-archive`) judged its unique content (agent roster, file-ownership table, sequential/parallel-track coordination rules) as describing a one-shot March 2026 build process superseded by the live M9 STAR coordination protocol; its durable facts (frame/node/latency budgets, tool lists, subsystem responsibilities, schema) are secondary copies of `PUSHLING_VISION.md`/`docs/archive/TOUCHBAR-TECHNIQUES.md`/`CLAUDE.md`, all migrated elsewhere. Confirmed in this pass: no wave found unique canon-worthy content here beyond what those primary sources already carry.
 
-## `docs/plan/phase-1-foundation/PHASE-1.md` (SP2b)
+## `docs/archive/plan/phase-1-foundation/PHASE-1.md` (SP2b)
 - **P1-T1-01** (Xcode project claim, empty-directory snapshot) — explicitly superseded per the survey's own driftSignal (no `.xcodeproj` exists; the SPM package is the shipped form); scaffolding-era history, not schema/persistence content.
 
 # Per-Source Tables
@@ -244,7 +244,7 @@ trace.
 
 Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/mcp-server.md`, `/ARCHITECTURE/system-architecture.md` | migrated | SP2a, SP2b. The 9 Tools table → `/ARCHITECTURE/mcp-tool-contract.md` (SP2a). Setup/Register/Dev-commands and File Structure tree → see Intentional Drops above (SP2a dropped, SP2b re-included registration substance).
 
-## `docs/MULTITOUCH-CAMERA-REFERENCE.md` (SP5)
+## `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (SP5)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -256,7 +256,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §7 Parallax Response | *(deferred to SP6a)* | deferred — wrong claim flagged (4 layers not 3) |
 | §9 Known Edge Cases | `/SYSTEMS/touch-input-pipeline.md`, `/REFERENCE/gesture-response-map.md`, `/SYSTEMS/camera-and-parallax.md` | migrated, corrected (real two-stage tap timer) |
 
-## `docs/3D-RENDERING-RESEARCH.md` (SP6a §14 only; SP6b §1-13/§15)
+## `docs/archive/3D-RENDERING-RESEARCH.md` (SP6a §14 only; SP6b §1-13/§15)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -265,7 +265,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §14 What We Explicitly Reject | *(dropped)* | see Intentional Drops | SP6a
 | §15 Sources | `/RESEARCH/3d-rendering-feasibility.md` Citations | migrated (43-source bibliography) | SP6b
 
-## `docs/IPC-PROTOCOL.md` (SP2a — entire file)
+## `docs/archive/IPC-PROTOCOL.md` (SP2a — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -276,7 +276,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | Tool Command Details (9 tools) | `/ARCHITECTURE/mcp-tool-contract.md`, `/ARCHITECTURE/ipc-command-catalog.md` | migrated, reconciled against code |
 | Wire Examples, Implementation Notes | `/ARCHITECTURE/ipc-wire-protocol.md` | migrated |
 
-## `docs/TTS-RESEARCH.md` (SP4 — entire file)
+## `docs/archive/TTS-RESEARCH.md` (SP4 — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -287,7 +287,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §18 Implementation Roadmap | *(dropped, Performance Targets sub-table migrated)* | see Intentional Drops |
 | Appendix A/B (License Summary, Repository Links) | `/RESEARCH/tts-engine-evaluation.md` | migrated |
 
-## `docs/CREATURE-VOICE-DESIGN.md` (SP4 — entire file)
+## `docs/archive/CREATURE-VOICE-DESIGN.md` (SP4 — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -300,7 +300,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §11 Personality-Driven Voice Variation | `/REFERENCE/creature-voice-design.md` | migrated, corrected (Specialty axis + 11-field schema flagged aspirational vs. shipped 4-axis/4-field) |
 | §2/§10/opening-closing dialogue framing, §12 Roadmap, Appendix A/B | *(dropped)* | see Intentional Drops |
 
-## `docs/EMBODIMENT-REVIEW.md` (SP2a §4; SP7 §1,2,3,5,6,7,8)
+## `docs/archive/EMBODIMENT-REVIEW.md` (SP2a §4; SP7 §1,2,3,5,6,7,8)
 
 | Section | → Target concept | Status | Wave |
 |---|---|---|---|
@@ -313,7 +313,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §7 The Embodiment Test | `/SYSTEMS/embodiment.md#the-embodiment-test` | migrated | SP7 |
 | §8 File Reference | `/SYSTEMS/embodiment.md#file-reference` | migrated, corrected (4 missing helper modules added) | SP7 |
 
-## `docs/TOUCHBAR-TECHNIQUES.md` (SP6a deferred-confirm; SP6b primary)
+## `docs/archive/TOUCHBAR-TECHNIQUES.md` (SP6a deferred-confirm; SP6b primary)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -326,7 +326,7 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | §10.5 Multi-Touch-Bar Multiplayer, §10.8 Doom Was Here, §11 Existing Projects Catalog | `/RESEARCH/touch-bar-prior-art.md` | migrated |
 | §1/§3.1/§3.2/§4/§5/§6.1/§6.2/§6.4-6.6/§7/§8/§9/§10.1-2/§10.6-7/§12 | *(dropped — superseded MTMR/bash runtime)* | see Intentional Drops |
 
-## `docs/VECTOR-GRAPHICS-RESEARCH.md` (SP6a Secs 3,4,6,7,8,12; SP6b Sec 9)
+## `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` (SP6a Secs 3,4,6,7,8,12; SP6b Sec 9)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -339,13 +339,13 @@ Disposition `keep-as-is`. | Transport, Architecture (two channels) | `/SYSTEMS/m
 | Sec 9 OLED Rendering Techniques | `/REFERENCE/oled-rendering-techniques.md` | migrated, per-technique build status annotated (SDF Glow corrected Future→shipped) |
 | Sec 1-2, 10-12 | *(not this wave's subject / dropped)* | see Intentional Drops |
 
-## `docs/plan/PLAN.md`, `docs/plan/teams/TEAMS.md`
+## `docs/archive/plan/PLAN.md`, `docs/archive/plan/teams/TEAMS.md`
 
 Not traced by any wave sub-matrix — see the **⚑** entries under Intentional
 Drops above; both confirmed in this pass to hold no unique canon content
 beyond what's already migrated from their named primary sources.
 
-## `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md` (SP5 — entire file)
+## `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md` (SP5 — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -354,7 +354,7 @@ beyond what's already migrated from their named primary sources.
 | UX Alternatives: Hardware Constraints, Six Patterns Evaluated, Recommended Architecture, Long-Press Disambiguation, Affordance, Nested Submenus, Accessibility, Context-Specific Contents | `/RESEARCH/touch-bar-menu-patterns.md` | migrated, corrected (palette hex values wrong; 5-color claim incomplete, real palette has 8) |
 | Visual Design, Technical Architecture, Animation Specs, Implementation Phases/Priority, Open Questions, Success Criteria | *(dropped)* | see Intentional Drops |
 
-## `docs/plan/TODO-GRAPHICS-OVERHAUL.md` (SP6a — entire file)
+## `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` (SP6a — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -365,7 +365,7 @@ beyond what's already migrated from their named primary sources.
 | Phase 5 Texture Atlas Swap | `/SYSTEMS/rendering-stack-2-5d.md#deferred--not-pursued` | migrated as a deferred-intent note |
 | The Problems, Phase 1 (deferred to SP6b/SP3b), Phase 3 (deferred to SP6b), Implementation Order/Key Files/Success Criteria | *(dropped or deferred)* | see Intentional Drops |
 
-## `docs/plan/phase-1-foundation/PHASE-1.md` (SP2b — background)
+## `docs/archive/plan/phase-1-foundation/PHASE-1.md` (SP2b — background)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -373,7 +373,7 @@ beyond what's already migrated from their named primary sources.
 | P1-T2-08/09 (crash recovery, backups) | `/OPERATIONS/persistence-and-recovery.md` | background-verified, corrected (class names updated to shipped `HeartbeatManager`/`BackupManager`) |
 | P1-T1-01 | *(dropped)* | see Intentional Drops |
 
-## `docs/plan/phase-2-creature/PHASE-2.md` (SP3a — background only)
+## `docs/archive/plan/phase-2-creature/PHASE-2.md` (SP3a — background only)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -381,7 +381,7 @@ beyond what's already migrated from their named primary sources.
 | P2-T2-01/07 | *(dropped)* | see Intentional Drops |
 | Personality/Emotional axis formulas, blend timings | *(pointer only)* | not migrated — actual Swift source read directly instead |
 
-## `docs/plan/phase-3-world/PHASE-3.md` (SP6a — entire file)
+## `docs/archive/plan/phase-3-world/PHASE-3.md` (SP6a — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -392,7 +392,7 @@ beyond what's already migrated from their named primary sources.
 | P3-T3-03..11 (complexity levels, puddles, ghost echo, HUD, progress bar, hunger desaturation, spectacles, ruin inscriptions) | `/SYSTEMS/world-complexity-ambient-effects.md` | migrated |
 | Integration Points, QA Gate | *(dropped)* | see Intentional Drops |
 
-## `docs/plan/phase-4-embodiment/PHASE-4.md` (SP2a Tracks 1,2,4; SP3a P4-T2-06/07/08,T4-04; SP7 Track 3)
+## `docs/archive/plan/phase-4-embodiment/PHASE-4.md` (SP2a Tracks 1,2,4; SP3a P4-T2-06/07/08,T4-04; SP7 Track 3)
 
 | Section | → Target concept | Status | Wave |
 |---|---|---|---|
@@ -405,7 +405,7 @@ beyond what's already migrated from their named primary sources.
 | Track 3 (hook framework, per-hook specs) | `/SYSTEMS/hook-sensory-system.md` | migrated, corrected (framework path corrected) | SP7 |
 | Goal/Deps/Integration/QA (both Track headers) | *(dropped)* | see Intentional Drops | SP2a, SP7 |
 
-## `docs/plan/phase-5-speech/PHASE-5.md` (SP4 Tracks 1,2; SP7 Track 3)
+## `docs/archive/plan/phase-5-speech/PHASE-5.md` (SP4 Tracks 1,2; SP7 Track 3)
 
 | Section | → Target concept | Status | Wave |
 |---|---|---|---|
@@ -417,7 +417,7 @@ beyond what's already migrated from their named primary sources.
 | Track 3 (commit-eating theater, XP formula, fallow bonus, rate limiting) | `/SYSTEMS/commit-feeding-xp.md` | migrated verbatim + new defect found (award path bypasses `XPCalculator`) | SP7 |
 | Goal/Deps/QA Gate (both tracks) | *(dropped)* | see Intentional Drops | SP4, SP7 |
 
-## `docs/plan/phase-6-interactivity/PHASE-6.md` (SP5 — entire file)
+## `docs/archive/plan/phase-6-interactivity/PHASE-6.md` (SP5 — entire file)
 
 | Section | → Target concept | Status |
 |---|---|---|
@@ -427,7 +427,7 @@ beyond what's already migrated from their named primary sources.
 | Track 4 (display modes, postcards, Konami, co-presence, campfire) | `/FEATURES/interactivity-unbuilt.md#track-4-advanced-gestures--display-modes` | migrated as unbuilt/built-differently |
 | Various journal-JSON examples, HUD/progress-bar visuals, result-screen layout, QA Gate | *(dropped)* | see Intentional Drops |
 
-## `docs/plan/phase-7-creation-systems/PHASE-7.md` (SP3a, SP3b — background only)
+## `docs/archive/plan/phase-7-creation-systems/PHASE-7.md` (SP3a, SP3b — background only)
 
 Read for context per both waves' briefs ("never lift stale schemas");
 its driftSignals were independently re-discovered from live code rather
@@ -439,7 +439,7 @@ CHECK vocabulary — all independently resolved fresh from code in
 `teach-system.md`/`world-objects-system.md`/`nurture-system.md` (SP3b) and
 `ai-command-queue.md` (SP3a).
 
-## `docs/plan/phase-8-polish/PHASE-8.md` (SP3a, SP3b — background only)
+## `docs/archive/plan/phase-8-polish/PHASE-8.md` (SP3a, SP3b — background only)
 
 Same background-only treatment. Confirmed still-relevant driftSignal:
 mutation badge names (doc's 10 vs. `milestoneSeedData`'s 10, only 3

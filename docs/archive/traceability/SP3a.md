@@ -47,7 +47,7 @@ Emotional State; Circadian cycle; Control Architecture / Behavior Stack)
 | Touch-AI Interaction Priority (5-step list, co-presence bonus mention) | `behavior-stack.md#the-four-layers` (layer-precedence explanation), `ai-command-queue.md#touch-priority-built-but-via-layer-precedence-not-a-dedicated-handler` | migrated, corrected — steps 1–3 (reflex fires, acknowledge, resume) are true via layer precedence; steps 4–5 (pause-not-cancel, 5s queue-clear) and the co-presence bonus are **not implemented** — documented as unbuilt design in `ai-command-queue.md` rather than silently presented as current behavior |
 | Key Design Principles 2-4 | `vision.md` (folded into Core Principles / handoff prose, not as a standalone numbered list) | migrated (distributed) |
 
-# docs/plan/phase-4-embodiment/PHASE-4.md (assigned: P4-T2-06, P4-T2-07,
+# docs/archive/plan/phase-4-embodiment/PHASE-4.md (assigned: P4-T2-06, P4-T2-07,
 P4-T2-08, P4-T4-04 — routed from SP2a's traceability; Track 4 daemon-
 reaction tables P4-T3-02/03/06 read for context only, not assigned)
 
@@ -58,7 +58,7 @@ reaction tables P4-T3-02/03/06 read for context only, not assigned)
 | P4-T2-08 Touch-AI Interaction Priority (5-step spec, co-presence bonus, `TouchInterruptHandler`) | `ai-command-queue.md#touch-priority-built--but-via-layer-precedence-not-a-dedicated-handler`, `behavior-stack.md` | migrated, corrected — touch-wins IS true today but via simple layer-precedence, not the designed dedicated handler; the 5s-clear and co-presence mechanics are documented as unbuilt, not fabricated as present |
 | P4-T4-04 Idle Timeout Gradient (continuous `autonomyBlend` formula, diamond alpha) | `ai-command-queue.md#idle-gradient-built-but-as-a-discrete-3-step-machine-not-a-continuous-blend` | migrated, corrected — the continuous blend formula does not exist; what exists is a discrete 3-step degradation inside `AIDirectedLayer`, which is a *different* mechanism from (and not to be confused with) `SessionManager`'s separately-documented (SP2a) diamond-opacity idle gradient that happens to share the same 10/20/30s thresholds |
 
-# docs/plan/phase-2-creature/PHASE-2.md (background only — retire-archive
+# docs/archive/plan/phase-2-creature/PHASE-2.md (background only — retire-archive
 disposition; read for code-check pointers only)
 
 | Source section | → Target concept#section | Status |
@@ -68,7 +68,7 @@ disposition; read for code-check pointers only)
 | P2-T2-01/07 Behavior stack file paths, "AI-Directed layer is inert in Phase 2" | *(none)* | dropped-with-justification — historical build-state scoping statement, describes a moment in development long past; current `AIDirectedLayer` is fully live, documented fresh from code in `behavior-stack.md` |
 | Personality/Emotional axis formulas, blend timings (used as pointers to `PersonalitySystem.swift`/`EmotionalState.swift`/`BlendController.swift`) | *(none — pointer only)* | not migrated — this wave read the *actual* Swift source directly rather than trusting the plan doc's constants, several of which (e.g. reflex/blend sub-timings) were more precisely verifiable in code than in the plan prose |
 
-# docs/plan/phase-7-creation-systems/PHASE-7.md, docs/plan/phase-8-polish/PHASE-8.md (background only)
+# docs/archive/plan/phase-7-creation-systems/PHASE-7.md, docs/archive/plan/phase-8-polish/PHASE-8.md (background only)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -77,7 +77,7 @@ disposition; read for code-check pointers only)
 # Citations
 
 [1] `PUSHLING_VISION.md`
-[2] `docs/plan/phase-4-embodiment/PHASE-4.md`
-[3] `docs/plan/phase-2-creature/PHASE-2.md`
-[4] `docs/plan/phase-7-creation-systems/PHASE-7.md`
-[5] `docs/plan/phase-8-polish/PHASE-8.md`
+[2] `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
+[3] `docs/archive/plan/phase-2-creature/PHASE-2.md`
+[4] `docs/archive/plan/phase-7-creation-systems/PHASE-7.md`
+[5] `docs/archive/plan/phase-8-polish/PHASE-8.md`

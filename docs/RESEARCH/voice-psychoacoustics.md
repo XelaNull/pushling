@@ -7,7 +7,7 @@ tags: [research, voice, psychoacoustics]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
-Migrated from `docs/CREATURE-VOICE-DESIGN.md` §3–6 (Pitch Manipulation,
+Migrated from `docs/archive/CREATURE-VOICE-DESIGN.md` §3–6 (Pitch Manipulation,
 Formant Shifting, Speaking Rate, Vocal Texture), excluding that section's
 macOS-implementation survey (Options A–D: `AVAudioUnitTimePitch`, AudioKit,
 custom vDSP/FFT, `AUAudioUnit`) — that implementation detail lives in
@@ -164,5 +164,5 @@ reverb are implemented.
 
 # Citations
 
-[1] `docs/CREATURE-VOICE-DESIGN.md` §3, §4, §5, §6
+[1] `docs/archive/CREATURE-VOICE-DESIGN.md` §3, §4, §5, §6
 [2] [voice-tts-stack](/SYSTEMS/voice-tts-stack.md) — shipped-code confirmation of what was and wasn't implemented

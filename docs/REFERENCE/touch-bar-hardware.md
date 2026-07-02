@@ -68,5 +68,5 @@ designed-but-unbuilt capabilities are not pruned.
 
 # Citations
 
-[1] `docs/TOUCHBAR-TECHNIQUES.md` — §2 (Hardware Specifications), §10.3 (Sensor Input), §10.4 (OLED Tricks)
+[1] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §2 (Hardware Specifications), §10.3 (Sensor Input), §10.4 (OLED Tricks)
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarController.swift` (scene dimensions, `preferredFramesPerSecond`)

@@ -205,7 +205,7 @@ messaging appended after it).
 
 # Citations
 
-[1] `docs/EMBODIMENT-REVIEW.md` §3 (The Awakening Pipeline)
+[1] `docs/archive/EMBODIMENT-REVIEW.md` §3 (The Awakening Pipeline)
 [2] `PUSHLING_VISION.md` — "Session Start: Embodiment Awakening" (lines 685–809)
 [3] `hooks/session-start.sh` (792 lines, full read)
 [4] `Pushling/Sources/Pushling/State/Schema.swift:90-91` — `stage` CHECK constraint

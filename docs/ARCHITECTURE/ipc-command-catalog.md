@@ -33,7 +33,7 @@ more utility commands also exempt, and 9 stateful commands that map roughly
 | `debug_nodes` | — | `{}` | `{nodes: [...], total_count, visible_count, creature: {x, y, z_position, facing, stage}}` |
 
 `reload`, `screenshot`, and `debug_nodes` are **not documented in the older
-`docs/IPC-PROTOCOL.md`** but are live, session-exempt commands
+`docs/archive/IPC-PROTOCOL.md`** but are live, session-exempt commands
 (`SocketServer.swift` session-exempt set; `CommandRouter.allCommands`). They
 have no corresponding MCP tool — they're operator/debug commands, invoked
 directly over the socket (e.g. `echo '{"id":"1","cmd":"screenshot"}' | nc -U /tmp/pushling.sock`).
@@ -69,7 +69,7 @@ a plain acknowledgement, still `ok: true`:
 
 The real screenshot capability lives on the separate, undocumented-until-now
 `screenshot` command above, which writes a PNG file and returns its path — a
-different shape than the base64-inline contract `docs/IPC-PROTOCOL.md` and
+different shape than the base64-inline contract `docs/archive/IPC-PROTOCOL.md` and
 `PUSHLING_VISION.md` describe. `pushling_sense(aspect: "visual")` on the MCP
 side forwards to `sense`/`visual` (not to `screenshot`), so the MCP tool
 inherits the "not yet implemented" response today.
@@ -105,7 +105,7 @@ preferences, 12 quirks, 10 routine slots.
 
 # Current Implementation Note — `move`'s Target Parameter
 
-`docs/IPC-PROTOCOL.md`, `PUSHLING_VISION.md`, and `docs/plan/phase-4-embodiment/PHASE-4.md`
+`docs/archive/IPC-PROTOCOL.md`, `PUSHLING_VISION.md`, and `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
 all describe `move`'s `goto`/`walk`/`approach_edge` actions as taking a
 **named or numeric `target`** (e.g. `"center"`, `"edge_left"`, or a pixel
 number), and `mcp/src/tools/move.ts` sends exactly that shape:
@@ -135,4 +135,4 @@ does, in addition to the numeric-pixel path it already supports).
 [3] `Pushling/Sources/Pushling/IPC/ActionHandlers.swift`
 [4] `Pushling/Sources/Pushling/IPC/NurtureHandlers.swift`, `CreationHandlers.swift` (`handleNurture` dispatch)
 [5] `mcp/src/tools/move.ts`, `mcp/src/tools/nurture.ts`
-[6] `docs/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))
+[6] `docs/archive/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))

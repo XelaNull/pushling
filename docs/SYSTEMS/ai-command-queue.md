@@ -9,7 +9,7 @@ timestamp: 2026-07-02T00:00:00Z
 
 This concept exists specifically to close the verification gap SP2a's
 traceability flagged and routed to this wave: does the "Command Queue in
-Daemon" system described in `docs/plan/phase-4-embodiment/PHASE-4.md`
+Daemon" system described in `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
 (P4-T2-06/07/08, P4-T4-04) exist in code as specified? **Verified answer:
 partially.** The action-timeout mechanism (P4-T2-07) is built and matches
 the spec closely. The 4-mode command queue (P4-T2-06) and the
@@ -137,5 +137,5 @@ and the co-presence bonus.
 [3] `Pushling/Sources/Pushling/IPC/ActionHandlers.swift` (call sites constructing `AICommand`)
 [4] `Pushling/Sources/Pushling/Input/CreatureTouchHandler.swift` (reflex-only touch handling, no AI-queue interaction)
 [5] `Pushling/Sources/Pushling/IPC/SessionManager.swift` (the separate, session-level idle gradient)
-[6] `docs/plan/phase-4-embodiment/PHASE-4.md` — P4-T2-06 (Command Queue in Daemon), P4-T2-07 (Action Timeout System), P4-T2-08 (Touch-AI Interaction Priority), P4-T4-04 (Idle Timeout Gradient)
+[6] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — P4-T2-06 (Command Queue in Daemon), P4-T2-07 (Action Timeout System), P4-T2-08 (Touch-AI Interaction Priority), P4-T4-04 (Idle Timeout Gradient)
 [7] `docs/archive/traceability/SP2a.md` — the original routing note for this verification

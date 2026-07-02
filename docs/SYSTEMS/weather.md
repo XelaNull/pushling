@@ -43,7 +43,7 @@ generic Ash-at-50%-alpha every other state uses, per `skyDarkenColor`.
 
 **Transitions crossfade over a randomized 30-60 seconds**
 (`transitionDurationRange = 30...60`) — this corrects
-`docs/plan/phase-3-world/PHASE-3.md`'s fixed "30-second crossfade" spec;
+`docs/archive/plan/phase-3-world/PHASE-3.md`'s fixed "30-second crossfade" spec;
 the shipped duration is randomized within that range each time, per
 `WeatherTransition.duration`. During a transition, the outgoing renderer's
 intensity fades `1.0 → 0.0` and the incoming renderer's fades `0.0 → 1.0` in
@@ -171,7 +171,7 @@ fresh random draw each check. On a hit, `onWorldShapeEffect` fires up to
 `WeatherState`, no reaction of any kind); the mechanism as shipped is
 narrower than its own trigger table implies. This is the wave's own new
 finding, not carried from any source doc — `PUSHLING_VISION.md` and
-`docs/plan/phase-5-speech/PHASE-5.md` name "Apex world-shaping speech" as a
+`docs/archive/plan/phase-5-speech/PHASE-5.md` name "Apex world-shaping speech" as a
 capability without this level of mechanism detail.
 
 # Citations
@@ -182,8 +182,8 @@ capability without this level of mechanism detail.
 [4] `Pushling/Sources/Pushling/World/StormSystem.swift`
 [5] `Pushling/Sources/Pushling/World/FogRenderer.swift`
 [6] `Pushling/Sources/Pushling/Creature/CatBehaviors+Weather.swift`
-[7] `docs/plan/phase-3-world/PHASE-3.md` (P3-T2-04 through P3-T2-09) — original spec; crossfade duration corrected above
-[8] `docs/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 "Weather & Atmosphere Polish" — all listed items (teardrop rain, variable snow-flake sizes, firefly trail) have since shipped; see this concept and [world complexity & ambient effects](/SYSTEMS/world-complexity-ambient-effects.md) for confirmation
+[7] `docs/archive/plan/phase-3-world/PHASE-3.md` (P3-T2-04 through P3-T2-09) — original spec; crossfade duration corrected above
+[8] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 "Weather & Atmosphere Polish" — all listed items (teardrop rain, variable snow-flake sizes, firefly trail) have since shipped; see this concept and [world complexity & ambient effects](/SYSTEMS/world-complexity-ambient-effects.md) for confirmation
 [9] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`worldShapeTriggers`, `checkWorldShaping`)
 [10] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`wireSpeechSystem` — `onWorldShapeEffect` wiring)
-[11] `docs/plan/phase-5-speech/PHASE-5.md` P5-T1-12 "Apex World-Shaping Speech"
+[11] `docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T1-12 "Apex World-Shaping Speech"

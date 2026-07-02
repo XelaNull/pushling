@@ -22,7 +22,7 @@ wave's assigned scope, routed to the wave that owns that subject — not a
 fidelity loss. Deferred sections were read for context only; nothing from
 them was lifted as truth into an SP5 concept.
 
-# docs/MULTITOUCH-CAMERA-REFERENCE.md (primary source — entire file assigned)
+# docs/archive/MULTITOUCH-CAMERA-REFERENCE.md (primary source — entire file assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -38,7 +38,7 @@ them was lifted as truth into an SP5 concept.
 | §9 Known Edge Cases (Petting vs Slow Drag, Camera Lock + Zoom, Multi-Touch Suppression, Tap 300ms Delay, Pan Decay, Coordinate Conversion) | `touch-input-pipeline.md` (multi-touch suppression, tap disambiguation), `gesture-response-map.md#petting-stroke` (petting vs. slow-drag), `camera-and-parallax.md` (pan decay) | migrated, corrected — "Tap 300ms Delay" is corrected to the real two-stage timer (0.3s then a further 0.15s) in `touch-input-pipeline.md`; coordinate-conversion-for-hit-testing edge case deferred to SP6a as rendering/scene detail, not touch-pipeline detail |
 | §10 Key Source Files | *(distributed across all concepts' Citations sections)* | migrated (distributed, not as a standalone table) |
 
-# docs/plan/phase-6-interactivity/PHASE-6.md (primary source — entire file assigned)
+# docs/archive/plan/phase-6-interactivity/PHASE-6.md (primary source — entire file assigned)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -77,7 +77,7 @@ them was lifted as truth into an SP5 concept.
 | Track 4 P6-T4-01 through 05 (Display Modes, Postcards, Konami, Co-Presence, Campfire) | `interactivity-unbuilt.md#track-4-advanced-gestures--display-modes` | migrated as unbuilt (P6-T4-01/02/03/05) or built-differently (P6-T4-04, noted explicitly rather than mis-filed as missing) |
 | QA Gate (all checklist items) | *(none)* | dropped-with-justification — a per-item unchecked QA checklist for shipped Track 1-3 work has no prescriptive content beyond what the concepts above already establish as built/verified; archival of the residual `PHASE-6.md` file is SP8's job |
 
-# docs/plan/TODO-CONTEXT-MENU-SYSTEM.md (primary source — entire file assigned; disposition: migrate, separate built-canon from unbuilt-📐)
+# docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md (primary source — entire file assigned; disposition: migrate, separate built-canon from unbuilt-📐)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -116,7 +116,7 @@ them was lifted as truth into an SP5 concept.
 
 # Citations
 
-[1] `docs/MULTITOUCH-CAMERA-REFERENCE.md`
-[2] `docs/plan/phase-6-interactivity/PHASE-6.md`
-[3] `docs/plan/TODO-CONTEXT-MENU-SYSTEM.md`
+[1] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md`
+[2] `docs/archive/plan/phase-6-interactivity/PHASE-6.md`
+[3] `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md`
 [4] `PUSHLING_VISION.md`

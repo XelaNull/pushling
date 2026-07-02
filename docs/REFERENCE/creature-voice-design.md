@@ -7,8 +7,8 @@ tags: [voice, aesthetic, design]
 timestamp: 2026-07-02T00:00:00Z
 ---
 
-Merges `docs/CREATURE-VOICE-DESIGN.md` §1–2 and §11 with
-`docs/TTS-RESEARCH.md` §17 (Voice Character Design), which the survey
+Merges `docs/archive/CREATURE-VOICE-DESIGN.md` §1–2 and §11 with
+`docs/archive/TTS-RESEARCH.md` §17 (Voice Character Design), which the survey
 identified as covering the same territory and directed to be merged here
 rather than authored standalone. Verified against
 `Pushling/Sources/Pushling/Voice/VoicePersonality.swift` and
@@ -72,7 +72,7 @@ used to produce it:
 | Sage | Wisdom — a small being that has something to say |
 | Apex | Transcendence — a voice unlike anything else |
 
-This register progression is the part of `docs/CREATURE-VOICE-DESIGN.md` §2
+This register progression is the part of `docs/archive/CREATURE-VOICE-DESIGN.md` §2
 that the survey scoped as still-valid design intent. The per-stage *commit
 thresholds* and *pipeline mechanics* that same section originally paired
 with this arc are superseded — see below.
@@ -105,7 +105,7 @@ Preserved here because it explains *why* the emotional-register progression
 above reads the way it does, not because any part of the original pipeline
 is still on a roadmap.
 
-# Emotion → Voice Mapping (from `docs/TTS-RESEARCH.md` §17)
+# Emotion → Voice Mapping (from `docs/archive/TTS-RESEARCH.md` §17)
 
 | Emotion state | Pitch shift | Rate | Volume | Extra |
 |---|---|---|---|---|
@@ -139,7 +139,7 @@ personality-reactive layer described next.
 | Systems specialty | Slightly deeper, more precise articulation |
 | Web Frontend specialty | Brighter, more varied pitch |
 
-`docs/CREATURE-VOICE-DESIGN.md` §11 describes this as one of **five**
+`docs/archive/CREATURE-VOICE-DESIGN.md` §11 describes this as one of **five**
 personality axes (adding a "Specialty" axis to Energy/Verbosity/Focus/
 Discipline) with a full 10-category timbre table (Systems, Web Frontend, Web
 Backend, Script, JVM, Mobile, Data, Infra, Docs, Polyglot). Verified against
@@ -165,7 +165,7 @@ as aspirational design intent with no corresponding code today:
 
 # The Original Aspirational `VoiceProfile` Schema
 
-`docs/CREATURE-VOICE-DESIGN.md` §11 specified an 11-field `VoiceProfile`
+`docs/archive/CREATURE-VOICE-DESIGN.md` §11 specified an 11-field `VoiceProfile`
 generated at birth: `basePitchShift`, `formantShift`, `speakingRate`,
 `breathiness`, `microPitchRange`, `reverbMix`, `chorusDepth`, `eqWarmth`,
 `eqBrightness`, `syllableTiming`, `pauseBetweenWords`. The shipped
@@ -180,7 +180,7 @@ schema.
 
 # Voice Selection for TTS Base (Historical, macOS-Voice Era)
 
-`docs/CREATURE-VOICE-DESIGN.md` §9 evaluated macOS system voices (Samantha,
+`docs/archive/CREATURE-VOICE-DESIGN.md` §9 evaluated macOS system voices (Samantha,
 Alex, Zarvox, Fred, and the "Enhanced" download variants) as candidate TTS
 bases for the `AVSpeechSynthesizer`-era design. This is entirely superseded
 once the sherpa-onnx/Kokoro architecture was adopted — Kokoro ships its own
@@ -189,8 +189,8 @@ historical rationale only.
 
 # Citations
 
-[1] `docs/CREATURE-VOICE-DESIGN.md` §1, §2, §9, §11
-[2] `docs/TTS-RESEARCH.md` §17
+[1] `docs/archive/CREATURE-VOICE-DESIGN.md` §1, §2, §9, §11
+[2] `docs/archive/TTS-RESEARCH.md` §17
 [3] `Pushling/Sources/Pushling/Voice/VoicePersonality.swift`
 [4] `Pushling/Sources/Pushling/Behavior/BehaviorSelector.swift` (`PersonalityAxis`)
 [5] `Pushling/Sources/Pushling/Behavior/LayerTypes.swift` (`PersonalitySnapshot`, `EmotionalSnapshot`)

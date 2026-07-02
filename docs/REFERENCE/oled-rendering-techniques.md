@@ -103,5 +103,5 @@ fringing at the edges of a stroke.
 [1] `Pushling/Sources/Pushling/World/PushlingPalette.swift`
 [2] `Pushling/Sources/Pushling/Creature/CreatureNode+Effects.swift`
 [3] `Pushling/Sources/Pushling/Scene/PushlingScene.swift`
-[4] `docs/VECTOR-GRAPHICS-RESEARCH.md` — Sec 9 (OLED Rendering Techniques), the Ori Principle (Sec 3)
-[5] `docs/TOUCHBAR-TECHNIQUES.md` — §10.4 (OLED Tricks)
+[4] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` — Sec 9 (OLED Rendering Techniques), the Ori Principle (Sec 3)
+[5] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §10.4 (OLED Tricks)

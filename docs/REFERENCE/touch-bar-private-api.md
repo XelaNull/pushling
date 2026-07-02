@@ -97,4 +97,4 @@ touch-delivery claim itself.
 [1] `Pushling/Sources/Pushling/TouchBar/DFRPrivateAPI.swift`
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarController.swift`
 [3] `Pushling/Sources/Pushling/TouchBar/TouchBarView.swift`
-[4] `docs/TOUCHBAR-TECHNIQUES.md` — §3.3 (Native NSTouchBar API), §6.2-6.3 (Input Latency, Positional Touch)
+[4] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §3.3 (Native NSTouchBar API), §6.2-6.3 (Input Latency, Positional Touch)

@@ -35,7 +35,7 @@ context only; nothing from them was lifted as truth into an SP6b concept.
 | Technical Performance (frame budget table) | *(not this wave)* | deferred — owned by whichever wave authors the Performance Budgets reference concept per the survey's proposed-concepts list; not assigned to SP6b |
 | All other sections (Philosophy, Identity/Birth, Growth Stages, Personality, Gameplay, Speech Evolution, Behavior Stack, MCP Integration, Hooks, Creation Systems, Surprises, Journal, Installation, P Button, Release Celebrations, Roadmap) | *(not this wave)* | deferred — owned by SP2a/SP2b/SP3a/SP3b/SP4/SP5/SP6a/SP7 per the bundle plan; not read in depth by this wave beyond the assigned Visual System subsections |
 
-# docs/3D-RENDERING-RESEARCH.md (assigned: the Research Note split only — §1-13, §15)
+# docs/archive/3D-RENDERING-RESEARCH.md (assigned: the Research Note split only — §1-13, §15)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -50,7 +50,7 @@ context only; nothing from them was lifted as truth into an SP6b concept.
 | §15 Sources | `3d-rendering-feasibility.md` Citations (full 43-source bibliography reproduced individually, not summarized) | migrated |
 | Compiled/date footer | `3d-rendering-feasibility.md` frontmatter + intro line | migrated |
 
-# docs/TOUCHBAR-TECHNIQUES.md (assigned: §2, §3.3 (reconciled), §3.4-3.6, §6.2-6.3 (corrected), §10.3-10.5, §10.8, §11, Sources)
+# docs/archive/TOUCHBAR-TECHNIQUES.md (assigned: §2, §3.3 (reconciled), §3.4-3.6, §6.2-6.3 (corrected), §10.3-10.5, §10.8, §11, Sources)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -75,7 +75,7 @@ context only; nothing from them was lifted as truth into an SP6b concept.
 | §12 Recommended Architecture & Roadmap (Phases 0-4, decision framework) | *(none — superseded roadmap)* | dropped-with-justification — prescribes MTMR/bash phased work against files that do not exist in the repo; the roadmap was bypassed for the native path (survey driftSignal). Phase 4's "prototype Swift daemon with SpriteKit" line is the one item that came true, and it's simply superseded by the fact that this bundle documents the daemon that resulted |
 | Sources & References | `touch-bar-prior-art.md` Citations (full bibliography reproduced individually) | migrated |
 
-# docs/VECTOR-GRAPHICS-RESEARCH.md (assigned: Sec 9 only, reconciled with TOUCHBAR-TECHNIQUES' OLED subject)
+# docs/archive/VECTOR-GRAPHICS-RESEARCH.md (assigned: Sec 9 only, reconciled with TOUCHBAR-TECHNIQUES' OLED subject)
 
 | Source section | → Target concept#section | Status |
 |---|---|---|
@@ -88,6 +88,6 @@ context only; nothing from them was lifted as truth into an SP6b concept.
 # Citations
 
 [1] `PUSHLING_VISION.md`
-[2] `docs/3D-RENDERING-RESEARCH.md`
-[3] `docs/TOUCHBAR-TECHNIQUES.md`
-[4] `docs/VECTOR-GRAPHICS-RESEARCH.md`
+[2] `docs/archive/3D-RENDERING-RESEARCH.md`
+[3] `docs/archive/TOUCHBAR-TECHNIQUES.md`
+[4] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md`

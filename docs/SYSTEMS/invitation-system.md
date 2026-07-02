@@ -112,5 +112,5 @@ cooldown identically.
 [1] `Pushling/Sources/Pushling/Input/InvitationSystem.swift`
 [2] `Pushling/Sources/Pushling/Input/CreatureTouchHandler.swift` (the sole owner — `recordActivity`, `update`, `activeInvitation`, `acceptInvitation` call sites; absence of state-sync assignments)
 [3] `PUSHLING_VISION.md` — "Creature-Initiated Invitations" table
-[4] `docs/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-01/02/03
+[4] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-01/02/03
 [5] [gesture-response map](/REFERENCE/gesture-response-map.md), [mini-games](/SYSTEMS/mini-games.md)

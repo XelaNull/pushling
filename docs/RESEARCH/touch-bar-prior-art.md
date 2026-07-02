@@ -228,4 +228,4 @@ not this concept.)
 [21] [awesome-touchbar](https://github.com/z11h/awesome-touchbar) — Curated list
 
 ### Primary Source
-[22] `docs/TOUCHBAR-TECHNIQUES.md` — §3.4-3.6 (Software Ecosystem), §10.5 (Multi-Touch-Bar Multiplayer), §10.8 (Doom Was Here), §11 (Existing Projects Catalog, all subsections), Sources & References (full document, compiled 2026-03-14 by 11 parallel research agents)
+[22] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §3.4-3.6 (Software Ecosystem), §10.5 (Multi-Touch-Bar Multiplayer), §10.8 (Doom Was Here), §11 (Existing Projects Catalog, all subsections), Sources & References (full document, compiled 2026-03-14 by 11 parallel research agents)

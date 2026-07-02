@@ -84,7 +84,7 @@ no separate window buffer.
 
 `GestureType` (`Input/GestureRecognizer.swift:14-27`) has **exactly 12
 cases** — no `pinchZoom`, no `twoFingerDrag`. An older reference doc
-(`docs/MULTITOUCH-CAMERA-REFERENCE.md`) describes 13 gesture types
+(`docs/archive/MULTITOUCH-CAMERA-REFERENCE.md`) describes 13 gesture types
 including those two; that document predates or diverged from the shipped
 recognizer. Code is canon here.
 
@@ -179,4 +179,4 @@ gestureRecognizer`, `gestureRecognizer.delegate = creatureTouchHandler`,
 [2] `Pushling/Sources/Pushling/Input/GestureRecognizer.swift`
 [3] `Pushling/Sources/Pushling/TouchBar/TouchBarView.swift` (`wireGestureRecognizers`, header comment at line 8)
 [4] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (lines 264, 674-685)
-[5] `docs/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — 13-gesture claim, deleted `GestureRecognizer+MultiTouch.swift` note)
+[5] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — 13-gesture claim, deleted `GestureRecognizer+MultiTouch.swift` note)
