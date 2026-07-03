@@ -266,9 +266,8 @@ physically positionable at the screen's left edge for this to read; today
 body pose pipeline's grounds](/SYSTEMS/body-pose-pipeline.md#the-dropped-wire-code-verified-ground-truth)
 and [camera-and-parallax.md](/SYSTEMS/camera-and-parallax.md)'s hard Y-clamp
 precedent for the vertical axis). The dossier assigns an analogous X-axis
-"edge-clamp" to camera-and-parallax.md's own deepening pass; as of this
-wave's authoring that concept has no edge-clamp section yet (grep-verified).
-Bunting and [Sleep Geography](/REFERENCE/personality-emotional-state.md)
+"edge-clamp" to [camera-and-parallax.md's Camera Dwell & Edge-Clamp section](/SYSTEMS/camera-and-parallax.md#camera-dwell--edge-clamp-designed-not-built), which now owns the mechanism.
+Bunting and [Sleep Geography](/SYSTEMS/idle-life-and-rest.md#4-sleep-geography)
 both require it — this doc does not invent the mechanism, only the
 requirement: the camera must be able to suspend its normal center-tracking
 long enough for the creature to stand beside the real button frame above
