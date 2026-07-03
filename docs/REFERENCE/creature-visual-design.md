@@ -16,8 +16,11 @@ the spring/noise formulas animating these shapes (see
 silhouette-stacking or glow layered on top (see
 [the Enhanced 2.5D rendering stack](/SYSTEMS/rendering-stack-2-5d.md)), the
 XP thresholds/sizes gating which stage is active (see
-[growth stages](/REFERENCE/growth-stages.md)), or palette color values (see
-[the 8-color palette](/REFERENCE/palette.md)). Source: `Creature/CatShapes.swift`,
+[growth stages](/REFERENCE/growth-stages.md)), palette color values (see
+[the 8-color palette](/REFERENCE/palette.md)), or which emotion-driven state
+each body-part controller is told to display frame-to-frame (see
+[personality & emotional state](/REFERENCE/personality-emotional-state.md#emotional-visual-feedback-axis--body-language)
+for the full axis→body-part table). Source: `Creature/CatShapes.swift`,
 `Creature/ShapeFactory.swift`, `Creature/StageRenderer.swift`,
 `Creature/BodyPartController.swift`, `Scene/DiamondIndicator.swift`.
 
@@ -155,6 +158,30 @@ on reconvergence; the glow node trails the main diamond at 2× scale and a
 low, breathing-like alpha (0.12 ± 0.05, modulated independently in idle vs.
 thinking states).
 
+## Three Designed-But-Unbuilt Distinction Cues
+
+`PUSHLING_VISION.md`'s "When AI Acts, Human Sees It" table (lines 1009–1023)
+specifies three further per-action visual cues beyond the diamond state
+machine above, none of which a repo-wide grep found any trace of
+(`diamondIcon`/`bubbleCorner`, `wandSparkle`, `sparkleTrail` and close
+variants all return zero hits under `Pushling/Sources/`):
+
+- **A tiny diamond icon in the corner of Claude-spoken speech bubbles** —
+  distinguishing AI speech from autonomous speech at a glance, beyond the
+  already-shipped 0.3s-vs-0.8s expression-transition speed difference (see
+  [the behavior stack](/SYSTEMS/behavior-stack.md#the-blend-controller)).
+- **A wand-sparkle effect at the point of a Claude-driven world change** —
+  a momentary visual marker distinct from the change itself.
+- **A sparkle trail on complex Claude-performed animations** — visually
+  distinguishing a choreographed `pushling_perform` from ordinary movement.
+
+This closes out the migration's prior "deferred to SP6a" placeholder for
+this table: the diamond's own materialize/dissolve/split/reconverge state
+machine above is fully shipped and covers most of the vision doc's table,
+but these three finer-grained per-action cues are confirmed unbuilt design
+intent, not merely undocumented — preserved here rather than silently
+dropped, since this concept is the Diamond Indicator's owning authority.
+
 # Citations
 
 [1] `Pushling/Sources/Pushling/Creature/CatShapes.swift`
@@ -165,3 +192,4 @@ thinking states).
 [6] `Pushling/Sources/Pushling/Scene/DiamondIndicator.swift`
 [7] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3-6 (Design Philosophy, Proportions, Stage-by-Stage Recommendations, Feature Introduction Timeline)
 [8] `docs/archive/3D-RENDERING-RESEARCH.md` §14 "Cat Visual Enhancement" — target-state part table, cross-verified against `CatShapes.swift`
+[9] `PUSHLING_VISION.md` — "When AI Acts, Human Sees It" (lines 1009–1023)

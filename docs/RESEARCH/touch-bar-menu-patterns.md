@@ -213,9 +213,66 @@ P-button strip solves the same "how does the human discover available
 actions" problem this document explores, at the cost of the
 creature-centric interaction language Pattern 6 was designed around.
 
+## The P Button Choreography (Code-Verified)
+
+The always-visible P button (`ProgressButtonView`, `TouchBar/TouchBarView.swift:528`)
+is an AppKit overlay drawn above all SpriteKit content, including the fog of
+war — it serves as both an evolution-progress indicator and the gateway into
+the menu strip above.
+
+**Progress indicator (gas-gauge border).** The button's border is a
+`CAShapeLayer` path (`makeBorderPath()`) that starts at bottom-center and
+traces clockwise (bottom-right corner → up the right side → top-right →
+across the top → top-left → down the left side → back to bottom-center). A
+dim track layer (`white 0.25 alpha`, 1.0pt) shows the full outline
+permanently; a bright progress layer (Tide, `0.831`/`1.0` at `0.8` alpha,
+1.5pt, round cap) traces `strokeEnd` from 0 toward the creature's fraction
+of XP to next evolution, animated over **1.5 seconds with `easeOut`** —
+"like water filling a glass," exactly as designed.
+
+**Tap sequence** (`toggleButtonTapped()` → `openMenu()`):
+1. `flash()` — the border's `strokeColor` and the button's background both
+   flash from white to their resting color over **0.4s, `easeOut`**.
+2. The label is set to `"M"` and `expand()` runs: the frame grows from the
+   collapsed `24×22` (at `x:2, y:4`) to the expanded `30×30` (full Touch Bar
+   height, `x:0, y:0`) over **0.35s `easeOut`**. On completion the label text
+   grows from **9pt at 40% alpha ("P") to 12pt at 80% alpha ("M")** —
+   matching the vision doc's numbers exactly.
+3. After a **0.45s** delay (buffer past the 0.35s expand), the menu strip
+   slides out (`MenuStripView.show()`, 0.25s `easeOut`) and the M button
+   begins a **20-second linear fade** (`MenuStripView.fadeDuration`).
+4. Pressing any strip button calls `restoreBrightness()`, which cancels and
+   restarts both the M button's fade and the strip's own 20s fade timer.
+5. When the fade completes (or M is tapped again while open), `closeMenu()`
+   fires `scene.onToggleTouchBar?()` — the **M button's actual behavior is
+   to show the OS's default Touch Bar** (brightness/volume/etc.), not to
+   revert to "P" first; collapsing back to the subtle P button (`collapse()`,
+   0.25s `easeIn`) happens as part of that same close path.
+
+**Shipped menu strip order**: Sound (♪), Stats, About, Pet, Feed, Play, and
+conditionally MCP (hidden once `HookInstaller.installMCP()` has run) — six
+fixed items plus one conditional, not the four from the original "Outcome"
+summary above.
+
+**Sound toggle**: ♪ dims to a muted red (`displayP3 0.6/0.2/0.2` at `0.5`
+alpha, border `0.5/0.15/0.15` at `0.8`) when muted, full white (`1.0` alpha
+`0.8`) when active — matches the vision doc's "dims to red when muted, white
+when active" exactly.
+
+**Stats popup — one numeric correction to the vision doc.** `StatsPopupView`
+is **`360×30`**, not the `280×30` the vision doc specifies — verified
+directly from `StatsPopupView`'s `override init(frame:)` call site in
+`TouchBarView.swift`. Everything else about it already matches this
+document's own "Outcome" summary above (a 5-page swipeable overlay,
+[X] close button) and goes beyond the vision doc's single-page description
+(stage, XP, hearts, streak) into personality prose, history counts, and
+appearance descriptions across its 5 pages.
+
 # Citations
 
 [1] `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md` — full original research (UX Alternatives & Interaction Patterns section)
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarMenu.swift` (`MenuStripView`, `StatsPopupView`)
 [3] `Pushling/Sources/Pushling/App/GameCoordinator+MenuActions.swift` (`menuPet`, `menuFeed`, `menuPlay`)
 [4] [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)
+[5] `Pushling/Sources/Pushling/TouchBar/TouchBarView.swift` (`ProgressButtonView`, `toggleButtonTapped`, `openMenu`)
+[6] `PUSHLING_VISION.md` — "The P Button: Control Strip Gateway" (lines 1485–1504)

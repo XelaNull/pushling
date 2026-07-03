@@ -117,6 +117,78 @@ Always computing, even while a higher layer is fully in control — this is
 what lets the "AI releases control" fadeout hand off smoothly instead of
 needing to spin the Autonomous layer up cold.
 
+## The 12 Cat Behaviors
+
+`CatBehaviors.swift` + `CatBehaviorsExtended.swift` register **12 cat-specific
+choreographies**, `.behavior(name:)` states the Autonomous layer's
+`BehaviorSelector` can pick weighted-randomly, each an independent state
+machine composing `CreatureNode`'s body-part controllers. All 12 exist and
+are wired (`GameCoordinator` holds the registry) — code-verified against the
+vision doc's 12-item catalog, name-for-name:
+
+| # | Name (code) | Min stage | Duration | Cooldown | Weight | Priority | Trigger semantic |
+|---|---|---|---|---|---|---|---|
+| 1 | `slow_blink` | Drop | 1.0–1.2s | 120s | 0.8 | 3 | Affection/trust — eyes close halfway, hold, open |
+| 2 | `kneading` | Critter | 4–8s | 300s | 0.5 | 2 | Pre-sleep ritual — front paws alternate, eyes half-close |
+| 3 | `headbutt` | Critter | 1.2–1.8s | 180s | 0.6 | 3 | Affection display — walks to edge, bonks, recoils |
+| 4 | `predator_crouch` | Critter | 1.5–2.5s | 60s | 0.7 | 5 | Hunting incoming commits — low stance, butt-wiggle ×3, ears flat |
+| 5 | `loaf` | Critter | 30–60s | 600s | 0.3 | 1 | Maximum comfort — all paws tucked, perfect rectangle |
+| 6 | `grooming` | Critter | 3–5s | 240s | 0.5 | 2 | Post-meal idle — paw-lick, head tilt |
+| 7 | `zoomies` | Critter | 2–4s | 600s | 0.2 | **6 (highest)** | Sudden speed burst — no warning, no reason |
+| 8 | `chattering` | Critter | 1.5–2.5s | 180s | 0.4 | 4 | Jaw vibrates at flying birds/particles — prey drive |
+| 9 | `if_i_fits_i_sits` | Critter | 10–20s | 600s | 0.2 | 2 | Squeezes into the smallest terrain gap available |
+| 10 | `knocking_things_off` | **Beast** | 2.5–3.5s | 420s | 0.3 | 3 | Deliberately pushes a terrain object off, watches, looks at camera |
+| 11 | `tail_chase` | Critter | 4–6s | 480s | 0.2 | 3 | Notices own tail, chases in circles, catches it, pretends nothing happened |
+| 12 | `tongue_blep` | Drop | 15–30s | 600s | 0.15 | 1 (lowest) | Tongue sticks out 1px, stays out, creature doesn't notice (also [Surprise #42](/REFERENCE/surprise-catalog.md)) |
+
+`zoomies` carries the highest priority (6) of any autonomous behavior —
+matching its vision-doc framing as an override-everything cat moment;
+`tongue_blep` the lowest, letting anything else preempt it. `loaf` and
+`if_i_fits_i_sits` are the two longest-running (up to 60s and 20s
+respectively) and both carry a 600s cooldown to match, so the creature isn't
+stuck loafing or wedged for a large fraction of an active session.
+`knocking_things_off` is the only one of the 12 gated to Beast+ rather than
+Critter+ or Drop+ — code-verified, not vision-doc-specified.
+
+## Absence-Scaled Wake Behaviors
+
+`AbsenceAnimations.swift` implements the vision doc's "longer absence, more
+excited reunion" wake rule as **6 graduated categories** (finer-grained than
+the vision doc's 3-tier framing), each a keyframed `AnimationKeyframe`
+sequence consumed by the Autonomous layer on wake:
+
+| Category | Absence | Animation duration | Choreography |
+|---|---|---|---|
+| `brief` | < 1hr | 1.0s | Quick stretch, stand |
+| `shortBreak` | 1–8hr | 3.0s | Ears droop → yawn → stretch → stand → kneading (Critter+) |
+| `overnight` | 8–24hr | 4.0s | Sleep-curl → stir → big yawn → dramatic stretch (paws extend) → shake head, look around |
+| `fewDays` | 1–3d | 5.0s | Overnight sequence + cautious crouch-sniff (ears perk, eyes wide, whiskers forward) → stand and look around |
+| `longAbsence` | 3–7d | 6.0s | Sleep-curl with **cobweb** metadata → stir/shake-cobwebs → eyes wide (recognizes developer) → tail poofs → **run across the bar** (walk speed 50) → slow down |
+| `extended` | 7+d | 8.0s | Deep sleep, **heavy cobwebs** → slow stir → vigorous shake (cobwebs fly off) → extreme happiness (wide eyes, poofed tail, smile) → **zoomies** (walk speed 70) → turn and zoom back → slow down, overjoyed (happy eyes, wagging tail, smile) → calm |
+
+This directly and verifiably implements the vision doc's "No guilt — longer
+absence = more excited reunion" rule: animation duration, walk speed, and
+emotional intensity (droop → stretch → wide-eyed → poofed-tail → full
+zoomies) all scale monotonically with absence length, with cobweb-shedding
+appearing only at 3+ days and heavy cobwebs only at 7+.
+
+**Late-night lantern** (`LateNightLantern`, same file): after **10PM**
+(`activationHour = 22`), if the developer is still active, the creature
+produces a tiny Gilt lantern that bobs gently at its side; it persists until
+**5AM** (`dismissHour`) or a **30-minute cooldown** after manual dismissal.
+If the developer goes idle for **10 minutes** (`sleepIdleSeconds`) while the
+lantern is out, the lantern dims to a "sleeping with lantern" state (alpha
+0.4, dimmer glow) rather than being dismissed — "solidarity, not judgment,"
+per the vision doc, implemented as the creature keeping the lantern lit
+through its own idle/sleep rather than putting it away.
+
+**Not built**: the vision doc's Working-row ambient behaviors — ears
+tracking toward the keyboard and idle daydreams referencing recent commit
+messages — have no corresponding code (`isTyping`/keystroke-tracking greps
+return nothing); preserved as unbuilt intent in
+[the feature roadmap](/FEATURES/roadmap.md#tier-3-developer-workflow-integration)
+rather than asserted as live here.
+
 # The Blend Controller
 
 `BlendController` never lets the resolved per-frame state snap
@@ -167,4 +239,6 @@ always continues even here), and `reset(stage:position:facing:)`.
 [6] `Pushling/Sources/Pushling/Behavior/AIDirectedLayer.swift`
 [7] `Pushling/Sources/Pushling/Behavior/AutonomousLayer.swift`
 [8] `Pushling/Sources/Pushling/Input/CreatureTouchHandler.swift` (reflex trigger call sites)
-[9] `PUSHLING_VISION.md` — Control Architecture: The 4-Layer Behavior Stack; The Blend Controller; Touch-AI Interaction Priority
+[9] `Pushling/Sources/Pushling/Creature/CatBehaviors.swift`, `CatBehaviorsExtended.swift` (all 12 cat behaviors)
+[10] `Pushling/Sources/Pushling/Creature/AbsenceAnimations.swift` (`AbsenceCategory`, `AbsenceWakeAnimation`, `LateNightLantern`)
+[11] `PUSHLING_VISION.md` — Control Architecture: The 4-Layer Behavior Stack; The Blend Controller; Touch-AI Interaction Priority; Cat behaviors baked into Layer 1 (lines 158–171); Core Loop (lines 393–404)

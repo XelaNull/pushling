@@ -88,6 +88,26 @@ drive them):
 4. **The Reaction (up to ~12s).** Commit stats float up first, then the XP
    number, then a type-specific speech reaction (see below).
 
+## Commit While Asleep — Designed, Not Wired
+
+`PUSHLING_VISION.md` (line 1405) describes a distinct commit-during-sleep
+theater: the creature stirs without fully waking, mumbles the first word of
+the commit message in a dream bubble, and chews in its sleep. **This is
+unbuilt.** A repo-wide search for a sleep-gated branch in the commit-arrival
+path (`GameCoordinator`'s `wireFeedProcessor()`, `CommitEatingAnimation.swift`)
+found no check against sleep/`isSleeping` state anywhere in that path — a
+sleeping creature runs the same 4-phase eating theater above regardless of
+its sleep state. The pieces this design would need already exist
+independently, just not wired together: `SpeechCoordinator.showDreamBubble()`
+renders a dusk-colored dream bubble (currently only on wake, see
+[journal & dreams](/REFERENCE/journal-and-dreams.md#1-wake-time-dream-bubble-matches-the-vision-doc)),
+and `VoiceSystem`/`VoiceIntegration` both carry a "dream mumble" audio
+generation path (sleep-talk at 0.4x volume) that is likewise not called from
+the commit-arrival path. Preserved here as intent-canon and flagged as a
+defined-but-unwired gap, consistent with
+[the teach system](/SYSTEMS/teach-system.md#dream-integration-designed-not-wired)'s
+"mastery-weighted trick replay" gap of the same shape.
+
 # Commit Type Classification — 17 Types, Priority-Ordered
 
 `CommitTypeDetector.detect` classifies every commit into exactly one of 17
@@ -126,6 +146,51 @@ nibbles), 20–99 → 150ms (steady munching), 100–199 → 100ms (enthusiastic
 message as lazy if it's a single word under 15 chars, under 5 chars total,
 or an exact match against `{fix, wip, stuff, update, changes, misc, asdf,
 test, ., tmp, save}`.
+
+## Per-Type Eating Choreography — Vision Doc vs. What Actually Renders
+
+`PUSHLING_VISION.md`'s "Reactions by Commit Type" table (lines 442–460)
+describes rich per-type *physical* choreography beyond the speech-text/
+eating-speed columns above — a revert eating **backward** (characters
+re-materializing out of the mouth), a merge arriving from **both sides of
+the bar** and eaten with alternating head-swivels, a force push **slamming
+in and knocking the creature tumbling** with puffed-up fur, a huge refactor
+triggering **food-coma paralysis** with an achievement popup, sparkle
+confetti on CSS, and a cosmetic nightgown for late-night commits.
+
+**None of this is implemented.** A direct read of
+`CommitEatingAnimation.swift` (the only file that renders the eating
+theater) finds exactly four places where `commitType` branches animation,
+not text: eating speed (`msPerChar`: goblin-mode 400ms for large/huge
+refactors, 1000ms crunchy for tests, 1400ms reluctant for lazy messages,
+size-scaled otherwise), font size (18pt huge refactor, 16pt large refactor,
+size-scaled otherwise), arrival drift speed (force push only: 200pt/s
+"slams in fast" vs. the normal 80/40/12pt/s distance-based easing — this is
+the one surviving trace of the vision doc's force-push choreography, not a
+knockback), and crumb-particle tint (Gilt for CSS, Moss for docs, Ember for
+PHP). A grep across `Pushling/Sources/` for `revert`/`bothSides`/`tumble`/
+`puffed`/`foodComa`/`achievementPopup`/`nightgown`/`confetti`-adjacent
+identifiers in this animation path returns nothing (a `body = "tumble"`
+keyframe exists only in an unrelated surprise, `VisualSurprises.swift`, and
+a `"food_coma"` behavior exists only as an unrelated taught-routine step in
+`RoutineEngine.swift` — neither is reachable from commit eating). The
+speech-text and eating-speed/font/particle differences documented in the
+table above are the complete, actual per-type variation; everything else in
+the vision doc's richer table below is preserved as unbuilt design intent,
+not corrected code documentation:
+
+| Commit type | Vision-doc choreography (unbuilt) |
+|---|---|
+| Large/huge refactor | "Goblin mode" eating, then food-coma: lies on side, belly exposed, groans happily; huge refactor (500+ lines) adds an achievement popup on first occurrence |
+| Test files | Crunchy chewing sound design; flexes after eating |
+| Documentation | Reads each character carefully, vegetable-eating framing |
+| CSS/styling | Sparkle confetti on each character eaten; preens after |
+| Revert | Eats **backward** — characters exit the mouth in reverse order, re-materializing |
+| Force push | Text slams in at 3x speed and **knocks the creature tumbling backward**, fur visibly puffed up on recovery |
+| Merge | Text arrives from **both sides of the bar simultaneously**, eaten with alternating left-right head swivels, double the crumb particles |
+| Empty commit | Predator crouch and pounce land on nothing; sniffs the air, opens and closes its mouth |
+| Late night (midnight–5AM) | Eats in a cosmetic nightgown |
+| First of the day / first in new repo | Extra tail-poof flourish beyond the existing enthusiastic-pounce/speech reaction |
 
 # The XP Formula
 
@@ -267,3 +332,5 @@ depth before being asserted as canon.
 [3] `hooks/post-commit.sh` (full read, 319 lines)
 [4] `Pushling/Sources/Pushling/Feed/XPCalculator.swift`, `CommitTypeDetector.swift`, `FeedTypes.swift`, `HookEventProcessor.swift`
 [5] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`wireFeedProcessor`, lines ~358–462)
+[6] `Pushling/Sources/Pushling/Creature/CommitEatingAnimation.swift` (full read — the only per-type animation branching in the eating theater)
+[7] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`showDreamBubble`), `Pushling/Sources/Pushling/Voice/VoiceSystem.swift`, `VoiceIntegration.swift` (dream-mumble generation, unwired to commit arrival)

@@ -122,6 +122,52 @@ IPC-response time**, not persisted SQLite columns; a grep for
 `emergent_state`/`mood_summary`/`circadian_phase` as table columns finds
 none.
 
+# Emotional Visual Feedback: Axis → Body Language
+
+The four emotional axes above are not just numbers Claude reads via
+`pushling_sense` — they are **visually manifest** on the creature's body
+every frame, independent of the named [emergent states](#emergent-states)
+above. `EmotionalVisualController.update()` (called once per frame from
+`PushlingScene.updateRender()`) reads `EmotionalState` directly and drives
+the body-part controllers ([creature visual design](/REFERENCE/creature-visual-design.md)
+owns the controllers themselves):
+
+| Emotion condition | Body part | Visual effect |
+|---|---|---|
+| Satisfaction < 30 | Tail | `"low"` (droops) |
+| Satisfaction < 30 | Ears | `"droop"` |
+| Curiosity > 70 | Ears | `"perk"` (forward) |
+| Curiosity > 70 | Eyes | `"wide"` |
+| Energy > 70 | Breathing | period overridden to 2.0s (faster) |
+| Energy < 30 | Breathing | period overridden to 3.5s (slower) |
+| Energy < 30 | Eyes | `"half"` (sleepy) |
+| Contentment > 75 | Tail | `"sway"` (happy) |
+| Hangry (satisfaction < 25 AND energy > 40) | Ears | `"back"` (flatten) |
+| Hangry | Tail | `"twitch_tip"` (annoyed) |
+
+Hangry is checked first and, when active, suppresses the sad/curious/content
+ear and tail overrides for that frame (it does not suppress the breathing or
+mouth mapping below). All ten rows are code-verified against
+`EmotionalVisualController.swift`'s exact threshold literals — they match
+the vision doc's "Emotional Visual Feedback" table number-for-number.
+
+**Hysteresis**: each of the six tracked boolean states (sad/curious/content/
+tired/hangry, plus the mouth state machine below) only flips once the axis
+crosses its threshold by **`activateMargin = 5.0`** points beyond the
+trigger direction (e.g. curiosity must exceed 75, not just 70, to *activate*
+"curious," but must drop below 65, not just 70, to *deactivate* it) — the
+5-point margin the vision doc calls for, implemented as an asymmetric
+re-arm band around each threshold rather than a single crossing check.
+
+**Beyond the vision doc**: `EmotionalVisualController` also drives a mouth
+state machine with no equivalent in `PUSHLING_VISION.md` — pout (hangry,
+highest priority), smile (satisfaction > 70 AND contentment > 70), frown
+(satisfaction < 30), `open_small` (curiosity > 70), and an occasional yawn
+(energy < 25, 60-second cooldown) when none of the above apply, falling
+back to closed. This is documented here as canon (later-built, matching this
+migration's rule for undocumented shipped systems) rather than treated as a
+gap.
+
 # Circadian Cycle
 
 `CircadianCycle` (`Pushling/Sources/Pushling/Creature/CircadianCycle.swift`)
@@ -149,4 +195,5 @@ minute values verified above.
 [5] `Pushling/Sources/Pushling/Creature/GitHistoryScanner.swift` (lifetime personality formulas)
 [6] `Pushling/Sources/Pushling/Creature/EggAccumulator.swift` (5-commit personality formulas, identity bias)
 [7] `Pushling/Sources/Pushling/IPC/SenseHandlers.swift`, `mcp/src/tools/sense.ts`, `mcp/src/tools/sense-helpers.ts` (`emergent_state`, `mood_summary`, `circadian_phase`)
-[8] `PUSHLING_VISION.md` — Personality System; Emotional State; Circadian cycle
+[8] `Pushling/Sources/Pushling/Creature/EmotionalVisualController.swift` (axis→body-part bridge, hysteresis, mouth state machine)
+[9] `PUSHLING_VISION.md` — Personality System; Emotional State; Circadian cycle; Emotional Visual Feedback (lines 1507–1524)

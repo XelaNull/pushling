@@ -55,7 +55,12 @@ wake-up path — pulls a cached prior utterance via `SpeechCache.dreamUtterance(
 extracts a 1–3 word fragment via `SpeechCache.dreamFragment(from:)`, and
 renders it as a dusk-colored, wavy, low-opacity dream-style speech bubble.
 This is the literal "...the authentication..." mechanic the vision doc
-describes, verified still present and wired to the wake animation.
+describes, verified still present and wired to the wake animation. A related,
+separately-designed mechanic — a commit arriving *while the creature is
+asleep* triggering this same dream bubble with the commit message's first
+word — is not wired to the commit-arrival path; see
+[commit feeding & XP](/SYSTEMS/commit-feeding-xp.md#commit-while-asleep-designed-not-wired)
+for the full gap detail.
 
 ## 2. Autonomous Nightly DreamEngine (undocumented in the vision doc — new)
 

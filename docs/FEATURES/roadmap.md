@@ -51,6 +51,14 @@ place, to distinguish it from a pure blank-slate idea.
 
 # Tier 3: Developer Workflow Integration
 
+- **Working-row ambient behaviors** — the vision doc's "Working" Core Loop
+  row describes the creature's ears tracking toward the keyboard while the
+  developer types, and idle daydreams referencing recent commit messages.
+  No keystroke-tracking or typing-state code exists anywhere in
+  `Pushling/Sources/` — this is a genuine gap, not a documentation omission,
+  distinct from the absence-scaled wake behaviors and late-night lantern
+  that *are* shipped for the same Core Loop table (see
+  [the behavior stack](/SYSTEMS/behavior-stack.md#absence-scaled-wake-behaviors)).
 - **Build status awareness** — watch the build directory; celebrate green,
   worry at red.
 - **Debugging pattern detection** — rapid commit-revert cycles trigger
