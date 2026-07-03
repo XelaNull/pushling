@@ -1,10 +1,10 @@
 ---
 type: System
 title: World & Objects System
-description: Claude shapes the environment via pushling_world — weather, visual events, time overrides, ambient sound, persistent placed objects with autonomous interaction scoring, wear/repair, a legacy shelf, and companions.
+description: Claude shapes the environment via pushling_world — weather, visual events, time overrides, ambient sound, persistent placed objects with autonomous interaction scoring, wear/repair, a legacy shelf, companions, height metadata, attachment scoring, and the milestone-decal budget.
 status: Live
-tags: [creation, world, objects, companions]
-timestamp: 2026-07-02T00:00:00Z
+tags: [creation, world, objects, companions, attachment, decals]
+timestamp: 2026-07-03T00:00:00Z
 ---
 
 `pushling_world` is Claude's single tool for sculpting the environment
@@ -62,6 +62,9 @@ vocabulary.)
 - **Max 2 particle emitters** from placed objects active at once (vision
   doc claim; not independently re-verified against a named constant this
   wave — flagged as unverified, not contradicted).
+- **Milestone-mark decals have a separate 5-node budget**, entirely
+  outside this cap — see [Memory-Decal Budget](#memory-decal-budget-milestone-marks)
+  below.
 
 # Preset Catalog — A Live Cross-Process Mismatch
 
@@ -100,6 +103,65 @@ not a doc question: either the daemon's `presets` dict needs the missing 6
 entries added, or `VALID_PRESETS` needs to shrink to the 14 that actually
 resolve. Flagged for `DECISIONS.md`/the Orchestrator; this is a new drift
 signal, not one carried forward from the survey.
+
+# Object Height Metadata — New This Wave
+
+**Designed, not built.** Verified this wave: neither preset source
+encodes a height. The MCP `VALID_PRESETS` entries
+(`world-validation.ts:23-28`) carry no height/size-z field, and the Swift
+`presets` dict (`WorldHandlers.swift:240-261`) resolves only
+`base_shape`, `color`, `name`, `size` (a uniform scale factor), and an
+optional `glow` flag — no vertical-extent value exists anywhere in either
+source. [Terrain footing](/SYSTEMS/locomotion-and-gait.md#4-terrain-footing--hop-overs)'s
+hop-vs-detour arbitration is explicitly blocked on this field not
+existing; this section originates it, since object presets are this
+concept's authority, not locomotion's.
+
+Heights below are derived from each preset's existing `size` scale factor
+and its `base_shape`'s implied real-world profile (a `pillar` needs more
+vertical extent than a `disc` at the same `size`), kept internally
+consistent so locomotion's already-authored per-stage ceilings (Critter
+≤3pt hops, Beast ≤5pt hops, Sage/Drop never hop regardless of height)
+produce a sensible spread of outcomes without further design work there:
+
+| Preset | Base shape (Swift-resolved) | `size` | Height (pt, NEW) |
+|---|---|---|---|
+| `treat` | sphere | 0.4 | 0.4 |
+| `feather`\* | — (unresolved) | — | 0.5 |
+| `fresh_fish` | disc | 0.6 | 0.6 |
+| `little_mirror` | disc | 0.6 | 0.8 |
+| `tiny_hat`\* | — (unresolved) | — | 0.8 |
+| `yarn_ball` | sphere | 0.7 | 0.9 |
+| `ball` | sphere | 0.8 | 1.0 |
+| `bell`\* | — (unresolved) | — | 1.0 |
+| `garden`\* | — (unresolved) | — | 1.2 |
+| `flower_pot`\* | — (unresolved) | — | 1.5 |
+| `music_box` | box | 0.7 | 1.8 |
+| `cozy_bed` | dome | 1.2 | 2.0 (low cushion despite its wide footprint) |
+| `lantern` | diamond | 0.6, glow | 2.0 |
+| `crystal` | diamond | 0.8, glow | 2.2 |
+| `bench` | box | 1.0 | 2.5 |
+| `cardboard_box` | box | 1.0 | 3.0 |
+| `campfire` | triangle | 1.0, glow | 3.5 |
+| `fountain` | dome | 1.0 | 4.0 |
+| `shrine`\* | — (unresolved) | — | 6.0 |
+| `scratching_post` | pillar | 1.0 | 7.0 |
+
+\* One of the [six MCP-only presets](#preset-catalog--a-live-cross-process-mismatch)
+that pass MCP validation but have no Swift-side resolution — these
+heights are assigned pending that drift's fix; until the daemon's
+`presets` dict gains an entry (or `VALID_PRESETS` shrinks), these objects
+silently degrade to a bare default sphere and their height, like their
+shape and color, would never actually render.
+
+**Where height stops mattering.** Furniture-category presets (`cozy_bed`,
+`scratching_post`, `bench`, `fountain`) carry high [category base
+weights](#autonomous-interaction--15-templates-not-14) (0.7–0.9) that
+frequently clear the [0.4 investigation
+threshold](#hop-vs-investigate-arbitration) before a hop-over is ever
+evaluated — height mostly governs Toy and Decorative presets encountered
+below the threshold during ordinary path traversal, not the objects the
+creature actually wants to visit.
 
 # Autonomous Interaction — 15 Templates, Not 14
 
@@ -147,7 +209,35 @@ Flagged as a new drift for `DECISIONS.md`: the CHECK constraint appears to
 be a leftover from an earlier, abandoned interaction-naming scheme and
 should be migrated to the 15-name `ObjectInteractionEngine` vocabulary.
 
-# Wear, Repair & the Legacy Shelf
+# Hop-vs-Investigate Arbitration
+
+`AutonomousLayer.objectWanderThreshold`
+(`AutonomousLayer+ObjectInteraction.swift:21`) is a real, shipped
+constant — **0.4** — gating whether the creature's highest-scoring nearby
+object is interesting enough to interrupt idle/walk flow for an approach
+(`selectObjectInteraction`, same file:57). This is exactly the
+"investigation threshold" [locomotion-and-gait.md's Terrain Footing
+arbitration rule](/SYSTEMS/locomotion-and-gait.md#4-terrain-footing--hop-overs)
+describes in the abstract ("if an object's attraction score is above the
+investigation threshold, it wins and converts what would have been a
+hop-over into an approach") — this section supplies the concrete number
+so that concept can consume the real constant rather than inventing a
+parallel one.
+
+**The arbitration, stated plainly:** during a walk bout, for each placed
+object a path-scan encounters, `AttractionScorer.scoreObjects` produces a
+`totalScore`. If `totalScore >= 0.4`, the object wins outright and the
+walk bout redirects into `startObjectInteraction` — an approach,
+choreographed per [Autonomous Interaction](#autonomous-interaction--15-templates-not-14)
+above — and the [height-metadata](#object-height-metadata--new-this-wave)
+hop-vs-detour decision never runs. Below 0.4, the object is beneath
+notice for interaction purposes, and height alone decides hop vs. detour.
+No new scoring logic is needed here: `objectWanderThreshold` already
+exists and already gates exactly this decision for the idle-interaction
+path — Terrain Footing's job is to call the same check from its own
+walk-bout path-scan, not build a second one.
+
+# Wear, Attachment & the Legacy Shelf
 
 Objects accumulate wear (0.0–1.0) per interaction, at a category-specific
 rate (`ObjectWearSystem.wearRates`, e.g. `batting_toy: 0.03/interaction`
@@ -165,6 +255,36 @@ callbacks. The vision doc's additional flourishes (creature sniffing the
 empty spot, Sage+ narration, a 2-hour grace period before an object can be
 "knocked off the edge") were not found as separate implemented mechanics
 this wave — preserved as intent-canon, not contradicted.
+
+## Per-Object Attachment — The Favorite
+
+**Designed, not built.** No `attachment` field exists on `world_objects`
+today (verified: [the schema](#schema) has `wear` but nothing analogous)
+— [play-bouts.md owns The Favorite's growth curve and
+choreography](/SYSTEMS/play-bouts.md#6-the-favorite--toy-attachment--farewell)
+and calls for this field to "live beside `wear` in the same per-object
+store"; this concept's job is to spec that storage, since it owns the
+`world_objects` schema.
+
+**Proposed column:** `attachment REAL NOT NULL DEFAULT 0.0 CHECK
+(attachment >= 0.0 AND attachment <= 1.0)`, alongside `wear` in
+`world_objects` (`Schema.swift:294-295`).
+
+**Growth/decay formula (this wave's design number — nothing shipped to
+verify it against yet):**
+
+| Event | Effect |
+|---|---|
+| Completed play bout | `attachment += 0.05 × personalityAffinity` — reuses [AttractionScorer's existing per-category personality-affinity multiplier](#autonomous-interaction--15-templates-not-14) verbatim (e.g. `chasing`'s `energy` axis: 2.0 high / 0.5 low) as the growth-rate multiplier, so a well-matched toy for a high-energy creature gains +0.10/bout and a mismatched one +0.025/bout |
+| Idle day (no play) | `attachment -= 0.01/day`, doubled to `-0.02/day` at Critter — the concrete number behind [play-bouts.md's stage-gating table](/SYSTEMS/play-bouts.md#6-the-favorite--toy-attachment--farewell) ("Critter = fickle... 2x decay") |
+| Sage, once `attachment >= 0.9` | Decay suspended (0.0/day) — the concrete mechanism behind "Sage = keeps a Favorite for life" |
+| Object wears to the legacy shelf | `attachment` is retained on the soft-deleted row (not reset) — the farewell beat play-bouts.md specs reads this value to decide whether a departing object earns the 10s/20s sit at all |
+
+**The Favorite** is whichever active object holds the highest
+`attachment` value once it clears **0.6** — below that threshold, no
+object is distinguished enough to earn the bedtime-carry/defense/farewell
+choreography that [play-bouts.md](/SYSTEMS/play-bouts.md#6-the-favorite--toy-attachment--farewell)
+owns in full; this concept does not re-specify that choreography.
 
 # Companions
 
@@ -202,6 +322,41 @@ fleeing exists in `CompanionSystem.swift` (no touch input is read anywhere
 in the file) — PHASE-4's "flee from touch" clause remains unbuilt design
 intent, not a mismatch to be corrected.
 
+# Memory-Decal Budget (Milestone Marks)
+
+**Designed, not built; the number originated in a sibling concept, adopted
+here as this concept's authority over `WorldObjectRenderer`'s node
+budgets.** [Companionship rituals' Milestone
+Pilgrimage](/SYSTEMS/companionship-rituals.md#6-milestone-pilgrimage--revisiting-the-places-where-life-happened)
+specs a permanent, low-alpha terrain decal stamped at evolution, first
+word, mastered trick, and 7-day-streak milestones, and explicitly flags
+that this concept "does not yet carry a decal section" and should adopt
+its number rather than re-deriving one. This section is that adoption.
+
+**The cap is structurally separate from [the 40-node interactive
+cap](#object-capacity--placement).** `WorldObjectRenderer.maxObjectNodes`
+(`WorldObjectRenderer.swift:80`, guarded at line 153) scopes only the 12
+persistent + 3 consumable *interactive* objects the `objects: [String:
+RenderedObject]` dictionary tracks (`WorldObjectRenderer.swift:89`) —
+milestone marks are passive terrain decoration, not interactive objects,
+and must not compete with that budget for the same 40-node ceiling. Per
+companionship-rituals.md's number:
+
+| Property | Value |
+|---|---|
+| Max concurrent decals | **5** (own ceiling, independent of the 40-node cap) |
+| Nodes per decal | 1 (a flat low-alpha shape — scorch-bloom or star-etch per [companionship-rituals.md's mark table](/SYSTEMS/companionship-rituals.md#6-milestone-pilgrimage--revisiting-the-places-where-life-happened)) |
+| Eviction policy | Oldest-evicted-first once a 6th milestone would stamp a mark |
+| Storage | Not yet built — `milestones` (`Schema.swift:349-358`) has no world-position column; would need a new `position_x REAL` column recording where each milestone was earned |
+
+**Proposed enforcement shape** (this concept's mandate, per
+companionship-rituals.md's "both should be enforced by the same
+renderer"): a `decals: [String: RenderedDecal]` dictionary sibling to
+`WorldObjectRenderer.objects`, with its own `maxDecalNodes = 5` constant —
+structurally parallel to, but never summed with, `maxObjectNodes`. No
+code exists yet for either the dictionary or the constant (grep-verified
+against `WorldObjectRenderer.swift` this wave).
+
 # Schema
 
 `world_objects` (`Schema.swift:277-303`) — see the interaction-vocabulary
@@ -212,6 +367,32 @@ shelf mechanism). `repo_name` and `landmark_type` columns are present but
 **deprecated and unused** — repo landmarks are tracked via the separate
 `repos` table and an in-memory `LandmarkSystem` array instead (see
 [repo landmarks](/REFERENCE/repo-landmarks.md)).
+
+**Two columns are proposed but not yet built** (this wave's deepening):
+`world_objects.attachment` beside `wear` (see [Per-Object
+Attachment](#per-object-attachment--the-favorite) above), and
+`milestones.position_x` on the unrelated `milestones` table (see [Memory-Decal
+Budget](#memory-decal-budget-milestone-marks) above) — neither exists in
+`Schema.swift` today.
+
+# What This Concept Does Not Cover
+
+- **Terrain-footing choreography** (the hop-over arc, detour sidestep, and
+  stumble beats that consume [object height](#object-height-metadata--new-this-wave)
+  and the [investigation-threshold arbitration](#hop-vs-investigate-arbitration))
+  — owned by [locomotion & gait](/SYSTEMS/locomotion-and-gait.md#4-terrain-footing--hop-overs).
+  This concept owns the object-side data (height, attraction scoring); that
+  concept owns the render mechanism.
+- **The Favorite's growth-curve mechanics beyond storage, choreography, and
+  journal payoff** (bedtime carry, sleep-curl drape, grooming, defense,
+  farewell) — owned by [play-bouts.md](/SYSTEMS/play-bouts.md#6-the-favorite--toy-attachment--farewell).
+  This concept owns only the `attachment` column and its growth/decay
+  numbers.
+- **Milestone Pilgrimage's trigger, choreography, and the Sage+
+  reminiscence wiring** it feeds — owned by [companionship
+  rituals](/SYSTEMS/companionship-rituals.md#6-milestone-pilgrimage--revisiting-the-places-where-life-happened).
+  This concept owns only the decal node budget and its structural
+  separation from the interactive-object cap.
 
 # Examples
 
@@ -239,5 +420,9 @@ shelf mechanism). `repo_name` and `landmark_type` columns are present but
 [7] `Pushling/Sources/Pushling/World/ObjectWearSystem.swift` (wear stages, repair)
 [8] `Pushling/Sources/Pushling/World/WorldManager+Objects.swift` (legacy shelf soft-delete, `interaction` default)
 [9] `Pushling/Sources/Pushling/World/CompanionSystem.swift` (`CompanionType`)
-[10] `Pushling/Sources/Pushling/State/Schema.swift` (`world_objects` table)
+[10] `Pushling/Sources/Pushling/State/Schema.swift` (`world_objects`, `milestones` tables)
 [11] `PUSHLING_VISION.md` — The Objects System; Companions
+[12] `Pushling/Sources/Pushling/Behavior/AutonomousLayer+ObjectInteraction.swift` (`objectWanderThreshold`, `selectObjectInteraction`)
+[13] `docs/SYSTEMS/locomotion-and-gait.md` — Terrain Footing & Hop-Overs (height-metadata dependency, per-stage hop ceilings)
+[14] `docs/SYSTEMS/play-bouts.md` — The Favorite (attachment growth-curve spec, storage request)
+[15] `docs/SYSTEMS/companionship-rituals.md` — Milestone Pilgrimage (decal budget number, eviction policy)

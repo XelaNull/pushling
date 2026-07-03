@@ -51,6 +51,100 @@ same treatment as the commits-eaten model below. This reconciles a drift
 flagged against this file specifically; that concept's own proportions
 table used 9×11pt throughout and no longer disagrees with this one.
 
+# Per-Stage Motion Signature
+
+The XP/size/unlock table above is stage identity at the coarsest grain;
+this section is the **stage-identity rollup** for everything Phase-2's
+motion concepts pin to a specific `GrowthStage` — gait, jump apex,
+pose-amplitude, blend timing, hunt catch/whiff rates, the Childhood Echo,
+and each stage's signature reinterpretation of the shared grammar. **This
+table is not the authority for any of these numbers** — each is owned and
+derived by its source concept ([body pose & compose
+pipeline](/SYSTEMS/body-pose-pipeline.md), [locomotion &
+gait](/SYSTEMS/locomotion-and-gait.md), [hunt &
+pounce](/SYSTEMS/hunt-and-pounce.md)) and reproduced here only to complete
+the stage-identity picture; cross-link into the source concept for the
+formula/mechanism behind any single number. Every mechanism below is
+**Designed, not built** except where a citation marks it shipped — the
+same live-vs-unbuilt discipline as the three source concepts.
+
+| Stage | Gait dialect | Jump/hover apex | Pose scalar (scale/offset) | Blend-duration multiplier | Catch % / Whiff % |
+|---|---|---|---|---|---|
+| **Egg** | Roll — **DECISION-pending**, see `docs/DECISIONS.md` D-1 | N/A — **DECISION-pending**, see D-1 | 0.3 / 0.3 | N/A (rolls, does not reverse-flip in the walking sense) | N/A (excluded — pre-directed-movement per this doc's canon, contradicted by code per D-1) |
+| **Drop** | Hop-scurry (promotion of the already-shipped ambient hop) | 2pt (shares the ambient hop's own ceiling) | 0.5 / 0.6 | ~0× (near-zero, featherweight ramp) | 30% / 70% |
+| **Critter** | 4-beat walk, 2-beat trot | Not yet specified — flagged for the Airborne Arc System follow-up; hunt & pounce proposes 3pt pending confirmation | 1.0 / 1.0 | 1.0× (200ms baseline) | 35% / 65% |
+| **Beast** | Sprint + skid | 6pt (hard-capped) | 1.15 / 1.10 | 2.0× (400ms) | 75% / 25% |
+| **Sage** | Glide-walk | Not yet specified — flagged for the Airborne Arc System follow-up; hunt & pounce proposes a flat 4pt arc pending confirmation | 0.85 / 0.85 | 3.0× (600ms, sine-eased; never skids) | 90% / 10% |
+| **Apex** | Drift / teleport-blink | 2pt, reinterpreted as a hover-lift, not a jump | 0.70 / 0.50 | N/A (continuous drift; a hard stop renders as a 10-frame, 20%-alpha afterimage instead of a discrete ramp) | 100% / 0% (the grammar's launch becomes an instant reappearance at the target, no leap) |
+
+**Reading the blend-duration multiplier column:** `BodyPoseController`'s
+own internal tuple-to-tuple ease (§1 of the pipeline doc) is a **flat
+0.3s for every stage** — that number does not vary by stage and is not
+what this column reports. The multiplier above is the [Weight & Momentum
+Model](/SYSTEMS/locomotion-and-gait.md#2-weight--momentum-model)'s
+per-stage direction-reversal ramp, expressed as a ratio against Critter's
+200ms baseline (Beast's 400ms = 2.0×, Sage's 600ms = 3.0×, Drop's
+near-zero featherweight ramp ≈ 0×) — the one place stage genuinely changes
+how *long* a transition takes, as opposed to what shape it holds.
+
+## Echo Unlocks (the Childhood Echo)
+
+At peak-joy, an evolved creature briefly reverts to a younger stage's
+gait before catching itself — [locomotion &
+gait](/SYSTEMS/locomotion-and-gait.md#the-childhood-echo)'s full mechanism,
+reproduced here as stage-identity content since it is literally about
+which stages carry which earlier stage's memory:
+
+| Stage | Echo unlock | Roll chance | Recovery |
+|---|---|---|---|
+| Critter+ | Egg-wobble | — (fires as a brief in-place callback, not chance-gated) | Immediate |
+| Beast+ | Drop-hop (three 2pt hops at Beast's actual 18×20pt size) | 1% per walk bout, gated to peak-joy | Freeze + one sharp ear-flick |
+| Sage+ | Kitten-trot (Critter's gait) | 1% per walk bout, gated to peak-joy | Freeze + ear-flick |
+
+Apex carries no echo unlock — the table stops at Sage+; there is no stage
+above Apex for it to look back on. Fires at most once per session and is
+journal-logged, per the source concept.
+
+## Per-Stage Reinterpretations
+
+The one-new-feature-per-stage rhythm this doc's Key Unlock column already
+establishes applies again at the motion layer: each stage past Critter
+doesn't just scale the shared grammar, it bends one part of it into
+something distinct.
+
+- **Sage — floaty hang-time.** Sage's own jump apex is one of the two
+  "not yet specified" gaps above, so the floaty read ships today as
+  [locomotion & gait's](/SYSTEMS/locomotion-and-gait.md#per-stage-signature-gaits)
+  occasional 1pt levitation-drift (3-6s, aura +15%) rather than a
+  dedicated jump-and-hang — the dignified stillness of a hover standing
+  in for the height Sage's headroom doesn't have to spare.
+- **Apex — hover-not-jump.** Covered by the jump/hover apex column above:
+  Apex's 2pt cap is explicitly a hover-lift, never a leap, per [body pose
+  & compose pipeline](/SYSTEMS/body-pose-pipeline.md#4-positiony-application--isairborne-terrain-clamp-suspension).
+- **Apex — teleport-blink.** Travel beyond 300pt skips the drift entirely:
+  a 150ms alpha fade to true OLED void (Apex genuinely disappears — [it
+  IS the light source](/SYSTEMS/body-pose-pipeline.md), so a void-faded
+  Apex is invisible, not just dim) followed by a 1-frame Gilt shimmer on
+  reappearance. Per [locomotion &
+  gait](/SYSTEMS/locomotion-and-gait.md#per-stage-signature-gaits); camera
+  easing must suspend for the duration or the parallax world lurches.
+- **Apex — celebration-as-light.** Not yet separately authored by any
+  source concept — this wave's own composition of two already-canonical
+  pieces, not a new mechanic: a `celebrate` bodyState still resolves to
+  the shared `bounce` tuple everywhere else, but Apex's 0.70/0.50 pose
+  scalar (above) damps that oscillation almost flat, so pairing it with
+  the already-tabled `sparkle` `auraState` (0.10→0.25 alpha, 0.6s sine,
+  Gilt — [pipeline §8](/SYSTEMS/body-pose-pipeline.md#8-aurastate-consumption))
+  reads the celebration as a light pulse instead of a physical bounce —
+  fitting Apex's "power via subtraction" restraint elsewhere in this
+  doc's motion table. Needs no further build beyond what the pipeline
+  already specifies; flagged here as a synthesis worth a build-time
+  confirmation, not an invented mechanism.
+- **Drop — the hop IS the pounce.** No discrete stalk/wiggle/launch at
+  this stage; [hunt & pounce](/SYSTEMS/hunt-and-pounce.md#3-per-stage-catch-rates--pounce-profiles)
+  reuses the perpetual ambient hop itself as Drop's entire predator
+  grammar — it "catches" when the hop happens to land on the target.
+
 # Evolution Mechanics
 
 `GameCoordinator.checkEvolution()` runs after every XP award (paired with

@@ -1,7 +1,7 @@
 ---
 type: System
 title: Weather System
-description: The six-state weather machine with weighted transitions and randomized 30-60s crossfades, the rain/snow/storm/fog particle renderers and their exact budgets, and the creature's reflex-priority reactions to each weather state.
+description: The six-state weather machine with weighted transitions and randomized 30-60s crossfades, the rain/snow/storm/fog particle renderers and their exact budgets, the creature's reflex-priority reactions to each weather state, and (designed, not built) the world-state consequence signals — windVector, post-rain ephemeral puddles, snow footprint/cap memory, transition lead-time hook, sunbeam eligibility — that feed environment-reactions.md and idle-life-and-rest.md.
 status: Live
 tags: [world, weather, particles, system]
 timestamp: 2026-07-02T00:00:00Z
@@ -14,6 +14,14 @@ the sky gradient or clouds that weather modulates (see
 system's darkening/cloud-density outputs), or stage-gating of which weather
 states are even reachable (see
 [world complexity & ambient effects](/SYSTEMS/world-complexity-ambient-effects.md)).
+It also now specifies (below, all designed-not-built) the world-state
+*consequence* signals other systems consume: `windVector`, the post-rain
+ephemeral puddle lifecycle, snow footprint/cap memory, a transition
+lead-time hook, and the sunbeam eligibility gate — the creature-facing
+reaction verbs those signals feed live in
+[environment-reactions.md](/SYSTEMS/environment-reactions.md) and
+[idle-life-and-rest.md](/SYSTEMS/idle-life-and-rest.md#6-sunbeam--warm-spot-seeking),
+cross-linked rather than repeated here.
 Source: `World/WeatherSystem.swift`, `World/RainRenderer.swift`,
 `World/SnowRenderer.swift`, `World/StormSystem.swift`,
 `World/FogRenderer.swift`, `Creature/CatBehaviors+Weather.swift`.
@@ -144,6 +152,148 @@ overlapping transitions never leave stale animations running; reactions are
 suppressed entirely while the creature is asleep
 (`guard !creature.isSleeping`).
 
+# World-State Consequences (Reaction-Feed Signals)
+
+**Status: designed, not built** for every signal below — a fifth area
+layered onto the shipped state machine and renderers above. This section
+owns the world-state *outputs* only — the scalar, the object lifecycle, the
+hook, the eligibility gate — not the body language or locomotion that
+consumes them; those verbs live in
+[environment-reactions.md](/SYSTEMS/environment-reactions.md) and
+[idle-life-and-rest.md](/SYSTEMS/idle-life-and-rest.md#6-sunbeam--warm-spot-seeking)
+and are cross-linked, not repeated here.
+
+## Wind Vector
+
+A new `windVector: CGFloat` property on `WeatherSystem`, range `[-1, 1]`,
+updated every frame inside `update(deltaTime:)`. **Confirmed absent from
+the codebase today** — the only existing wind value is
+`RainRenderer.windDrift` (`RainRenderer.swift:120`), a *private*,
+rain-renderer-internal `CGFloat` in `[-15, 15]`pt/s that only angles falling
+raindrop sprites and is re-randomized fresh on every rain activation
+(`RainRenderer.swift:168, 238`) — not a world-readable signal, and
+`windVector` does not reuse it.
+
+| `currentState` | `windVector` magnitude | Pattern |
+|---|---|---|
+| Storm | held near ±1.0 | Sign rolled once per storm activation, steady for the state's full duration |
+| Cloudy | ±0.3-0.6 | Gusty pulses, 3-8s each, 10-30s silent gaps between (returns to 0 in the gaps) |
+| Rain | ±0.4-0.6 | Steady, sign rolled once per rain activation — no pulsing |
+| Clear | ±0.15-0.25 | Rare breeze pulses, 3-8s, rolled at low probability (~10%) on each 5-minute `checkForWeatherChange` tick |
+| Snow, Fog | ±0.0-0.1 | Near-zero — these two states don't read as windy |
+
+Every value change (pulse start/end, state transition) eases over 0.3-0.5s
+rather than snapping — one `CGFloat` lerp per frame, frame-budget-trivial.
+`windVector` is read by Gust Front's ear/whisker/tail/lean/speed table
+([environment-reactions.md §4](/SYSTEMS/environment-reactions.md#4-gust-front))
+and the `CloudSystem`/debris/feather-object consumers noted there; this
+concept owns only the scalar's production, not its consumption.
+
+## Post-Rain Ephemeral Puddles
+
+**Ground truth, so this doesn't get conflated with the ambient decoration
+puddle:** `TerrainObjectType.waterPuddle` (`TerrainObjectPool.swift:19`,
+an 8×1.5pt ellipse) is one of 10 biome-weighted terrain decorations placed
+by ordinary terrain generation — it exists independent of whether it has
+rained, and it's what
+[`PuddleReflection`](/SYSTEMS/world-complexity-ambient-effects.md#puddle-reflections)
+already reacts to via `WorldManager.findNearestPuddle`
+(`WorldManager.swift:434-438`). This section specifies a **second,
+weather-triggered** puddle lifecycle that reuses the exact same
+`TerrainObjectType.waterPuddle` node/query path — zero changes needed to
+`PuddleReflection` — but layers its own weather-driven spawn and decay
+timer on top, so it stays conceptually distinct even though it shares the
+type.
+
+**Trigger:** a new `worldEffectDelegate: WeatherWorldEffectDelegate?`
+property on `WeatherSystem`, separate from the existing creature-facing
+`reactionDelegate` (that slot is singular and already claimed by
+`CatWeatherReactions` — `Creature/CatBehaviors+Weather.swift:9`) — mirrors
+the same delegate-per-concern pattern already in use. `WorldManager`
+(which already owns both `weatherSystem` and `terrainRecycler`,
+`WorldManager.swift:51,89`) conforms and fires puddle spawn whenever
+`completeTransition()` observes `previousState == .rain || previousState ==
+.storm`, **regardless of the destination state** — broader than the
+existing `weatherCleared` check (`WeatherSystem.swift:333`), which only
+fires when landing specifically on `.clear`; rain stopping and drifting
+straight to cloudy should still leave puddles behind.
+
+| Parameter | Value |
+|---|---|
+| Spawn count | 2-3 puddles |
+| Size | 4-8pt wide, 1pt tall, `PushlingPalette.tide` at 0.4 alpha ellipse |
+| Placement | Terrain low points: sample `TerrainGenerator.heightAt(worldX:)` (`TerrainGenerator.swift:100`) across the visible-plus-margin range at a coarse stride — the same extremum-scan technique the dusk vantage ritual uses for local maxima ([environment-reactions.md §7](/SYSTEMS/environment-reactions.md#7-golden-hour-dusk-vantage)), inverted to take minima — spaced ≥40pt apart so they don't cluster |
+| Lifetime | 10-20 minutes |
+| Decay | Shrinks 10% of current width per minute; despawns below 20% of spawn width |
+
+Because these are literal `.waterPuddle`-type objects inserted into
+`TerrainRecycler`'s active object list, every verb in
+[environment-reactions.md §6](/SYSTEMS/environment-reactions.md#6-puddle-days--dabbing)
+(splash-hop, tiptoe detour, reflection gaze, dab, wet shake) fires against
+them with no additional wiring — that table is already written to be
+puddle-source-agnostic for exactly this reason.
+
+## Snow Memory — Footprint & Cap State
+
+`SnowRenderer`'s shipped `accumulationNode` (`SnowRenderer.swift:82`,
+building at 0.05/min and melting at 0.2/min — `SnowRenderer.swift:68,71`) is
+a single ground-level overlay bar that accumulates but records nothing
+about the creature's passage. Two new pieces of state extend it — the
+shake-off and first-snow verbs that consume this state are
+[environment-reactions.md §5](/SYSTEMS/environment-reactions.md#5-snow-memory)'s
+territory and aren't repeated here:
+
+| State | Spec |
+|---|---|
+| Footprint decay array | Active once `accumulationLevel >= 0.5`. A `[(worldX: CGFloat, stampedAt: TimeInterval)]` array on `SnowRenderer`; each creature footfall appends an entry and notches a 1×0.5pt void gap into `accumulationNode`'s fill path at that world-X. Entries — and their notches — expire and refill after 60-120s, one path rebuild per stamp/expiry (event-driven, not per-frame) |
+| Creature snow-cap | One new `SKShapeNode` (bone crescent) tracking `bodyNode`'s transform, independent of the ground bar's own pacing — it grows 0.3→1pt over 2-3 minutes of continuous snowfall, much faster than the ground bar's ~20-minute full build, since snow lands on the creature directly rather than diffusely across the whole terrain strip |
+
+## Weather-Transition Lead-Time Hook
+
+**No existing lead-time signal.** `checkForWeatherChange()` runs once every
+5 minutes (`checkInterval = 300`, `WeatherSystem.swift:145`) and, on a hit,
+`selectNextWeather()` and `beginTransition(to:)`
+(`WeatherSystem.swift:265, 294`) happen at the same instant — the 30-60s
+crossfade (`transitionDurationRange`, line 148) begins with zero warning.
+Two small, additive changes to `WeatherReactionDelegate`'s existing
+call-site pattern (`WeatherSystem.swift:111-134`) give a horizon-reaction
+system its runway *inside* that crossfade rather than needing a second
+scheduler:
+
+1. A new delegate method, `weatherApproaching(_ incoming: WeatherState)`,
+   called once from the top of `beginTransition(to:)` — before
+   `activateRenderer(for:)` runs — but **only** when `newState` is `.rain`,
+   `.storm`, or `.snow` (clear/cloudy/fog transitions stay silent; this
+   signal is for sensing dramatic weather, not every mood shift).
+2. A new public read-only accessor, `var transitionProgress: CGFloat? {
+   activeTransition?.progress }`, exposing the `WeatherTransition.progress`
+   value `updateTransitionRenderers` already computes every frame
+   (`WeatherSystem.swift:343`) but which is currently private — zero new
+   computation, just a public window onto existing state.
+
+With both in place, "first drops" is defined as the moment
+`transitionProgress` crosses 0.4 — the front is visible and sensed from
+0.0 (the `weatherApproaching` call), and the 20-40s lead time falls
+naturally out of wherever 0.4 lands within that transition's randomly
+rolled 30-60s duration. The full sense-beat, shelter-seeking timing (settle
+≈0.35), and the per-incoming-state front visual on the far parallax layer
+are [environment-reactions.md §3](/SYSTEMS/environment-reactions.md#3-weather-on-the-horizon)'s
+territory.
+
+## Sunbeam Eligibility Signal
+
+**Naming correction against the dossier:** there is no `.sunny`
+`WeatherState` case — the six states are `clear`, `cloudy`, `rain`,
+`storm`, `snow`, `fog` (`WeatherSystem.swift:15-20`); `.clear` is the
+correct case to key off. No new `WeatherSystem` code is needed beyond the
+already-public `currentState` — the eligibility gate is simply
+`currentState == .clear`, combined by the consumer with `SkySystem`'s
+daytime `TimePeriod`s. The beam-x position, its 20-40s drift, and the
+walk/sprawl/migration behavior are owned entirely by
+[idle-life-and-rest.md §6](/SYSTEMS/idle-life-and-rest.md#6-sunbeam--warm-spot-seeking)
+— this concept's only contribution is confirming the correct state to
+watch and that no producer-side work is required here beyond it.
+
 # Apex Speech-Triggered World Effects (P5-T1-12)
 
 Apex is the only stage whose speech can reach back into the world — and
@@ -202,5 +352,10 @@ utterance caused it.
 [8] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 "Weather & Atmosphere Polish" — all listed items (teardrop rain, variable snow-flake sizes, firefly trail) have since shipped; see this concept and [world complexity & ambient effects](/SYSTEMS/world-complexity-ambient-effects.md) for confirmation
 [9] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`worldShapeTriggers`, `checkWorldShaping`, the `.apex && .ai` source gate at line 211)
 [10] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`wireSpeechSystem` — `onWorldShapeEffect` wiring)
-[11] `Pushling/Sources/Pushling/World/WorldManager.swift` (`debugForceWeather` — fixed 5-minute override)
+[11] `Pushling/Sources/Pushling/World/WorldManager.swift` (`debugForceWeather` fixed 5-minute override at line 542; `findNearestPuddle` at lines 432-438; `weatherSystem`/`terrainRecycler` ownership at lines 89, 51)
 [12] `docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T1-12 "Apex World-Shaping Speech"
+[13] `Pushling/Sources/Pushling/World/TerrainObjectPool.swift` (`TerrainObjectType.waterPuddle` at line 19, its per-type weight/height at lines 38/54, biome placement weighting at line 124, `makeWaterPuddle()` at lines 247-254)
+[14] `Pushling/Sources/Pushling/World/TerrainGenerator.swift:100` (`heightAt(worldX:)` — the only terrain-height query that exists; reused inverted for low-point puddle placement)
+[15] `docs/SYSTEMS/environment-reactions.md` (§3 Weather on the Horizon, §4 Gust Front, §5 Snow Memory, §6 Puddle Days & Dabbing, §7 Golden Hour Dusk Vantage — the creature-verb consumers of every signal in "World-State Consequences" above)
+[16] `docs/SYSTEMS/idle-life-and-rest.md` §6 (Sunbeam & Warm-Spot Seeking — the consumer of the sunbeam eligibility signal)
+[17] `.samantha/scratch/flesh-out-design-2026-07-03.json` `.proposals` (WORLD ALIVENESS & SPECTACLE lens: Weather on the Horizon, Gust Front, Snow Memory, Puddle Days; Feline Ethology lens: Sunbeam & Warm-Spot Seeking) — source pitches for the world-state consequence signals

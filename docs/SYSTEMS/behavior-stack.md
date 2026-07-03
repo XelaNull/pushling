@@ -1,10 +1,10 @@
 ---
 type: System
 title: 4-Layer Behavior Stack
-description: The Physics > Reflexes > AI-Directed > Autonomous priority stack that resolves into one creature pose every frame, and the blend controller that smooths every transition between them.
+description: The Physics > Reflexes > AI-Directed > Autonomous priority stack that resolves into one creature pose every frame, and the blend controller that smooths every transition between them. Also documents where Posture Vocabulary and the Idle Micro-Behavior Scheduler sit relative to this priority resolution, and generalizes the reflex-injection ("checkpoint/resume") mechanism reused by surprises, glances, and sky reactions.
 status: Live
-tags: [behavior, animation, blend, physics, reflexes, ai-directed]
-timestamp: 2026-07-02T00:00:00Z
+tags: [behavior, animation, blend, physics, reflexes, ai-directed, posture, idle-scheduler, reflex-injection]
+timestamp: 2026-07-03T00:00:00Z
 ---
 
 `BehaviorStack` (`Pushling/Sources/Pushling/Behavior/BehaviorStack.swift`)
@@ -19,6 +19,22 @@ built and shipped; the command-queue semantics that were *designed* for
 Layer 3 but never built are documented separately in
 [the AI command queue](/SYSTEMS/ai-command-queue.md) to avoid minting
 unverified prescriptive contract here.
+
+This concept's own output — one fully-resolved `ResolvedCreatureState` per
+frame — is a complete contract, but it is not the same thing as a rendered
+creature: what happens to that state downstream is out of scope here and
+owned by two sibling concepts. [Body pose & compose](/SYSTEMS/body-pose-pipeline.md)
+owns whether `bodyState`/`positionY`/`auraState` actually reach the torso —
+today, `PushlingScene.applyBehaviorOutput` applies only `positionX`,
+`facing`, and the appendage-controller states from what this stack
+resolves, so the rest is computed correctly here and then silently dropped
+one function later (see [that concept's dropped-wire
+findings](/SYSTEMS/body-pose-pipeline.md#the-dropped-wire-code-verified-ground-truth)
+for the exact citations). [Emotional body
+language](/SYSTEMS/emotional-body-language.md) owns a posture-vocabulary
+modifier that rides that pipeline's compose point *after* this stack has
+already picked its per-property winner — see [Posture Vocabulary, below](#posture-vocabulary--a-modifier-outside-the-priority-stack),
+it is explicitly not a fifth priority layer competing with the four below.
 
 # The Four Layers
 
@@ -65,11 +81,16 @@ interpolated because it must never visibly pause.
 evicted past that), each an instance of a pre-defined `ReflexDefinition`
 (name, duration 0.5–3.0s, a `fadeoutFraction` — typically 0.2 — of that
 duration spent blending its override back toward nil, and the `LayerOutput`
-properties it overrides). `ear_perk` (0.8s duration) and `flinch` are two
-named reflexes defined in code; reflexes are triggered via
-`BehaviorStack.triggerReflex(named:at:)`, called by `CreatureTouchHandler`
-(e.g. `"ear_perk"` and `"look_at_touch"` on touch events) and by commit
-processing. There is no separate "500ms lease" constant in code — each
+properties it overrides). Four named reflexes are defined in code —
+`ear_perk` (0.8s), `flinch` (1.5s), `look_at_touch` (1.0s), and `startle`
+(0.5s) — triggered via `BehaviorStack.triggerReflex(named:at:)`, called by
+`CreatureTouchHandler` (e.g. `"ear_perk"` and `"look_at_touch"` on touch
+events) and by commit processing. `triggerReflex(_:at:)` (the underlying
+general form, taking a `ReflexDefinition` directly rather than a name) is
+not limited to these four — see [Generalized Reflex
+Injection](#generalized-reflex-injection--one-bridge-for-surprises-glances-and-sky-reactions)
+below for the mechanism every surprise, and every future glance/sky
+reaction, actually uses. There is no separate "500ms lease" constant in code — each
 reflex's own `duration` field governs how long it holds priority, and its
 own `blendFactor` (1.0 during the active portion, ramping to 0.0 during the
 trailing fadeout fraction) governs the smoothness of its release, not a
@@ -116,6 +137,38 @@ selection, gated by the current `GrowthStage` (via `stage.baseWalkSpeed`/
 Always computing, even while a higher layer is fully in control — this is
 what lets the "AI releases control" fadeout hand off smoothly instead of
 needing to spin the Autonomous layer up cold.
+
+### The Idle Micro-Behavior Scheduler (designed, not built)
+
+[Idle & rest](/SYSTEMS/idle-life-and-rest.md#1-idle-life-layer)'s scheduler
+— the ≤20s whole-body-motion guarantee, the weight-shift/paw-reposition/
+turn-in-place/shake-off micro-actions, and the staged sit→loaf dwell
+escalation — is not a new priority tier. It is a further elaboration
+entirely inside Layer 4's own `update()` return value, which already sits
+at the bottom of this stack's per-property fallback chain (`physics ??
+reflexes ?? ai ?? autonomous ?? stageDefault`, above). Whatever the
+scheduler ends up authoring — a weight-shift `LayerOutput`, a sit-sequence
+`bodyState`, a loaf hold — arrives through the exact same `AutonomousLayer`
+frame output this section already documents, resolved at the exact same
+lowest priority; no new `LayerOutput` field, `BehaviorLayer` conformer, or
+resolution-chain entry is required in principle.
+
+**Today's baseline is a materially lower ceiling than the scheduler's own
+numbers.** `AutonomousLayer.updateIdle` (`AutonomousLayer.swift:370-397`)
+holds a fixed `bodyState = "stand"` for a 2-8s dwell
+(`PersonalityFilter.idleDuration`-modulated), then forces a transition to
+`.walking` if it somehow runs past 8s (line 393-397) — [idle & rest's own
+grounds](/SYSTEMS/idle-life-and-rest.md#0-todays-baseline-code-verified-ground-truth)
+correctly call this "a safety valve, not an intentional cap." The
+scheduler's 30-90s sit-escalation and further 60-180s loaf-escalation
+thresholds are 4-10x past that valve, so building it means replacing the
+valve's role inside `updateIdle`/`updateDwell`, not layering underneath it
+unchanged. Whether the eventual implementation models the escalation as
+new internal sub-states of `updateIdle` or as new `AutonomousState` cases
+is an implementation choice that belongs to [idle &
+rest](/SYSTEMS/idle-life-and-rest.md), not a behavior-stack-level decision
+— this stack's only stake in the outcome is that the result keeps
+returning a `LayerOutput` from Layer 4, same as today.
 
 ## The 12 Cat Behaviors
 
@@ -236,6 +289,104 @@ reflex interrupt before its own 0.15s completes — the one explicit
 priority rule inside the blend controller itself, separate from the layer
 resolution priority above.
 
+# Posture Vocabulary — A Modifier Outside the Priority Stack
+
+Everything above resolves per-property into one `ResolvedCreatureState` —
+that is this stack's complete output. [Emotional body
+language](/SYSTEMS/emotional-body-language.md#1-posture-vocabulary--valencearousal-to-body-shape)'s
+Posture Vocabulary (`hipHeight`/`spineCurve`/`headPitch`/`tailCarriage`/
+`gaitBounce`, driven by a valence×arousal collapse of the four
+`EmotionalSnapshot` axes — `satisfaction`/`curiosity`/`contentment`/
+`energy`, `LayerTypes.swift:281-291` — itself a synthesized read of
+existing data, not a stored field anywhere in the codebase today) is
+deliberately specified to apply **after** this stack finishes, as a
+multiplicative modifier riding [body pose &
+compose](/SYSTEMS/body-pose-pipeline.md#6-the-single-compose-point-full-formula)'s
+own compose point (`CreatureNode.updateBreathing()`), not as a value any
+of the four layers above could set, read, or override.
+
+This boundary is deliberate, not incidental. The four layers' per-property
+resolution already answers one question — "which layer owns this property
+right now" (Physics vs. Reflex vs. AI-Directed vs. Autonomous) — and mood
+is a different question entirely: "how does the current emotional state
+bend whatever pose already won." Answering the second question inside
+`resolveOutputs()` would require every one of the four layers to separately
+account for mood, multiplying the same modifier four times instead of once
+at the render-side compose point it actually rides. Keeping it downstream
+is also what lets a dejected `loaf` and a joyful `loaf` share one
+`bodyState` string and one priority-resolution outcome, differing only in
+the modifier layered on after — see [idle &
+rest](/SYSTEMS/idle-life-and-rest.md#2-resting-posture-ladder) for a
+worked example (the resting-posture ladder is itself scheduled by that
+concept and reshaped by this one). Any future change to this stack's
+`resolveOutputs()` priority chain should treat a proposal to special-case
+an emotional axis there as a signal that the change belongs in
+`BodyPoseController`/`CreatureNode` instead, not a reason to add a fifth
+layer here.
+
+# Generalized Reflex Injection — One Bridge for Surprises, Glances, and Sky Reactions
+
+[Environment reactions](/SYSTEMS/environment-reactions.md#the-one-reusable-bridge-reflex-injection-not-a-new-mechanism)
+and [companionship rituals](/SYSTEMS/companionship-rituals.md#5-check-in-glances--social-referencing)
+both specify reactions (Sky Theater's per-event choreography, Check-In
+Glances' periodic pause) as reuses of what the dossier and this program's
+own dispatches call "the reflex checkpoint/resume mechanism (the surprise
+mechanism)" — and both, independently, flag that this stack does not yet
+document that mechanism as a named, generalized pattern. This section is
+that documentation.
+
+**There is no checkpoint and no resume.** "Checkpoint/resume" is
+shorthand in circulation across this program's concepts for what
+[Layer 2](#layer-2-reflexes) already does every frame: `ReflexLayer.update`
+(`ReflexLayer.swift:144-161`) returns a per-property merged `LayerOutput`
+while a reflex is active and `.empty` (all-nil — "defer to the layer
+below") the instant it expires. No other layer is paused, snapshotted, or
+restored — [every layer runs `update(deltaTime:currentTime:)`
+independently, every frame, regardless of priority](#the-four-layers), the
+whole time a reflex is masking it. "Seamless resume" is therefore not a
+save/restore of anything: it is that the masked layer's own state machine
+was never stopped, so whatever it happens to be outputting *right now*
+becomes visible again the moment the mask lifts — not whatever it was
+outputting the instant the mask began. A design describing a behavior as
+"pausing and resuming" a lower layer should state it this way, or it will
+imply a snapshot capability that does not exist and would surprise whoever
+implements it.
+
+**The mechanism this shorthand actually refers to is already fully built
+and duration-agnostic**, proven by `SurpriseAnimationPlayer`
+(`Surprise/SurpriseAnimationPlayer.swift`): short surprises (<10s) inject a
+single `ReflexDefinition`; long surprises (≥10s) inject a *series* of them
+over time, via an `onInjectReflex` callback into this stack's own
+`triggerReflex(_:at:)` (`BehaviorStack.swift:336`) — the same general entry
+point `ReflexLayer.trigger(_:at:)` exposes, distinct from and not gated by
+the four-name `trigger(named:)` switch [Layer 2](#layer-2-reflexes)
+documents above. `SurpriseAnimationPlayer` proves the generalization by
+example: it constructs a fresh, dynamically-named `ReflexDefinition` per
+keyframe (`"surprise_\(id)_kf\(index)"`) and injects it directly, never
+touching the named-reflex switch at all. Any future concept wanting a
+"reflex-style reaction to an event" — Sky Theater's per-`VisualEvents`-type
+chains (2s shooting-star startle through 45s aurora gaze), a Check-In
+Glance's quarter-turn-and-blink pause, or anything similar — needs **zero
+new behavior-stack machinery**: one or more `ReflexDefinition` values
+authored at the concept's own call site, triggered through the existing
+`triggerReflex(_:at:)`, is the complete contract.
+
+**Two constraints any such design must respect**, both already true of the
+mechanism as built: (1) capacity — `ReflexLayer` holds at most 5
+concurrent `ActiveReflex` instances, oldest evicted past that
+([Layer 2](#layer-2-reflexes)) — a long reflex chain (aurora's 45s gaze)
+shares that budget with whatever `ear_perk`/`flinch`/touch reflexes fire
+from unrelated input in the same window, system-wide, not per-feature; (2)
+the masked-layer-keeps-running rule above has a cosmetic edge case worth
+budgeting for up front — a reflex that masks `walkSpeed` (none of the four
+shipped `ReflexDefinition`s do today; a new one authored for this purpose
+would) doesn't pause `AutonomousLayer`'s own walk-bout timer, so a bout that
+happens to complete *during* the mask picks a new destination/speed before
+the mask lifts, and "resume" surfaces that new choice rather than the
+pre-mask one. Not a bug — the honest behavior of "never stopped running,"
+not "paused and restored" — but worth stating in any concept's own design
+rather than discovering it at build time.
+
 # External API Surface
 
 Callers outside the stack (`CommandRouter`/`ActionHandlers` for MCP
@@ -261,3 +412,4 @@ always continues even here), and `reset(stage:position:facing:)`.
 [9] `Pushling/Sources/Pushling/Creature/CatBehaviors.swift`, `CatBehaviorsExtended.swift` (all 12 cat behaviors)
 [10] `Pushling/Sources/Pushling/Creature/AbsenceAnimations.swift` (`AbsenceCategory`, `AbsenceWakeAnimation`, `LateNightLantern`)
 [11] `PUSHLING_VISION.md` — Control Architecture: The 4-Layer Behavior Stack; The Blend Controller; Touch-AI Interaction Priority; Cat behaviors baked into Layer 1 (lines 158–171); Core Loop (lines 393–404)
+[12] `Pushling/Sources/Pushling/Surprise/SurpriseAnimationPlayer.swift` (the reflex-injection bridge every surprise, and the generalized reaction pattern in this doc, both ride)

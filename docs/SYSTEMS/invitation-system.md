@@ -1,10 +1,10 @@
 ---
 type: System
 title: Creature Invitation System
-description: Scheduling, the 6 invitation types, personality-weighted selection, and the offer/accept/timeout lifecycle the creature uses to initiate interactive moments — plus the real-state wiring the selection logic never receives.
+description: Scheduling, the 6 invitation types, personality-weighted selection, and the offer/accept/timeout lifecycle the creature uses to initiate interactive moments — the real-state wiring the selection logic never receives — plus the unified ambient-event governor (invitations, bug spawns, play bouts, patrols, rituals, glances share one cooldown pool) and play-bow as the universal pre-invitation telegraph.
 status: Live
-tags: [touch, invitations, system]
-timestamp: 2026-07-02T00:00:00Z
+tags: [touch, invitations, governor, ambient-events, system]
+timestamp: 2026-07-03T00:00:00Z
 ---
 
 This is the authority for **creature-initiated interactive moments** —
@@ -59,6 +59,123 @@ This is flagged for `DECISIONS.md`/the Orchestrator as a wiring gap, not a
 design question — the fix is straightforward (thread real stage/
 personality/emotion/sleep/game-state updates into these properties each
 frame or on change) once claimed.
+
+# The Unified Ambient-Event Governor
+
+The Phase-2 dossier's Risks section names a specific failure mode: the
+idle layer, play bouts, bug spawns, crepuscular patrols, the golden-hour
+and wind-down rituals, and check-in glances each individually respect
+sparseness, but summed together they can read as a busy, needy creature —
+the opposite of the presence ethos every one of those docs claims to
+serve. The fix the dossier mandates is a single shared cooldown pool,
+anchored on this system (the only piece of the family that's actually
+shipped) rather than five independently-reinvented timers. This section
+is that governor's design — **designed, not built**, same status as every
+mechanism below it.
+
+**Hard prerequisite: the guard-wiring gap above must close first.** A
+governor that arbitrates *when* ambient events may fire is only as
+trustworthy as the guards each event's own scheduler checks before firing
+— and [the wiring gap documented above](#scheduling) means
+`InvitationSystem`'s own guards (`isSleeping`, `isMiniGameActive`,
+`isCeremonyActive`, `isAIDirecting`) are dead today. Every sibling
+scheduler below either checks these same four conditions directly
+(`ambient-wildlife.md`'s spawn governor cites the identical guard list) or
+inherits them structurally through the behavior-stack priority order
+([behavior-stack.md](/SYSTEMS/behavior-stack.md)). Wiring real state into
+`InvitationSystem` is therefore not just this system's own fix — it is the
+one change that makes every other ambient scheduler's guard promise real
+at the same time. Building the shared-pool mechanics below on top of
+unfed guards would produce a governor that correctly prevents *type A*
+and *type B* from firing in the same 90-second window, while both still
+fire during sleep — solving stacking while leaving the more basic problem
+unsolved. Sequence: fix the guards, then land the pool.
+
+**The pool: a cross-type floor over each family's own cadence.** Every
+family below keeps its own recurrence cadence (owned and cited by its own
+doc) unchanged — the pool does not replace or override any of these
+numbers. What the pool adds is a single new rule: no two *different*
+event families may **begin** within 90 seconds of each other, tracked as
+one shared `lastAmbientEventTime` + `lastAmbientEventType` pair that every
+family's scheduler both reads (as a guard) and writes (on firing) —
+generalizing the coordination [`ambient-wildlife.md`'s Spawn
+Governor](/SYSTEMS/ambient-wildlife.md#spawn-governor) already designed
+one-directionally against this system's `lastInvitationTime` (a 30s
+buffer, one-way). 90 seconds is chosen to comfortably clear the longest
+single active-event window in the family — an invitation's own worst case
+is `1.0s setup + 10.0s offer = 11.0s` (the 3.0s `cue` repeats *within* the
+offer window, it doesn't extend it — [Lifecycle](#lifecycle) below) — with
+wide margin, while staying far shorter than any *floor-subject* family's
+own repeat-cooldown (the shortest of which is the wildlife spawner's 300s
+minimum respawn — still >3x the floor), so the floor is never the
+practically-binding constraint for a family repeating *itself* — it only
+matters at the seams between different families. (Check-In Glances' 2-6
+minute cadence is faster still, which is exactly why glances are exempt
+from the floor rather than folded into this comparison — see below.)
+
+| Event family | Owning concept | Own recurrence cadence (unchanged, cited by its own doc) | Subject to the 90s cross-type floor? |
+|---|---|---|---|
+| Invitation | this doc | 60s check tick, 20-min `cooldownDuration`, 3%/6% roll | Yes — anchors the pool (`lastAmbientEventTime` IS `lastInvitationTime` when an invitation fires) |
+| Bug/wildlife spawn | [ambient-wildlife.md](/SYSTEMS/ambient-wildlife.md#spawn-governor) | random 300-600s (5-10min) respawn, 1 concurrent slot | Yes — already designed as a 30s one-way buffer against invitations specifically; generalizes to the full 90s floor against every family here |
+| Play bout | [play-bouts.md](/SYSTEMS/play-bouts.md) | ~1 per 15-20 min (its own open composition question, addressed below) | Yes |
+| Crepuscular patrol | [idle-life-and-rest.md §7](/SYSTEMS/idle-life-and-rest.md#7-crepuscular-territory-patrol) | at most once per `SkySystem.TimePeriod.dawn` window, once per `.dusk` window | Yes — mutually exclusive with the Golden Hour ritual below inside the same dawn/dusk window by construction (both are once-per-window; the floor decides which goes first if both would fire at the window's open) |
+| Golden Hour / Evening Wind-Down ritual | [environment-reactions.md](/SYSTEMS/environment-reactions.md), [idle-life-and-rest.md §8](/SYSTEMS/idle-life-and-rest.md#8-evening-wind-down-ritual) | Golden Hour: once per dawn, once per dusk. Wind-Down: once nightly, scheduled not rolled | Yes — Golden Hour's own spec already states a 10-minute invitation-suppression window, tighter than the floor; the floor is the fallback for the other four families it didn't already consider |
+| Check-in glance | [companionship-rituals.md §5](/SYSTEMS/companionship-rituals.md#5-check-in-glances--social-referencing) | every 2-6 active minutes (~10min during Flow Loaf) | **No — exempt.** See below |
+
+**Why glances are exempt, not just another row.** A glance is a 1.5-3s
+quarter-turn-and-blink that resumes exactly where the creature was — the
+lowest-cost, lowest-visibility event in this entire family, closer to a
+tic than a behavioral takeover. Gating it behind the same 90-second
+cross-family floor as an invitation or a patrol would mean the creature
+visibly ignores the developer for stretches at a time for no aliveness
+gain — the opposite of what a governor protecting against neediness
+should do. Glances instead carry only their own two guards: (1) their own
+2-6 minute self-cadence, and (2) "no *major* ambient event is currently
+active" (an invitation mid-offer, a bug hunt, a play bout, a patrol, or a
+ritual) — checked, not counted. A glance firing does **not** write
+`lastAmbientEventTime`, so it never blocks a major event from starting
+immediately after one.
+
+**Resolving play-bouts.md's open composition question.** That doc
+correctly flags a real risk: its proposed ~15-20 minute bout cap sits
+beside the already-shipped 300-second `interactionCooldown`
+(`ObjectInteractionEngine.swift:163-167`) that throttles every toy
+interaction generally, and if a bout maintained an independent timer a
+creature could read as playing twice inside six minutes. This doc doesn't
+re-litigate that fix — play-bouts.md's own proposal (a completed bout sets
+`lastInteractionTime` the same way an ordinary interaction does, sharing
+one clock rather than two) is the correct move and this governor assumes
+it. The one addition the shared pool makes on top: a completed bout should
+*also* write this doc's `lastAmbientEventTime`, so a bout ending doesn't
+leave the door open for a bug to spawn or a patrol to begin in the same
+breath — two different kinds of "the creature is now doing an ambient
+thing" back to back reads exactly as needy as one type repeating itself.
+
+# Play-Bow: the Universal Pre-Invitation Telegraph
+
+The dossier's Stretch Ritual Grammar proposal makes the play-bow —
+front-end sinking while the rear rises, tail high and flicking, held
+around 400ms — the universal "something fun is about to happen" cue,
+firing 400-700ms before zoomies, laser-pointer engagement, pounce
+sequences, **and invitations**. This doc owns the *when* for the
+invitation case only; the render grammar itself (the shear approximation,
+the shared arch/sproing parameterization) belongs to [hunt &
+pounce](/SYSTEMS/hunt-and-pounce.md) and [emotional body
+language](/SYSTEMS/emotional-body-language.md) respectively, per
+[idle-life-and-rest.md](/SYSTEMS/idle-life-and-rest.md)'s own disclaimer —
+this doc does not re-author the pose tuple.
+
+**Integration point:** the existing `setup` phase of the lifecycle below
+already has a fixed 1.0s budget with nothing to fill it beyond each type's
+own setup animation (walk to the ball, spawn the glowing object, etc. —
+[the per-type table above](#the-6-invitation-types)). The play-bow occupies
+the *first* 400-700ms of that existing 1.0s window, common to all 6 types,
+before the type-specific setup animation resolves in the remaining
+300-600ms — no new phase, no change to the 1.0s total, no new timer. Like
+every other piece of per-type setup detail in this doc, this is
+**designed, not implemented**: `InvitationSystem` itself only emits the
+lifecycle events (`.setup`/`.offer`/...) with no consumer of
+`onInvitationEvent` to drive any of it, play-bow included.
 
 # The 6 Invitation Types
 
@@ -136,3 +253,7 @@ cooldown identically.
 [3] `PUSHLING_VISION.md` — "Creature-Initiated Invitations" table
 [4] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-01/02/03
 [5] [gesture-response map](/REFERENCE/gesture-response-map.md), [mini-games](/SYSTEMS/mini-games.md)
+[6] `Pushling/Sources/Pushling/World/ObjectInteractionEngine.swift:163-167` (`interactionCooldown`, the 300s cross-category cooldown play-bouts.md's composition question is resolved against)
+[7] `.samantha/specs/pushling-flesh-out-dossier-2026-07-03.md` — Risks ("Presence-ethos stacking"), Stretch Ritual Grammar (play-bow telegraph), "Deepen Existing Concepts" entry for this doc
+[8] `.samantha/scratch/flesh-out-design-2026-07-03.json` `.proposals` — Stretch Ritual Grammar / Bug Season / Crepuscular Territory Patrol / Check-In Glances feature entries (governor-adjacent numbers)
+[9] [ambient-wildlife.md](/SYSTEMS/ambient-wildlife.md), [play-bouts.md](/SYSTEMS/play-bouts.md), [idle-life-and-rest.md](/SYSTEMS/idle-life-and-rest.md), [environment-reactions.md](/SYSTEMS/environment-reactions.md), [companionship-rituals.md](/SYSTEMS/companionship-rituals.md), [hunt-and-pounce.md](/SYSTEMS/hunt-and-pounce.md), [emotional-body-language.md](/SYSTEMS/emotional-body-language.md) — the six ambient-event families sharing this doc's governor, and the two docs that own the play-bow render
