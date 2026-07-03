@@ -69,12 +69,13 @@ the daemon being reachable (`pushling_signal`'s <50ms socket timeout, see
 # The Eating Theater — 4 Phases
 
 Every commit is rendered as a short piece of animated theater on the Touch
-Bar (full timings and phase choreography per `PUSHLING_VISION.md`'s "The
-Commit-as-Food System" section, animation implementation in
+Bar, implemented in
 `Pushling/Sources/Pushling/Creature/CommitEatingAnimation.swift` +
-`CommitTextNode.swift` — those files own the frame-by-frame rendering
-detail; this concept states the phases and the type-specific variations that
-drive them):
+`CommitTextNode.swift`. The per-character Feast-phase micro-timings below
+are **shipped**, code-verified against `updateFeast`/`eatCharacter`
+(`CommitEatingAnimation.swift:333-456`) — not a pointer into
+`PUSHLING_VISION.md`, which described the design at a slightly different
+numeric grain (see the corrections inline):
 
 1. **The Arrival (~2s).** Commit text (`commit# {7-char SHA}: {message}`, up
    to 40 chars) materializes character-by-character at the fog-of-war edge
@@ -82,9 +83,22 @@ drive them):
 2. **The Notice (~1.5s).** Ears snap forward, predator crouch, tail-tip
    twitch, a butt-wiggle.
 3. **The Feast (3–6s, speed depends on commit type/size).** Characters are
-   eaten one at a time from the nearest end — shrink, flash, crumb
-   particles, chewing animation between characters, a swallow every 5th
-   character.
+   eaten one at a time from the nearest end. Per character: a 3-frame shake
+   (±1pt, 0.02s each), then shrink to 30% scale over **0.1s** (the vision
+   doc's design called for 80ms and 50% — both drifted slightly in the
+   shipped tuning), a flash to Bone-white, a 0.05s fade, then hidden; 3
+   crumb particles emit per character (10 for `largeRefactor`/`hugeRefactor`
+   — an enhancement beyond the vision doc's flat "3-5"), tinted by commit
+   type (Gilt for CSS, Moss for docs, Ember for PHP, Tide default). Between
+   each character, the jaw bobs open→closed→open at 0.06s per step (**0.12s
+   total**, matching the vision doc's "tiny 120ms chewing animation"
+   closely). After every 5th character, a swallow bob (±0.5pt, 0.075s each
+   way). **The "noodle-slurp" effect is shipped**: as each character
+   disappears, the remaining text slides toward the creature by one
+   character-width over 0.15s ease-out (`textNode.run(slide, ...)`,
+   `CommitEatingAnimation.swift:390-393`) — matching the vision doc's "the
+   remaining text slides toward the creature to stay close — like slurping
+   a noodle" exactly, just not previously documented here.
 4. **The Reaction (up to ~12s).** Commit stats float up first, then the XP
    number, then a type-specific speech reaction (see below).
 
@@ -181,16 +195,22 @@ not corrected code documentation:
 
 | Commit type | Vision-doc choreography (unbuilt) |
 |---|---|
-| Large/huge refactor | "Goblin mode" eating, then food-coma: lies on side, belly exposed, groans happily; huge refactor (500+ lines) adds an achievement popup on first occurrence |
-| Test files | Crunchy chewing sound design; flexes after eating |
-| Documentation | Reads each character carefully, vegetable-eating framing |
-| CSS/styling | Sparkle confetti on each character eaten; preens after |
+| Large/huge refactor | "Goblin mode" eating, then food-coma: lies on side, belly exposed, groans happily; **"FEAST MODE"** — huge refactor (500+ lines) additionally has the creature "literally cannot move for 5 seconds" and gets an achievement popup on first occurrence. No timer, movement-lock, or popup exists in code (grep for `foodComa`/`achievement`/a 5s freeze in the eating path: nothing) |
+| Test files | Crunchy chewing sound design; flexes after eating — the vision doc's "tests are protein" framing survives only as a source-code **comment** (`CommitTypeDetector.CommitType.test`: `// Crunchy, protein`), never surfaced in any player-visible text |
+| Documentation | Reads each character carefully, vegetable-eating framing — same pattern: "docs are vegetables. Good for you." survives only as the `.docs` case's `// Careful, vegetables` comment |
+| CSS/styling | Sparkle confetti on each character eaten; preens after — "styles are dessert" survives only as the `.css` case's `// Sparkly, dessert` comment |
+| PHP files | Warm glow per bite, "comfort food" framing — survives only as the `.php` case's `// Warm, comfort food` comment |
 | Revert | Eats **backward** — characters exit the mouth in reverse order, re-materializing |
 | Force push | Text slams in at 3x speed and **knocks the creature tumbling backward**, fur visibly puffed up on recovery |
 | Merge | Text arrives from **both sides of the bar simultaneously**, eaten with alternating left-right head swivels, double the crumb particles |
 | Empty commit | Predator crouch and pounce land on nothing; sniffs the air, opens and closes its mouth |
 | Late night (midnight–5AM) | Eats in a cosmetic nightgown |
 | First of the day / first in new repo | Extra tail-poof flourish beyond the existing enthusiastic-pounce/speech reaction |
+
+All four framing comments (`protein`/`vegetables`/`dessert`/`comfort food`)
+are dead prose the original designer left as breadcrumbs for a flavor-text
+layer that was never built — a distinct pattern from the pure-unbuilt rows
+above (revert/force-push/merge/etc., which have no code trace at all).
 
 # The XP Formula
 

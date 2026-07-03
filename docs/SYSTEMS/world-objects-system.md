@@ -177,6 +177,31 @@ constant; enforced structurally by `WorldManager` holding a single optional
 companion reference). `companion` sub-actions are `spawn`/`add`,
 `remove`/`despawn`, and `status`.
 
+**Per-type behavior vocabulary (code-verified, previously undocumented).**
+`docs/archive/plan/phase-4-embodiment/PHASE-4.md` P4-T2-05 describes this
+only as "simple autonomous AI (3-4 behaviors): wander, react to creature,
+flee from touch" — the shipped `CompanionType.behaviors` vocabulary is
+considerably richer than that summary and supersedes it as canon:
+
+| Type | Behaviors (duration range) |
+|---|---|
+| Mouse | `scurry` 2–4s (horizontal dash, bounces off scene bounds), `hideObject` 3–6s (motionless at ground level), `peekOut` 1–2s (rises 1pt), `freeze` 2–5s (motionless) |
+| Bird | `flyOverhead` 3–6s (y=22pt + 3pt sine bob, wraps scene bounds), `landObject` 4–8s (y=12pt perched + 0.3pt sine bob), `hop` 1–2s (rises 3pt + drifts, then lands), `preen` 3–5s (stationary) |
+| Butterfly | `randomDrift` 4–8s (10pt-amplitude sine drift in x, ±5pt in y), `landFlower` 3–6s (y=ground+4pt), `landCreature` 2–4s (snaps to creature position, y=creature+8pt), `flutter` 2–3s (±2pt sine bob) |
+| Fish | `swim` 3–6s (horizontal patrol at ground level, bounces off bounds), `splash` 1–2s (±2pt sine oscillation), `jump` 1–2s (6pt sine arc) |
+| Ghost Cat | `mirrorWalk` 5–10s (tracks the creature at a ±60pt offset, speed 15pt/s), `independentWalk` 5–10s (patrols at speed 12pt/s, bounces off bounds), `glance` 1–2s (faces the creature), `wave` 1.5–2s (animation-only, no position change) |
+| Shared | `idle` 3–8s (motionless; the fallback when a type's pool is empty) |
+
+**Behavior selection** (`CompanionSystem.selectNextBehavior`): on duration
+expiry, the next behavior is a weighted random pick from the type's pool —
+*except* when the companion is within 30pt of the creature, which forces a
+type-specific reactive behavior: mouse `freeze`/`scurry` (50/50), bird
+`flyOverhead`, butterfly `landCreature`, fish `splash`, ghost cat `glance`.
+This is the shipped form of PHASE-4's "react to creature." No touch-based
+fleeing exists in `CompanionSystem.swift` (no touch input is read anywhere
+in the file) — PHASE-4's "flee from touch" clause remains unbuilt design
+intent, not a mismatch to be corrected.
+
 # Schema
 
 `world_objects` (`Schema.swift:277-303`) — see the interaction-vocabulary

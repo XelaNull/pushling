@@ -58,6 +58,18 @@ zero with the stage's `decayHalfLife`, snapping to exactly 0 once
 `|panOffset| < 0.5pt` — the camera drifts gently back to the creature
 rather than snapping.
 
+**Pan-vs-zoom consistent-feel rationale (unbuilt).** The archived reference
+design divided the dampened drag delta by the current `zoomLevel` before
+accumulating it into `panOffset` — "consistent feel at all zoom levels,"
+so a given finger-drag distance moves the camera by the same *visual*
+amount whether zoomed in or out, rather than the same *world-space*
+amount (which would feel sluggish zoomed-in and twitchy zoomed-out). The
+shipped `pan(deltaX:)` has no such division — `panOffset -= deltaX * 0.15`
+is the entire calculation, with no `zoomLevel` term anywhere in the method
+(grep-verified) — so pan feel is currently zoom-invariant only in the
+sense that it doesn't yet vary with zoom at all, not in the design's
+intended sense.
+
 **Zoom** (`zoom(delta:centerWorldX:)`, designed math): `zoomLevel` is
 clamped to the stage's `[minZoom, maxZoom]`; the pinch/gesture center
 point is kept visually stationary by compensating `panOffset` for the
@@ -106,6 +118,21 @@ point, since 0.15x was never actually shipped.
 disable — it still tracks `baseWorldX` to the creature, still runs the
 `autoLock` pan-zeroing decay, and still runs full Y-tracking (below). Only
 the two *user-input* entry points are dead-ended.
+
+**AutoLock's pan-zeroing rate, code-verified**: while `constraints.autoLock`
+is forced (egg/drop stages), any residual `panOffset` decays toward zero at
+`pow(2, -deltaTime / 0.3)` per frame — an exponential decay with a **0.3s
+half-life** — snapping to exactly 0 once `|panOffset| < 0.1`
+(`CameraController.swift:270-277`). This is a distinct, faster mechanism
+from the general post-touch decay above (which uses the stage's own
+`decayHalfLife`, e.g. 2.3s at Beast+): autoLock's 0.3s rate only applies at
+egg/drop, where pan is disallowed outright and any offset needs to snap
+back quickly. The archived source's related claim — a "0.3s ease-in-out
+animation to zero pan" fired specifically by *tapping the creature* to
+manually lock at any stage — does not match: `lockToCreature()` only flips
+`lockMode`, with no pan-zeroing or animation of its own; a manually-locked
+pan offset at Critter+ still decays at that stage's own (slower)
+`decayHalfLife`, not 0.3s.
 
 # Vertical (Y) Tracking
 

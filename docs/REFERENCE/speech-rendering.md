@@ -35,7 +35,7 @@ metrics; see the per-stage table below for the real numbers.
 | Stage | Position mode | Max bubble width | Font | Notes |
 |---|---|---|---|---|
 | Egg | — | — | — | No speech at all; `SpeechCoordinator` gates before any bubble is created. |
-| Drop | `.floating` | 12pt | 8pt bold | No bubble frame — the symbol glyph is a standalone label. Sine-wave horizontal drift + slow upward float. |
+| Drop | `.floating` | 12pt | 8pt bold | No bubble frame — the symbol glyph is a standalone label. Sine-wave horizontal drift (±2pt amplitude, 1.5s period) + slow upward float (6pt total over the glyph's hold duration) — code-verified in `updateFloatingGlyph` (`SpeechBubbleNode.swift:490-501`), matching `PHASE-5.md` P5-T1-04's numbers exactly. |
 | Critter | `.above` | 40pt | 6pt | Compact bubble directly above the creature's head. |
 | Beast | `.sideRight` / `.sideLeft` | 60pt | 7pt | Side-positioned (dynamically flips to the left if the creature is within 30pt of the right edge); word-wrap up to 2 lines. |
 | Sage | side | 80pt | 7pt | Up to 3-bubble chains, 0.3s stagger, stacked 12pt apart. |

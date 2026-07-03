@@ -425,6 +425,47 @@ vision doc's catalog have no seed row until first unlocked.
 | `total_plays` | INTEGER | NOT NULL, DEFAULT 0 |
 | `first_played` | TEXT | nullable |
 
+# speech_cache — Designed, Never Actually Created
+
+A 17th table exists in source as a fully-specified DDL string
+(`SpeechCache.createTableSQL`/`createIndexSQL`,
+`Pushling/Sources/Pushling/Speech/SpeechCache.swift:46-62`) — but it is
+**outside the migration system entirely** and, unlike the 16 tables above,
+is grep-verified to never actually run: no call to
+`SpeechCache.createTableSQL` or `createIndexSQL` exists anywhere in the
+codebase (not in `Migration.swift`, not in `DatabaseManager`, not in
+`SpeechCache.init(db:)` itself). **This table is never created in a real
+`state.db`.**
+
+### Schema (as designed, never materialized)
+| Column | Type | Constraints / Default |
+|---|---|---|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT |
+| `text` | TEXT | NOT NULL |
+| `style` | TEXT | NOT NULL |
+| `stage` | TEXT | NOT NULL |
+| `timestamp` | TEXT | NOT NULL |
+| `source` | TEXT | NOT NULL, DEFAULT `'autonomous'` |
+| `emotion` | TEXT | NOT NULL, DEFAULT `'neutral'` |
+| `tts_cache_path` | TEXT | nullable |
+
+Plus an index on `timestamp` (`idx_speech_cache_timestamp`).
+
+**Consequence: every `speech_cache` read/write fails silently at runtime.**
+`SpeechCache.store()`, `.recentUtterances()`, `.dreamUtterance()`, and
+`.failedSpeechEntries()` all wrap their SQL in `do/catch` blocks that
+`NSLog` the SQLite "no such table: speech_cache" error and return an empty
+result (`[]`/`nil`) rather than crashing — so the surrounding features
+degrade invisibly instead of failing loudly. This is a genuine, previously
+undetected functional defect (not a documentation gap) — flagged for
+`DECISIONS.md`/the Orchestrator: [speech-filtering's Speech Cache & Replay
+section](/SYSTEMS/speech-filtering.md#speech-cache--replay-p5-t1-08)
+documents the downstream consequences for storage and both replay
+consumers, corrected in this same pass. The fix is a one-line addition —
+call `db.execute(SpeechCache.createTableSQL)` and `createIndexSQL` during
+database setup (`DatabaseManager.open`) or as a new migration — out of
+scope to apply in this documentation wave.
+
 # Migration History
 
 | Version | Description |

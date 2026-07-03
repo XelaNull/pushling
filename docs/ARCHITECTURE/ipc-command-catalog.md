@@ -81,11 +81,19 @@ layer..."}`. **Drift:** the archived doc's `{accepted, position, facing}`
 names neither `position_x` nor `action`/`estimated_duration_ms`/`position_z`
 — the real shape is richer and uses a different position field name.
 
-**`express`** — `{expression, intensity, duration}` in the archived doc;
-live shape (`mcp/src/tools/express.ts`, client-composed — the daemon itself
-only echoes `{expression, intensity, duration}` unchanged) is `{accepted:
-true, expression, visual: <animation description>, intensity, duration_s,
-transition_speed_s: 0.3, fade_to_autonomous_s: 0.8}` — see
+**`express`** — `{expression, intensity, duration}` in the archived doc.
+The daemon's actual reply (`ActionHandlers.swift:237-242`) is `{expression,
+intensity, duration_s, description: <ExpressionMapping.description(for:)>}`
+— not a plain echo of the request: the field is renamed `duration →
+duration_s`, and `description` is a new value the daemon derives, not one
+it received. The MCP client (`mcp/src/tools/express.ts`) doesn't actually
+read that daemon-supplied `description`, however — it composes the final
+`visual` field from its own client-side `EXPRESSION_DESCRIPTIONS` table
+(the same 16-row text verified against the daemon's table at [the tool
+contract](/ARCHITECTURE/mcp-tool-contract.md#pushling_express)) and its own
+`actualDuration` computation, assembling the response Claude sees as
+`{accepted: true, expression, visual: <animation description>, intensity,
+duration_s, transition_speed_s: 0.3, fade_to_autonomous_s: 0.8}` — see
 [the tool contract's full description table](/ARCHITECTURE/mcp-tool-contract.md#pushling_express).
 
 **`perform`** (`ActionHandlers.handlePerform()`) — three distinct shapes

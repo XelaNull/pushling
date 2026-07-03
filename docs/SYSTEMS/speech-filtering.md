@@ -302,31 +302,38 @@ was flagged as a gap in an earlier migration pass (recorded, never landed —
 see `docs/archive/traceability-matrix.md`'s P5-T1-08 row) and is restored
 here in full against current code.
 
-**Storage — fully shipped.** `SpeechCoordinator.speak()` calls
-`speechCache?.store(...)` after every rendered bubble or narration overlay,
-regardless of style or source (`SpeechCoordinator.swift:194`). The
-`speech_cache` SQLite table matches P5-T1-08's design exactly: `id`, `text`
-(the already-filtered text actually spoken, not Claude's original), `style`,
-`stage`, `timestamp`, `source` (`"ai"` vs `"autonomous"`), `emotion`, and
-`tts_cache_path`. Capacity is a hard **100-utterance FIFO** —
-`SpeechCache.store()` deletes every row outside the newest 100 by timestamp
-on every write (`SpeechCache.swift:100-109`). This is a distinct cache from
-the 50MB WAV audio-file cache documented at
+**Storage — code-complete, but non-functional at runtime.**
+`SpeechCoordinator.speak()` calls `speechCache?.store(...)` after every
+rendered bubble or narration overlay, regardless of style or source
+(`SpeechCoordinator.swift:194`), and the call is correctly wired. The
+`speech_cache` SQLite table's designed shape matches P5-T1-08 exactly:
+`id`, `text` (the already-filtered text actually spoken, not Claude's
+original), `style`, `stage`, `timestamp`, `source` (`"ai"` vs
+`"autonomous"`), `emotion`, and `tts_cache_path`, with a hard
+**100-utterance FIFO** eviction on every write
+(`SpeechCache.store()`/`SpeechCache.swift:100-109`). **But this pass found
+a deeper defect than the wiring question this section originally set out
+to answer: the table's own `CREATE TABLE`/`CREATE INDEX` statements
+(`SpeechCache.createTableSQL`/`createIndexSQL`) are never executed
+anywhere in the codebase** — full schema-level detail at [the speech_cache
+entry in the state database
+schema](/DATA_MODELS/state-database-schema.md#speech_cache--designed-never-actually-created).
+Every `store()` call throws "no such table: speech_cache," caught and
+`NSLog`-ed, never crashing — so nothing has ever actually persisted to
+this cache in a real build. This is a distinct cache from the 50MB WAV
+audio-file cache documented at
 [voice-tts-stack#caching](/SYSTEMS/voice-tts-stack.md#caching) — that one
 stores rendered TTS audio keyed by an FNV-1a hash of
-`(text, pitch, rate, stage)`; this one stores the plain-text utterance
-history keyed by insertion order. The `tts_cache_path` column is the only
-overlap point between the two (populated by the voice layer, read by
-neither of this cache's own consumers below).
+`(text, pitch, rate, stage)` and is unaffected by this defect.
 
-**Three designed replay consumers — one live, two dead (grep-verified this
-pass, zero callers repo-wide for both dead ones):**
+**Three designed replay consumers — all three functionally dead, for two
+different reasons (grep-verified this pass):**
 
 | Consumer | Method | Status |
 |---|---|---|
-| Dream replay (during sleep) | `dreamUtterance()` + `dreamFragment(from:)` | **Live** — wired to the wake-up path via `SpeechCoordinator.showDreamBubble()`. Full mechanic (not duplicated here): [journal-and-dreams#1-wake-time-dream-bubble](/REFERENCE/journal-and-dreams.md#1-wake-time-dream-bubble-matches-the-vision-doc) |
-| Sage+ reminiscence | `failedSpeechEntries()` | **Dead** — zero callers. Full gap detail (not duplicated here): [journal-and-dreams#sage-idle-reminiscence](/REFERENCE/journal-and-dreams.md#sage-idle-reminiscence--design-intent-unbuilt-p8-t2-07) |
-| Idle replay | `recentUtterances()` | **Dead** — zero callers; undocumented elsewhere until now, detailed below |
+| Dream replay (during sleep) | `dreamUtterance()` + `dreamFragment(from:)` | **Wired, but non-functional.** `SpeechCoordinator.showDreamBubble()` genuinely calls this path — but `dreamUtterance()` queries the never-created table, catches the failure, and returns `nil` every time, so the cached-utterance dream replay this method exists for has never once fired; whatever `showDreamBubble()` falls back to on a `nil` result is the only dream-bubble behavior a real build has ever shown. Full mechanic (not duplicated here): [journal-and-dreams#1-wake-time-dream-bubble](/REFERENCE/journal-and-dreams.md#1-wake-time-dream-bubble-matches-the-vision-doc) |
+| Sage+ reminiscence | `failedSpeechEntries()` | **Dead** — zero callers, and would fail the same way even if called. Full gap detail (not duplicated here): [journal-and-dreams#sage-idle-reminiscence](/REFERENCE/journal-and-dreams.md#sage-idle-reminiscence--design-intent-unbuilt-p8-t2-07) |
+| Idle replay | `recentUtterances()` | **Dead** — zero callers, and would fail the same way even if called; undocumented elsewhere until now, detailed below |
 
 **Idle replay — the one consumer with no doc home before this pass.**
 P5-T1-08 specifies a third scenario, simpler than and independent of both

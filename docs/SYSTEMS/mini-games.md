@@ -114,17 +114,35 @@ before the 60s `gameDuration` cutoff); the plan's "perfect round = 2x
 multiplier" bonus has no corresponding code.
 
 **Treasure Hunt** (`TreasureHuntGame.swift`) is also built to a
-**different design** than `PHASE-6.md`'s P6-T3-07: instead of hot/cold
-speech-line hints (`"cold..."`/`"warmer!"`/`"HERE!"`) driven by swipe
-input, the shipped game renders a persistent temperature bar (60x3pt,
-Tide fill) and a screen cursor the player bursts left/right at 120pt/sec
-for 0.25s per tap (`moveSpeed`/`moveBurstDuration`) — tapping within 30pt
-of the cursor (`digRadius`) instead attempts a dig. **3 treasures per
-60s game** (`totalTreasures`), not the plan's single treasure. Finding one
-within 25pt (`findRadius`) scores `baseTreasureScore (40) +
-closenessBonus (15) * closeness-ratio + timeBonus (10) * remaining-time-ratio`
-— a continuous proximity/time formula, not the plan's discrete
-<15s/15-30s/30-45s/45-60s tiers.
+**different design** than `PHASE-6.md`'s P6-T3-07. The plan's designed
+6-tier hint system:
+
+| Distance to Treasure | Creature Hint |
+|---|---|
+| > 500pt | Creature shivers. Speech: `"cold..."` (Critter+) or a snowflake symbol |
+| 200-500pt | Creature looks around. Speech: `"hmm..."` or a `?` symbol |
+| 100-200pt | Ears perk up. Speech: `"warmer!"` or a `!` symbol |
+| 50-100pt | Tail wags fast. Speech: `"hot!"` or a `!!` symbol |
+| < 50pt | Eyes wide, bouncing. Speech: `"HERE!"` or a star symbol |
+| < 15pt | Treasure found |
+
+and its input model (swipe left/right moves the search position 50-100pt
+per swipe; the creature walks to the search position) — none of this is
+what shipped. Instead, the shipped game renders a persistent temperature
+bar (60x3pt, Tide fill) and a screen cursor the player bursts left/right
+at 120pt/sec for 0.25s per tap (`moveSpeed`/`moveBurstDuration`, ~30pt per
+tap — no swipe gesture, no creature walk-to), with its own **5-tier**
+proximity-driven label (`updateTemperature`, `proximity = 1 -
+distance/maxDistForHot(300)`): `< 0.3` COLD (Tide), `< 0.5` COOL (Tide),
+`< 0.7` WARM (Moss), `< 0.85` HOT (Gilt), `>= 0.85` BURNING! (Ember) — text
+labels and bar-fill color only, no speech lines, no symbol fallback, and
+no creature reaction of any kind (no shiver/ear-perk/tail-wag/bounce).
+Tapping within 30pt of the cursor (`digRadius`) attempts a dig. **3
+treasures per 60s game** (`totalTreasures`), not the plan's single
+treasure. Finding one within 25pt (`findRadius`) scores
+`baseTreasureScore (40) + closenessBonus (15) * closeness-ratio +
+timeBonus (10) * remaining-time-ratio` — a continuous proximity/time
+formula, not the plan's discrete <15s/15-30s/30-45s/45-60s tiers.
 
 **Rhythm Tap** (`RhythmTapGame.swift`) is the most faithful of the three:
 120 BPM (`bpm`, matching the plan exactly) and perfect/good/OK timing

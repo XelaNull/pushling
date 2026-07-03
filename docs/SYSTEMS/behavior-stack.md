@@ -124,7 +124,18 @@ choreographies**, `.behavior(name:)` states the Autonomous layer's
 `BehaviorSelector` can pick weighted-randomly, each an independent state
 machine composing `CreatureNode`'s body-part controllers. All 12 exist and
 are wired (`GameCoordinator` holds the registry) — code-verified against the
-vision doc's 12-item catalog, name-for-name:
+vision doc's 12-item catalog, but **not name-for-name**: 10 of the 12
+match the vision list exactly (slow-blink, kneading, headbutt, predator
+crouch, loaf, grooming, zoomies, chattering, if-I-fits-I-sits, knocking
+things off); the vision doc's remaining two entries are **"tail twitch"**
+and **"ear perk"** (`PUSHLING_VISION.md:162-163`), neither of which exists
+as an autonomous-behavior name — the code's 11th and 12th slots are
+`tail_chase` and `tongue_blep` instead, two different behaviors entirely.
+The substance of tail-twitch/ear-perk survives elsewhere in the codebase
+as reflexes and reactive body-language rather than autonomous behaviors
+(see [Layer 2: Reflexes](#layer-2-reflexes) above and [emotional visual
+feedback](/REFERENCE/personality-emotional-state.md#emotional-visual-feedback-axis--body-language)),
+just not as members of this 12-item registry:
 
 | # | Name (code) | Min stage | Duration | Cooldown | Weight | Priority | Trigger semantic |
 |---|---|---|---|---|---|---|---|

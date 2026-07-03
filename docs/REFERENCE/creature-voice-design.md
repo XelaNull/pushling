@@ -106,6 +106,15 @@ that the survey scoped as still-valid design intent. The per-stage *commit
 thresholds* and *pipeline mechanics* that same section originally paired
 with this arc are superseded — see below.
 
+**Apex's "transcendence" register, unpacked** (`CREATURE-VOICE-DESIGN.md`
+§4, Apex/Unique Voice subsection): "the Apex voice should feel like it
+could only belong to THIS creature. Not any creature — this one. The
+specific combination of pitch, formant, rate, and personality creates a
+unique vocal identity" — the "accent" is meant to become an integral part
+of the voice rather than an overlay by this stage. Design intent only; no
+per-creature vocal-identity derivation exists in the shipped
+`VoicePersonalityCalculator` (see [voice-tts-stack](/SYSTEMS/voice-tts-stack.md)).
+
 # Superseded Design History: The Original Pipeline Concept
 
 Preserved as design lineage, **not current architecture**:
@@ -262,10 +271,15 @@ so their voice-effect rows above are exactly the kind of intended-but-unbuilt
 intent this concept must preserve: `VoicePersonalityCalculator`
 ([voice-tts-stack](/SYSTEMS/voice-tts-stack.md)) reads only `energy` and
 `verbosity` when computing `VoiceParameters` — `focus` and `discipline` are
-not wired into any voice-parameter calculation today (they do drive the
-*text*-side Discipline modifier in
-[speech-filtering](/SYSTEMS/speech-filtering.md), a different, non-audio
-mechanism). `docs/archive/CREATURE-VOICE-DESIGN.md` §11 describes this as one
+not wired into any voice-parameter calculation today. **Correction:** only
+`discipline` (paired with `energy`, not `focus`) drives a *text*-side
+modifier — `SpeechFilterEngine.applyPersonalityModifiers` branches on
+`energy` (lowercase+trailing-ellipsis / caps+exclamation) and `discipline`
+(informal contractions / formal trailing period) only; `focus` is never
+read anywhere in that function (grep-verified) and drives nothing
+text-side either, matching
+[speech-filtering](/SYSTEMS/speech-filtering.md)'s own accurate statement
+of this — the prior wording here overstated `focus`'s reach. `docs/archive/CREATURE-VOICE-DESIGN.md` §11 describes this as one
 of **five** personality axes (adding a "Specialty" axis to Energy/Verbosity/
 Focus/Discipline) with a full 10-category timbre table (Systems, Web
 Frontend, Web Backend, Script, JVM, Mobile, Data, Infra, Docs, Polyglot). No

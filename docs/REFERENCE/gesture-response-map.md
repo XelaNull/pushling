@@ -92,7 +92,7 @@ Routing precedence in `handleDrag` (checked in this order):
 1. **An object is being held** (`objectInteraction.isHolding`) — the drag moves the held object; nothing else runs.
 2. **A commit is being hand-fed** (`handFeeding.isHolding`) — the drag moves the held commit text.
 3. **Target is world** — pans the camera (`cameraController?.pan(deltaX:)`, dead in the current fixed-viewport build — see [camera control](/SYSTEMS/camera-and-parallax.md#current-shipped-state-fixed-viewport)) and, if the `finger_trail` milestone is unlocked, emits a finger-trail sparkle regardless of the camera pan outcome.
-4. **`laser_pointer` milestone unlocked** — activates/updates laser pointer mode (`LaserPointerMode`) at the drag position, tracked at 60Hz with no interpolation lag. Creature behavior by drag speed: stopped (< 1pt/s) -> stare, then pounce after 0.5s stationary (`pounceDelay`); < 50pt/s -> stalk; 50-150pt/s -> trot; > 150pt/s -> chase (creature capped at 100pt/s max chase speed).
+4. **`laser_pointer` milestone unlocked** — activates/updates laser pointer mode (`LaserPointerMode`) at the drag position, tracked at 60Hz with no interpolation lag. **Designed** creature behavior by drag speed: stopped (< 1pt/s) -> stare, then pounce after 0.5s stationary (`pounceDelay`); < 50pt/s -> stalk; 50-150pt/s -> trot; > 150pt/s -> chase (creature capped at 100pt/s max chase speed). `LaserPointerMode.updatePosition` does correctly classify speed into these six `LaserCreatureBehavior` cases and fires `onCreatureBehavior?(...)` for each — **but `onCreatureBehavior` has zero assignments anywhere in the codebase** (grep-verified), the same "declared event, zero listeners" pattern as the Object-tap and Flick chase gaps elsewhere in this doc. The creature does not actually stalk, trot, chase, stare, or pounce during laser play today — only the dot itself (visual + trail below) is live.
 5. **`finger_trail` milestone unlocked** (fallback, no laser yet) — emits the finger-trail sparkle alone.
 
 **Laser pointer — dot visual & pounce/end detail** (fully implemented,
@@ -108,7 +108,18 @@ resetting the pounce guard so it can be triggered again. **End behavior**:
 `deactivate()` fades the dot, glow, and all 4 trail nodes over 0.3s
 (`fadeOutDuration`) and fires `.sniffEnd(targetX:)` so the creature sniffs
 the last known position — matching the source's "sniffs the last
-position, looks around confused" design exactly.
+position, looks around confused" design exactly (as an `onCreatureBehavior`
+event, which — per the dead-callback finding above — currently reaches no
+listener; the sniff never visibly happens).
+
+The source design's satisfaction payoff — "**+5** if the finger has
+lifted when the pounce lands on the last position, dot doesn't escape" —
+is design intent only: `dotEscapePounce()` vs. a lifted-finger pounce are
+never distinguished by any satisfaction call anywhere in
+`LaserPointerMode.swift` or its caller (`onSatisfactionChange` is fired
+exactly once in the whole touch-handling path, from double-tap's jump —
+see Double-Tap above). No code currently rewards a "clean" finger-lifted
+pounce at all.
 
 **Petting stroke** is a distinct `GestureType` (`pettingStroke`), not a
 sub-case of drag — it's classified upstream in `GestureRecognizer` when a
@@ -162,6 +173,21 @@ trust moment and the against-grain rejection are real internal state
 machine transitions, but neither currently produces any creature-visible
 effect beyond the purr-rate doubling that `PettingStroke` applies to its
 own particles directly (not via the event).
+
+**Contentment reward — design intent only, not shipped.** The source
+design attaches a **+15 contentment spike** to the 3-stroke slow-blink
+trust moment specifically, on top of the slow-blink animation, lie-down,
+and doubled purr rate — and frames head-to-tail (with-the-grain) stroking
+as the max-contentment path, with against-grain strokes tolerated once
+(high-energy) or not at all (low-energy) before a rejection. In the
+shipped code, `PettingStroke` never computes or emits a contentment value
+at all — `strokeComplete`/`slowBlink`/`lieDown` carry no numeric payload,
+and `CreatureTouchHandler`'s petting callback (above) doesn't call
+`onContentmentChange` from any petting event. Petting today grants **zero**
+contentment through this path, regardless of stroke count or direction;
+the only contentment gain anywhere in touch handling that resembles
+petting is the flat +8 "chin scratch" from plain sustained touch (see
+Sustained Touch above), which fires independent of stroke counting.
 
 # Flick
 
