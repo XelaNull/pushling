@@ -118,20 +118,37 @@ for `bodyState` was Physics/Reflex (the same per-property-priority data
 # 2. The `bodyState` → Transform Tuple Table
 
 Every literal `bodyState` string actually produced anywhere in the codebase
-today — grepped across all 22 files that assign it (`BehaviorChoreography`,
+today — grepped across all 30 files that assign it (`BehaviorChoreography`,
 `PerformActionMapping`, `AbsenceAnimations`, `DreamEngine`,
 `ObjectInteractionEngine`, `ReflexLayer`, `HookEventProcessor`,
 `TaughtBehaviorEngine`, `RoutineEngine`, `QuirkEngine`,
 `CreatureRejection`, `ExpressionMapping`, `SurpriseRegistry`,
-`SessionLifecycleReactions`, `AutonomousLayer`, `GameCoordinator+*`) — is
-**21 distinct strings**, four more than any single design document lists
-("alert", "flinch", "jump", "lean_forward", "pounce", "shake", "sit" are
-real, shipped, currently-dropped values not previously catalogued
-together). Tuple order is `(yScale, xScale, yOffset pt, zRotation rad,
-headOffset pt, pawAlpha)`, all values authored **at Critter scale** —
-apply the [per-stage amplitude scalar](#3-per-stage-amplitude-scalars)
-before the [global 0.6-1.3 silhouette clamp](#5-global-velocity-squash--stretch-pass).
-`headOffset` is a *delta* added to `headNode.position.y` using the same
+`SessionLifecycleReactions`, `AutonomousLayer`, `GameCoordinator+*`, plus
+the 8 `Surprise/*.swift` keyframe-animation files) — is **111 distinct
+strings**, not the 22 this table originally catalogued. The other 89 are
+**not** a separate mechanism to design around: `KF.build()`
+(`Surprise/SurpriseRegistry.swift:56-74`) writes every keyframe's `body`
+field straight into a `LayerOutput`, the **identical struct** Physics/
+Reflex/AI-Directed/Autonomous populate — so a surprise's `$0.body =
+"dance_frame_1"` and `ReflexLayer`'s `bodyState = "crouch"` arrive at
+`BodyPoseController.setState()` through the exact same field, resolved by
+the exact same `BehaviorStack.resolve()` priority chain (§1). There is no
+second compose point to build for keyframe-driven values.
+
+The 22 strings below are the **priority-resolved core set** — the ones
+`BehaviorSelector`/`AutonomousLayer`/`PerformActionMapping`/`PhysicsLayer`
+actually contend over every frame, common enough across states to be worth
+individually hand-tuned. The remaining 89 (one-off Surprise-keyframe
+cosmetics, the `TaughtBehaviorEngine` choreography vocabulary, and
+genuinely arbitrary player-authored text) are handled by the **alias
+map** in [§2b](#2b-the-remaining-89-strings-alias-map--fallback-rule)
+immediately below the dynamic-states table — every one of the 111 is
+accounted for; none render as an unhandled no-op. Tuple order is
+`(yScale, xScale, yOffset pt, zRotation rad, headOffset pt, pawAlpha)`,
+all values authored **at Critter scale** — apply the [per-stage amplitude
+scalar](#3-per-stage-amplitude-scalars) before the [global 0.6-1.3
+silhouette clamp](#5-global-velocity-squash--stretch-pass). `headOffset`
+is a *delta* added to `headNode.position.y` using the same
 "subtract-previous-then-add-new" pattern `CreatureNode.updateNoiseIdle`
 already uses (line 297-304), so it composes with noise-idle instead of
 fighting it. `pawAlpha` multiplies the four paw controllers' node alpha
@@ -178,11 +195,125 @@ in, then the *next* state's normal 0.3s ease-out applies).
 | `flinch` | Quick compress-and-recoil: eases to `(0.80, 1.10, -0.2, -0.08, 0.0, 1.0)` and back, over the reflex's 1.2s duration (`tool_wince`, `HookEventProcessor.swift:291`, distinct from `ReflexLayer.flinch` which sets `bodyState = "crouch"` instead — two different reflexes share the English word "flinch," only one produces the literal `"flinch"` string). |
 
 **Unmapped strings** (`GameCoordinator+Loading.swift:724`'s
-`habit.behavior`, `QuirkEngine.swift:164`'s quirk-authored `"body"` case —
-both accept arbitrary data-driven text, not a fixed enum) fall back to the
-`stand` tuple (identity transform) rather than crashing or freezing the
-last pose — the same "unknown state = neutral" rule the rest of the stack
-implicitly relies on via `ResolvedCreatureState.defaultState`.
+`habit.behavior`, `QuirkEngine.swift:164`'s quirk-authored `"body"` case,
+`RoutineEngine.swift:317`'s `step.behavior ?? "stand"` — all three accept
+arbitrary data-driven text, not a fixed enum) fall back to the `stand`
+tuple (identity transform) rather than crashing or freezing the last
+pose — the same "unknown state = neutral" rule the rest of the stack
+implicitly relies on via `ResolvedCreatureState.defaultState`, **and**
+the terminal fallback for the alias map immediately below: if
+data-driven text happens to match one of the 111 known strings it gets
+that string's mapping; anything else — a habit or quirk author's
+free-form label — resolves to `stand`.
+
+## 2b. The Remaining 89 Strings — Alias Map & Fallback Rule
+
+Every string below **already reaches `BodyPoseController.setState()`**
+via the single-field path established above — the gap isn't plumbing,
+it's that none of them has an authored tuple. Rather than 89 bespoke
+hand-tuned rows (impractical, and most of these fire once for 1-3
+seconds inside a single Surprise animation, never sustained), each is
+assigned to the **nearest existing core tuple** by visual intent. This
+is the complete, code-verified inventory — grouped by the mechanism that
+produces it — so `BodyPoseController` has a defined target for literally
+every `bodyState` string that exists in the codebase today:
+
+| bodyState | → core tuple | Source | Why |
+|---|---|---|---|
+| `ascend` | `float` | Surprise keyframe (`MilestoneSurprises`, 1000-commit milestone) | Weightless/rising read |
+| `back_away` | `crouch` | Surprise keyframe | Wary retreat, low compressed posture |
+| `balance_block` | `stand` | Surprise keyframe | Static balance-hold, upright |
+| `bask` | `stretch` | Surprise keyframe (`TimeSurprises`, solstice) | Sunbathing sprawl |
+| `belly_up` | `roll_side` | Surprise keyframe | Rolled-over display, same family |
+| `celebrate` | `bounce` | Surprise keyframe | **Naming collision, not a bug:** `PerformActionMapping`'s `celebrate`/`dance` *action* already independently resolves to bodyState `"bounce"` (§2 dynamic-states note) — several Surprise keyframes instead write the literal string `"celebrate"` directly, bypassing that action-name translation. Same visual target either way. |
+| `clap` | `bounce` | Surprise keyframe | Short rhythmic celebratory motion |
+| `co_glow` | `stand` | Surprise keyframe (`CollaborativeSurprises`) | Named for a paired lighting/particle effect, not a torso shape — see the environment-named group note below |
+| `confused` | `alert` | Surprise keyframe (`EasterEggSurprises`) | Heightened attentiveness read |
+| `construction` | `stand` | Surprise keyframe (`ContextualSurprises`) | Environment-named, see below |
+| `contemplate` | `sit` | Surprise keyframe | Thoughtful seated stillness |
+| `costume_transform` | `stand` | Surprise keyframe (`TimeSurprises`) | Transform-moment hold |
+| `dance_frame_1`…`dance_frame_4` | `bounce` | Surprise keyframe (`EasterEggSurprises`' `danceParty`, `isEligible: { _ in false }` — currently **unreachable**, dead but present code) | Rhythmic energetic oscillation is the nearest tupled family |
+| `dim_environment` | `stand` | Surprise keyframe (`CollaborativeSurprises`) | Environment-named, see below |
+| `dual_glow` | `stand` | Surprise keyframe (`CollaborativeSurprises`) | Environment-named, see below |
+| `evolving` | `arch` | Surprise keyframe | Dramatic emergent/rising-chest read |
+| `examine` | `lean_forward` | Surprise keyframe | Curious inspection lean |
+| `examine_self` | `lean_forward` | Surprise keyframe | Same family |
+| `face_camera` | `stand` | Surprise keyframe (`EasterEggSurprises`' Fourth Wall Break) | Neutral upright stare |
+| `fall` | `land` | Surprise keyframe | Nearest authored impact-compression tuple |
+| `first_word_ceremony` | `alert` | Surprise keyframe | Ceremonial forward attention |
+| `flat_press` | `crouch` | Surprise keyframe | Extreme low compression, same family as `splat` |
+| `flex` | `arch` | Surprise keyframe | Confident chest-forward display |
+| `flicker` | `glitch` | Surprise keyframe (`TimeSurprises`' Friday the 13th) | Same alpha-jitter family |
+| `float_up` | `float` | Surprise keyframe | Identical concept, directional variant |
+| `freeze` | `alert` | Surprise keyframe (`EasterEggSurprises`' Fourth Wall Break) | Rigid held stillness, paired with `speed = 0` |
+| `ghost_echo` | `stand` | Surprise keyframe (`TimeSurprises`) | Environment-named, see below |
+| `glitch_static` | `glitch` | Surprise keyframe (`TimeSurprises`' Friday the 13th) | Same family, static variant |
+| `glow` | `stand` | Surprise keyframe (`CollaborativeSurprises`) | Environment-named, see below |
+| `groom` | `lean_forward` | Surprise keyframe (`ContextualSurprises`' `.css` file commentary) | Head-down grooming lean |
+| `handstand` | `flip` | Surprise keyframe | Nearest inversion/rotation tuple |
+| `handstand_prep` | `crouch` | Surprise keyframe | Coiled preparation |
+| `head_in_box` | `curl` | Surprise keyframe | Compact tucked-in silhouette |
+| `head_tilt_left` / `head_tilt_right` | `alert` | Surprise keyframe | Curious attentive read |
+| `hide_peek` | `crouch` | Surprise keyframe | Low hiding posture |
+| `howl` | `arch` | Surprise keyframe (`TimeSurprises`, full-moon) | Chin-up, arched-back howling silhouette |
+| `huddle` | `curl` | Surprise keyframe (`TimeSurprises`, winter solstice) | Compact cold-huddle, same family as `curl` |
+| `jolt_forward` | `flinch` | Surprise keyframe | Startled quick-recoil energy |
+| `jump_down` | `land` | Surprise keyframe | Ends in a landing compress |
+| `knead` | `loaf` | Surprise keyframe | Kneading typically happens in a settled loaf posture |
+| `lean_back` | `arch` | **Taught-choreography whitelist** (`ChoreographyParser.validStatesPerTrack["body"]`) | No dedicated tuple exists for the mirror of `lean_forward`; `arch`'s backward-curve read is the nearest |
+| `loaf_prep` | `loaf` | Surprise keyframe | Same family, transition variant |
+| `look_around` / `look_back` / `look_up` | `alert` | Surprise keyframe | Scanning/attentive posture |
+| `meditate` | `sit` | Surprise keyframe | Seated stillness |
+| `mind_blown` | `flinch` | Surprise keyframe | Shocked recoil read |
+| `montage_flash` | `stand` | Surprise keyframe (`TimeSurprises`, birthday) | Flash-cut transition, neutral hold |
+| `nod` | `stand` | Surprise keyframe | Distinct from the unrelated **head-track** `"nod"` state (`ChoreographyParser.validStatesPerTrack["head"]`) — that one never reaches `bodyState` at all (`TaughtBehaviorEngine.applyTrackState`'s `case "head"` only ever sets `bodyState ?? "stand"`, never a head-specific pose); this is `headNode`'s read to carry, torso stays neutral |
+| `pick_up` / `place_item` / `produce_item` / `produce_scroll` / `push_forward` / `reach_behind` / `sniff` | `lean_forward` | Surprise keyframe | Forward-reaching/investigative family |
+| `playing` | `bounce` | Surprise keyframe | Playful energetic motion |
+| `pose` | `stand` | Surprise keyframe | Static ceremonial hold |
+| `reading` / `reminisce` / `sing` / `sit_high` | `sit` | Surprise keyframe | Seated-performance/reflective family |
+| `replay_trick` | `stand` | Surprise keyframe | Highlight-reel neutral hold |
+| `roll_back` | `roll_side` | **Taught-choreography whitelist** | Same rolling family, mirrored direction |
+| `roll_onto_back` | `roll_side` | Surprise keyframe | Same family |
+| `run` | `stand` | Surprise keyframe — **locomotion-owned** | Every occurrence pairs `body = "run"` with a `speed` value in the same keyframe (e.g. `CatSurprises.swift:24`); the actual gait animation is driven by `walkSpeed`/[locomotion & gait](/SYSTEMS/locomotion-and-gait.md), not a body-pose tuple — the torso stays at identity while the legs (owned elsewhere) do the work |
+| `shake_head` | `shake` | Surprise keyframe | Same oscillation family as the core `shake` reflex tuple |
+| `slide` / `sneak` / `sniff_down` / `splat` | `crouch` | Surprise keyframe | Low-to-ground family |
+| `slouch` | `loaf` | Surprise keyframe | Slumped-relaxed, same family |
+| `spooky_pose` | `arch` | Surprise keyframe | Classic arched-back Halloween-cat silhouette |
+| `squeeze` | `curl` | Surprise keyframe | Compact tight-space posture |
+| `stagger` / `wiggle` / `wobble` | `shiver` | Surprise keyframe | Nearest jitter/unsteady oscillation family |
+| `stand_hind_legs` | `alert` | Surprise keyframe | Approximation only — lifted/attentive read; no dedicated bipedal tuple exists |
+| `swagger` | `arch` | Surprise keyframe (`EasterEggSurprises`' leet-speak egg) | Confident-display family, same as `flex` |
+| `tense` | `crouch` | Surprise keyframe | Tight, guarded compression |
+| `thumbs_up` | `bounce` | Surprise keyframe | Celebratory-gesture family |
+| `tumble` | `flip` | Surprise keyframe | Rotational dynamic family |
+| `walk` / `walk_rhythm` | `stand` | Surprise keyframe — **locomotion-owned** | Same reasoning as `run`: paired with `speed` in every occurrence, gait owned by locomotion & gait |
+| `walk_inverted` | `stand` | Surprise keyframe (`VisualSurprises`, upside-down-walk) — **locomotion-owned, flagged gap** | Same `speed`-pairing reasoning as `walk`, but the *inversion* itself (walking on the "ceiling") has no rendering mechanism anywhere in the codebase today — an open gap for whichever future WO builds the visual, not invented here |
+
+**Environment/lighting-named group** (`co_glow`, `construction`,
+`dim_environment`, `dual_glow`, `ghost_echo`, `glow`): these six don't
+describe a torso shape at all — each is a `Surprise/CollaborativeSurprises.swift`
+or `TimeSurprises.swift` keyframe whose `body` field is named after a
+paired lighting/particle effect that the surprise renders through a
+different mechanism entirely, not covered by this pipeline (e.g.
+`ghost_echo` pairs with `World/GhostEcho.swift`'s own node, named
+independently of this string). `bodyState` here is a leftover naming
+choice from whoever authored the keyframe, not a pose instruction —
+`stand` (identity torso) is correct because the actual visual payload
+lives outside `BodyPoseController`'s scope, the same way §8's `auraState`
+colors are a separate consumption path from the tuple table above.
+
+**Verified absent, not silently added:** the dispatch for this wave named
+`sprawl`, `sphinx`, a `mouthState` of `"suckle"`, and a `pawState` of
+`"kicked"` as literals to fold in. None of the four exist anywhere in
+`Pushling/Sources` today (confirmed by direct grep) — they are not in this
+inventory because they are not shipped code. The closest real analogs are
+the taught-choreography `"paw_fl"`/`"paw_fr"`/`"paw_bl"`/`"paw_br"` tracks'
+`"kick"` value (`ChoreographyParser.swift:114-119` — present tense, not
+`"kicked"`) and the `"mouth"` track's fixed 8-value set (`closed`, `open`,
+`smile`, `yawn`, `chew`, `lick`, `blep`, `chatter` —
+`ChoreographyParser.swift:108-109`), which has no suckle-adjacent value at
+all. Flagging here rather than fabricating table rows for strings that
+don't exist.
 
 # 3. Per-Stage Amplitude Scalars
 
@@ -257,7 +388,7 @@ gap for the eventual Airborne Arc System build, not invented here:
 
 | Stage | Apex cap | Source |
 |---|---|---|
-| Egg | N/A | No directed movement at this stage. |
+| Egg | N/A | No directed movement at this stage — **DECISION-pending**, see `docs/DECISIONS.md` D-1 (Egg canon-vs-code conflict: `baseWalkSpeed` is `3` in code with a `// Egg hops slowly` comment and no stage gate, contradicting this table's "no directed movement" premise). |
 | Drop | 2pt | Dossier: "Drop 2pt hop" — matches the *existing* perpetual Drop hop's own `2.0 × hopValue` amplitude (`CreatureNode.swift:209`), so a directed jump and the ambient hop share one visual ceiling. |
 | Critter | **not yet specified** — flag for the Airborne Arc System follow-up WO. |
 | Beast | 6pt | Dossier: "Beast 6pt." |
