@@ -14,6 +14,25 @@ the exact private-API surface Pushling uses to take over the Touch Bar and
 embed its SpriteKit scene, verified line-for-line against
 `Pushling/Sources/Pushling/TouchBar/`.
 
+# NSView Subclass Capability Survey (Design-Era Research)
+
+The design-era survey enumerated every `NSView` subclass known to work
+inside an `NSCustomTouchBarItem`, proven or theoretical — the full table,
+for reference, since Pushling only exercises one row of it:
+
+| NSView Subclass | What It Enables | Proven? |
+|---|---|---|
+| **SKView (SpriteKit)** | Full 2D game engine — physics, particles, sprites, sound | **YES** (5+ shipped games; this is Pushling's own choice, see below) |
+| **Custom NSView + drawRect** | Arbitrary Quartz 2D drawing | **YES** |
+| **NSImageView** | Animated GIF playback at 60fps | **YES** (Nyan Cat, ~3K stars) |
+| **CALayer (Core Animation)** | Hardware-accelerated shape animation with glow | **YES** (Knight Rider) |
+| MTKView (Metal) | Direct GPU rendering | Theoretical |
+| WKWebView | HTML5 Canvas, WebGL, CSS animations | Theoretical |
+
+Pushling uses the first row (`SKView`) exclusively — the remaining five are
+preserved as intent-canon for what the Touch Bar's `NSView`-acceptance
+generally enables, not a menu of alternatives under consideration.
+
 # The Private API Surface
 
 Pushling loads `DFRFoundation.framework` dynamically (`dlopen`/`dlsym`) —

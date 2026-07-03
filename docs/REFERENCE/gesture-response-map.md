@@ -36,9 +36,30 @@ which is treated as an escape hatch that cancels the cinematic.
 | Creature (pounce catch-window open) | Routed to `PounceGame.attemptCatch` — a catch if within 20pt of the pounce landing X. |
 | Creature (invitation offered) | Accepts the active invitation (`InvitationSystem.acceptInvitation()`) instead of the normal tap cycle. |
 | Creature (normal) | Cycles through an in-memory 4-response rotation — `["purr", "chin_tilt", "headbutt", "slow_blink"]` — advancing the index each tap. **However, the rotation only affects an `NSLog` line and the milestone/particle side effects; the actual creature reflex triggered is always `"ear_perk"` regardless of which rotation entry was selected.** `"purr"` and `"chin_tilt"` are not registered reflex or behavior names anywhere in `Behavior/ReflexLayer.swift`, `BehaviorSelector.swift`, or `BehaviorChoreography.swift` (grep-verified) — only `"headbutt"` and `"slow_blink"` exist as real autonomous-behavior/choreography names, and `"ear_perk"`/`"look_at_touch"` are the only two defined reflexes. A heart particle emits and contentment +3 regardless of rotation position. |
-| Object | `ObjectInteraction.tapObject` — 0.2s scale-bounce (1.0 -> 1.15 -> 1.0), 2-3 Gilt sparkle particles, 30s per-object cooldown before it can be "called to attention" again. |
-| World (empty space) | `PushlingScene.handleTouch(at:)` — shows the HUD overlay via `HUDOverlay.handleTap`. Note: this only fires from the tap path (a clean, short touch); it does not fire from a drag, per the recent fix that stopped the HUD from appearing mid-drag. |
+| Object | `ObjectInteraction.tapObject` — 0.2s scale-bounce (1.0 -> 1.15 -> 1.0), 2-3 Gilt sparkle particles, 30s per-object cooldown before it can be "called to attention" again. Object-side only: the event this fires (`.tapped`) has no listener anywhere in the codebase, so the design's creature-side response (ears perk, head turn, trot over, personality-dependent investigation) never happens — see [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md#basic-gesture-responses--creature-side-gaps). |
+| World (empty space) | `PushlingScene.handleTouch(at:)` — shows the HUD overlay via `HUDOverlay.handleTap`. Note: this only fires from the tap path (a clean, short touch); it does not fire from a drag, per the recent fix that stopped the HUD from appearing mid-drag. Tapping near (not on) the creature does **not** make it walk to the touch point — that "walk-to-point" design exists only inside `CatchGame.handleTap` as mini-game input, never generalized to ordinary world taps; see [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md#basic-gesture-responses--creature-side-gaps). |
 | Commit text | No-op in `CreatureTouchHandler` (the `.commitText` case in `handleTap`'s switch is an empty `break`) — commit-text grabbing for hand-feeding is a separate entry point (`HandFeeding.tryGrab`), not routed through the tap gesture at all. |
+
+## Wake-Up Boop — The 3-Tap Sequence
+
+Fully implemented (`Input/WakeUpBoop.swift`), matching the design almost
+exactly — each nose-area tap on a sleeping creature advances a 3-step
+sequence, with a 5-second timeout between taps:
+
+| Tap | Event | Duration | Response |
+|---|---|---|---|
+| 1st | `.firstBoop` | 0.8s | nose twitches, one eye opens halfway, ear flicks — then resettles |
+| 2nd | `.secondBoop` | 1.5s | both eyes open partway, full body stretch, yawns, eyes close again |
+| 3rd | `.thirdBoop` | 2.0s | big yawn, eyes fully open, stands up, stretches, shakes head — awake |
+
+If more than 5 seconds (`maxTimeBetweenTaps`) pass between taps, the
+sequence resets (`.resettle`) and the creature fully re-settles to sleep —
+the human has to commit to the whole wake-up, not just poke once and walk
+away. On the 3rd tap, `.awake(contentmentBoost: 10.0, minimumEnergy: 30.0)`
+fires: +10 contentment, and energy is floored at 30 regardless of how low
+it was pre-wake (a natural, non-boop wake preserves whatever energy the
+creature had). This is the only manual wake path in the code — there is no
+"slam awake" shortcut.
 
 # Double-Tap
 
@@ -74,6 +95,21 @@ Routing precedence in `handleDrag` (checked in this order):
 4. **`laser_pointer` milestone unlocked** — activates/updates laser pointer mode (`LaserPointerMode`) at the drag position, tracked at 60Hz with no interpolation lag. Creature behavior by drag speed: stopped (< 1pt/s) -> stare, then pounce after 0.5s stationary (`pounceDelay`); < 50pt/s -> stalk; 50-150pt/s -> trot; > 150pt/s -> chase (creature capped at 100pt/s max chase speed).
 5. **`finger_trail` milestone unlocked** (fallback, no laser yet) — emits the finger-trail sparkle alone.
 
+**Laser pointer — dot visual & pounce/end detail** (fully implemented,
+matching the source design almost exactly): the dot is a 3pt-radius Ember
+`SKShapeNode` with a 5pt inner glow at 50% opacity, plus a 4-node comet
+trail at opacities 0.6/0.4/0.2/0.1, each trailing one position-history
+frame behind the last. **Pounce escape**: once the dot has been stationary
+> 0.5s (`pounceDelay`) the creature pounces once (`hasPounced` guards
+against re-pouncing); `dotEscapePounce()` — called if the finger is still
+down after the pounce — jumps the dot 30pt in a random left/right
+direction (clamped to the 10-1075 play area) with a 0.1s ease-out move,
+resetting the pounce guard so it can be triggered again. **End behavior**:
+`deactivate()` fades the dot, glow, and all 4 trail nodes over 0.3s
+(`fadeOutDuration`) and fires `.sniffEnd(targetX:)` so the creature sniffs
+the last known position — matching the source's "sniffs the last
+position, looks around confused" design exactly.
+
 **Petting stroke** is a distinct `GestureType` (`pettingStroke`), not a
 sub-case of drag — it's classified upstream in `GestureRecognizer` when a
 slow drag's cumulative distance crosses 15pt *inside* the padded creature
@@ -88,24 +124,69 @@ petting effect: a silent no-op).
 # Petting Stroke
 
 Once unlocked (`petting` milestone, 50 touches): `PettingStroke` tracks
-cumulative travel and direction. A completed stroke (>= 15pt travel)
-increments `strokeCount`; 3 strokes within a 5s succession window trigger
-`slowBlink` + `lieDown` + doubled purr-particle rate. Direction matters:
-strokes against the creature's facing ("against the grain") increment a
-separate counter; once that exceeds a personality-dependent cap (1 stroke
-for low-energy creatures, 3 for high-energy — `personalityEnergy > 0.6`),
-the stroke fires a `.rejection` event instead of counting toward the
+cumulative travel and direction. A completed stroke (>= 15pt travel,
+`minTravelForStroke`) increments `strokeCount`; 3 strokes within a 5s
+succession window (`strokeSuccessionWindow`) fire `.slowBlink` +
+`.lieDown` + doubled purr-particle rate. Direction matters: strokes
+against the creature's facing ("against the grain") increment a separate
+counter; once that exceeds a personality-dependent cap (1 stroke for
+low-energy creatures, 3 for high-energy — `personalityEnergy > 0.6`), the
+stroke fires a `.rejection` event instead of counting toward the
 slow-blink streak. Purr particles emit at 8/s (doubled to 16/s after the
 slow-blink threshold). Before the `petting` milestone unlocks, a
 petting-shaped gesture on the creature only fires the `look_at_touch`
 reflex (basic head-turn acknowledgment) — see
 [touch milestones](/SYSTEMS/touch-milestones.md).
 
+**Fur-ripple visual** (built): a 4pt-wide, 20pt-tall Bone highlight band
+(`rippleWidth`, alpha 0.3) tracks the finger position for the duration of
+the stroke and fades out over 0.15s on release. The design's "ripple
+travels at 1.5x drag speed from entry to exit" nuance is a declared
+constant (`rippleSpeedFactor = 1.5`) that is **never read anywhere in the
+class** (grep-verified) — the ripple node is just pinned directly to the
+current finger position every frame, with no independent travel speed of
+its own. A second declared-but-unused constant, `bodyOffsetAmount = 1.0`,
+was meant to drive the "creature leans 1pt into the stroke" body reaction
+below.
+
+**Not built**: body lean toward the stroke, eye half-close, and ear tilt
+toward the stroke direction — none of these three body reactions exist
+anywhere in `PettingStroke` or its caller. More significantly, of the six
+`PettingEvent` cases `PettingStroke` fires, `CreatureTouchHandler`'s
+`setupPettingCallback()` consumes **only** `.strokeComplete` (a heart-burst
+particle on every completed stroke) — `.slowBlink`, `.lieDown`,
+`.againstGrain`, `.rejection`, and `.purrIntensify` are all fired into a
+callback that ignores them (grep-verified: the closure's body is a single
+`if case .strokeComplete` check, nothing else). The 3-stroke slow-blink
+trust moment and the against-grain rejection are real internal state
+machine transitions, but neither currently produces any creature-visible
+effect beyond the purr-rate doubling that `PettingStroke` applies to its
+own particles directly (not via the event).
+
 # Flick
 
 Only meaningful on a world object (`guard case .object(let id) = event.target`).
 `ObjectInteraction.flickObject` computes an impulse
-(`impulseVelocity.dx = velocity.dx * mass`, `impulseVelocity.dy = |velocity.dx| * 0.3` for an upward arc) using a per-object-type mass factor (ball 0.8, yarn_ball 0.6, feather 0.2, rock 1.5, flower 0.3, star_fragment 0.4; unknown types default to 1.0) and lets it fly under simple gravity/friction/edge-bounce physics (`ObjectInteraction.update`) until it settles or times out at 3s.
+(`impulseVelocity.dx = velocity.dx * mass`, `impulseVelocity.dy = |velocity.dx| * 0.3` for an upward arc), then lets it fly under shared gravity
+(60pt/s², `friction` 0.95/frame velocity decay, `edgeBounce` 0.3 restitution
+at the 10-1075pt play bounds) until it settles or times out at 3s
+(`ObjectInteraction.update`). Per-object-type mass and bounce behavior:
+
+| Object Type | Mass Factor | Ground Restitution | Flight Behavior |
+|---|---|---|---|
+| Ball | 0.8 | 0.7 | rolls and bounces |
+| Yarn ball | 0.6 | 0.5 | rolls and bounces; **no unraveling particle trail is emitted** (`emitLaunchParticles`-equivalent only fires for `flower`/`star_fragment` — grep-verified) |
+| Feather | 0.2 | 0.1 | sine-wave horizontal drift (`sin(timeInFlight * 3) * 0.5`pt/frame) plus a descent floor clamped to -20pt/s ("floats," doesn't plummet) |
+| Rock | 1.5 | 0.2 | heavy landing; **the source's 0.5pt screen-shake on impact is a dead stub** — the code checks `if objectType == "rock" && abs(velocity.dy) > 5` but the branch body is just the comment `// Shake handled by scene`, with no call anywhere |
+| Flower | 0.3 | 0.15 | 5 Ember petal particles scatter outward on launch (0.5s, fading) |
+| Star fragment | 0.4 | 0.3 (default) | 4 Gilt sparkle-trail particles emitted on launch (0.4s, fading) |
+
+**Creature chase response — entirely unwired.** `flickObject` also fires
+`onObjectEvent?(.creatureChase(objectId:targetX:))` on every flick, but
+`ObjectInteraction.onObjectEvent` has no listener anywhere in the codebase
+(same root cause as the Object-tap gap above) — the personality-dependent
+chase/bat/examine/fetch response never runs. Full designed behavior at
+[interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md#basic-gesture-responses--creature-side-gaps).
 
 # Rapid Taps
 
@@ -113,7 +194,10 @@ Triggers `PounceGame.triggerHunt` if the taps land within 50pt of the
 creature's X (`creatureProximity`): a dust puff per tap, a 0.3s beat
 (`crouchDelay`), then a pounce at the last tap position, followed by a
 0.3s catch window (`catchWindow`) during which a tap within 20pt of the
-landing spot is a catch (20 Gilt sparkles).
+landing spot is a catch (20 Gilt sparkles, +5 satisfaction —
+`satisfactionReward`). The design's `"got it!"` speech line at Beast+ on a
+catch has no corresponding code (grep for `"got it"`: zero hits) — the
+catch is visual-only today.
 
 # Two-Finger (dispatched on lift)
 
@@ -127,6 +211,17 @@ contentment boost. A two-finger gesture targeting the world or an object
 is a no-op — the "2-finger swipe pans the world" behavior from
 `PUSHLING_VISION.md`'s Touch Interactions table is not implemented this
 way; see [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md).
+(At Sage+, the source design layers a temporal-vision variant onto the
+same swipe — see [interactivity — unbuilt
+features](/FEATURES/interactivity-unbuilt.md#live-pan--zoom).)
+
+`handleBellyRub()` itself is pure logic — a random roll plus an `NSLog`
+line and the one contentment call above. None of the design's animation
+flavor exists: no roll-onto-back sequence, no paws-in-the-air pose, no
+4-kick trap animation, and no `"got you"` mischief speech line on a trap
+outcome (grep for `"got you"` across the codebase: zero hits) — the trap
+outcome today is invisible to the human beyond the *absence* of the
+contentment gain.
 
 # Three-Finger
 
@@ -140,14 +235,27 @@ Distinct from the `GestureRecognizer` pipeline: a touch on a drifting
 commit-text node is grabbed via `HandFeeding.tryGrab` (checked separately
 by the caller, not through `GestureTarget.commitText`), which cancels the
 node's autonomous drift actions. Subsequent drags reposition it; on
-release, if within 15pt of the creature's position it counts as fed
-(+10% XP via `HandFeeding.xpBonusMultiplier`, +5 contentment via
-`contentmentBoost`), otherwise the node is released to resume its
-autonomous drift.
+release, if within 15pt of the creature's position (`eatDistance`) it
+fires a `.fed(sha:)` event — declared to carry a +10% XP bonus
+(`HandFeeding.xpBonusMultiplier = 1.1`) and +5 contentment
+(`contentmentBoost`) — otherwise a `.released` event fires and the node
+resumes its autonomous drift.
+
+**The reward never actually applies.** `HandFeeding.onFeedingEvent` has
+zero assignments anywhere in the codebase (grep-verified) — `.fed` and
+`.released` are both fired into the void. The drag-and-drop mechanics
+(grab, reposition, distance check) are fully live; the XP multiplier and
+contentment boost the design attaches to a successful hand-feed are dead
+constants, never read outside `HandFeeding.swift` itself. Neither the
+"gentle from-the-hand eating animation" nor the `"+12 (+1 hand-fed)"`
+XP-float display format described in `PHASE-6.md`'s P6-T1-07 has any
+corresponding code (grep for `hand.fed`/`handFed` outside this file:
+nothing).
 
 # Citations
 
 [1] `Pushling/Sources/Pushling/Input/CreatureTouchHandler.swift`
 [2] `Pushling/Sources/Pushling/Input/{PettingStroke,LaserPointerMode,ObjectInteraction,PounceGame,WakeUpBoop,HandFeeding}.swift`
 [3] `Pushling/Sources/Pushling/Behavior/{ReflexLayer,BehaviorSelector,BehaviorChoreography}.swift` (reflex/behavior name registry — `purr`/`chin_tilt` absent)
-[4] [touch input pipeline](/SYSTEMS/touch-input-pipeline.md), [touch milestones](/SYSTEMS/touch-milestones.md), [camera control](/SYSTEMS/camera-and-parallax.md)
+[4] [touch input pipeline](/SYSTEMS/touch-input-pipeline.md), [touch milestones](/SYSTEMS/touch-milestones.md), [camera control](/SYSTEMS/camera-and-parallax.md), [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)
+[5] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — P6-T1-02b/03/04/05/07/08/09/10/11 (source design for the unbuilt/flavor gaps noted above)

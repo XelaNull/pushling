@@ -57,7 +57,12 @@ perspective foreshortening is applied at a slight camera angle.
 SpriteKit's ~5.7ms. **Visual quality at 30pt: poor** — a low-poly 3D cat has
 only ~15-18 visible vertical pixels of actual geometry; smooth 3D surfaces
 look *worse* than pixel art at tiny scales (anti-aliased mush, not crisp
-edges); fur/material detail is unreadable. **Deprecation risk**: as of WWDC
+edges); fur/material detail is unreadable. The silhouette-on-OLED-black
+aesthetic that makes the current creature readable would additionally
+require a careful rim-lighting setup in 3D — work that partially defeats
+the purpose of adopting 3D in the first place, since the whole appeal of a
+silhouette art style is that it needs no lighting rig at all. **Deprecation
+risk**: as of WWDC
 2025, Apple placed SceneKit in soft deprecation (maintenance-only), pushing
 new 3D work to RealityKit. **Effort: high** (4-8 weeks — full creature,
 terrain, camera, lighting, and touch-handling rewrites). **Verdict: not
@@ -281,6 +286,17 @@ current codebase:
 - **Clouds** — not evaluated in this research at all — also shipped
   (`World/CloudSystem.swift`), adding a living-sky parallax layer this
   document didn't anticipate.
+- **Normal-mapped creature lighting was never built.** This document's
+  recommendation (line 24, line 236, and the Comparison Matrix's
+  "Normal-mapped Sprites" row) called for dynamic normal-map-driven
+  lighting reacting to light direction. What shipped instead is a second
+  silhouette overlay in multiply-blend mode, tinted and offset per
+  time-of-day period — documented in
+  [the Enhanced 2.5D Rendering Stack](/SYSTEMS/rendering-stack-2-5d.md)'s
+  "Creature lighting" row, without that concept cross-referencing this
+  document's normal-map recommendation. Recorded here as the reconciliation
+  note this Outcome section was missing: the *effect* (creature reacts to
+  world lighting) shipped, the *technique* (normal maps) did not.
 
 The core thesis — 3D perspective doesn't survive 36:1, additive pseudo-3D
 techniques within 2D do — held. The *specific* techniques chosen at

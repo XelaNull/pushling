@@ -44,6 +44,30 @@ correct anyway for a stylized spirit-cat where ears are the primary visual
 anchor on a 30pt display; ear outer edges are always convex (a concave curve
 reads as bat/demon).
 
+**Chibi proportion guideline** (design intent, not directly verifiable
+against current code): at the 28-56px @2x scale the design research
+targeted, the recommended ratios were **head 40-60% of total height** ("the
+bigger, the cuter"), **body 30-40%**, **legs 10-20%**, and **eyes as the
+largest facial feature at 25-40% of head width**. The current shipped head
+sizing uses a different measurement basis — head-circle radius as a
+fraction of body *width* (`w × 0.3` at Critter, tapering to `w × 0.2` at
+Apex, see `StageRenderer.buildCritter`/`buildBeast`/`buildSage`/`buildApex`)
+rather than head-diameter as a fraction of total *height* — so this
+guideline's specific percentages cannot be directly reconciled against the
+shipped numbers, but the same qualitative trend (head shrinks relative to
+body as the creature matures) holds in both.
+
+**Historical head-percentage table**: the design research's own
+"Current Proportions (Validated as Good)" table, measured against an
+earlier build, recorded head-height percentages of **Critter 52% -> Beast
+45% -> Sage 40% -> Apex 36%**, validating that "head percentage correctly
+decreases (kitten -> adult)." These specific percentages are preserved here
+as design history rather than live fact — the matrix previously claimed
+this table was "superseded by the code-verified per-stage table," but that
+table (above) carries no head-size or head-percentage column at all, so the
+supersession claim only holds for the sizes/eye-radius/ear-ratio columns it
+does carry.
+
 # Per-Stage Body Construction
 
 `StageRenderer.build(stage:repoCount:visualTraits:)` dispatches to one
@@ -87,6 +111,7 @@ preserved in `growth-stages.md` as superseded design history only.
 | Eyes | hidden | large, round | very large | almond + slit pupil | half-lidded default | almond + glow |
 | Ears | none | proto-bumps | small triangles | taller, sharper | tall, tapered | tall, tapered |
 | Tail | none | proto-nub | short stub | full S-curve | long, tapered | multi-tail fan |
+| Paws | none | none | round blobs, no toes | **NEW** — defined + toe pads | defined + toe pads | defined + toe pads |
 | Whiskers | none | none | **none** (deliberately withheld) | **NEW** | 3/side, longer | 3/side, longer |
 | Mouth | none | none | **none** | **NEW** | present | present |
 | Nose | none | none | none | **NEW** | present | present |
@@ -94,6 +119,7 @@ preserved in `growth-stages.md` as superseded design history only.
 | Aura | none | none | none | **NEW** — warm Bone | Gilt vertical oval | Bone, full radius |
 | Third eye | none | none | none | none | **NEW** | crown of 5 stars |
 | Orbiting particles | none | none | none | none | **NEW** — 4 wisdom dots | crown + potential dissolution (design intent; no dissolution-particle pool found in shipped code — preserved as future work) |
+| Transparency | opaque | opaque (design research recommended 0.88-0.92 semi-translucent "still partly energy" — never built, body alpha is a full 1.0) | opaque | opaque | opaque | ethereal, 0.76-1.0 alpha oscillation |
 | Wise beard | none | none | none | none | none | **NEW** — 3 gilt strands |
 
 # Eye Construction
@@ -109,6 +135,36 @@ shapes per eye, ten total for the pair. **Sage+ defaults to a half-lidded
 eye state** (`CreatureNode.applyDefaultStates`: `currentStage >= .sage ?
 "half" : "open"`) rather than the fully-open default every earlier stage
 uses — "the Sage has seen everything," per the design intent.
+
+The design research recommended increasing the primary catch-light from
+12% to **18%** radius at Critter specifically, for a more visible "life
+spark" at the kitten stage — this recommendation was never adopted; the
+shipped 12% radius above applies uniformly across stages.
+
+# Paw, Mouth & Belly Construction
+
+Three per-part designs from the design research beyond the per-stage table
+above, code-verified individually since the matrix previously (and
+incorrectly) claimed all three were "folded into" that table:
+
+- **Paws are bean-shaped with toe-pad detail — shipped.**
+  `CatShapes.catPaw(showToes:)` returns a rounded "bean" path plus, when
+  `showToes` is true, **3 toe-pad circles across the top** as separate
+  `CGPath`s. `StageRenderer` passes `showToes: true` for all four paws at
+  Beast, Sage, and Apex, and omits it (default `false`, plain bean, no toe
+  pads) at Critter — matching the Feature Introduction Timeline's "Paws"
+  progression: Critter round blobs, Beast+ defined with toes.
+- **Mouth is a ":3" cat-smile shape — shipped.** `CatShapes.catMouth(width:)`
+  builds the two-arc ":3" smile curve described in the design research
+  (two gentle curves meeting at center with a nostril dip), used via
+  `ShapeFactory.makeMouth` at Beast, Sage, and Apex — matching the Feature
+  Introduction Timeline's "Mouth: NEW at Beast."
+- **Belly shading (lighter second path offset down) is unbuilt.** The
+  design research proposed a *second* body-shaped path, offset 1pt down,
+  filled at higher Bone alpha, to suggest a lighter underside. What shipped
+  instead is a single `catBody` outline whose Bezier curve merely traces a
+  belly-swell silhouette (`CatShapes.swift`'s "Belly" curve comment) — one
+  path, one fill color, no separate lighter-shade underside layer.
 
 # Personality-Driven Visual Scaling — Current State
 
@@ -133,6 +189,116 @@ the pre-hatch egg glow but currently disabled for the post-hatch body — this
 is intent-canon, not stale documentation to prune, since the disabling
 commit's own message frames it as a temporary visibility fix rather than a
 permanent design reversal.
+
+## Face-Level Personality Expression (Design Intent)
+
+The design research additionally specified face/pose-level visual
+expression per personality axis, more specific than the general
+behavioral-expression table in
+[personality & emotional state](/REFERENCE/personality-emotional-state.md).
+None of this face-level detail was found in code (grepped for "scattered
+gaze," "locked gaze," "asymmetric whisker," and "perked ears" across the
+Creature/Behavior sources — zero hits) — preserved here as unbuilt design
+intent, distinct from the personality-driven body *scaling* documented
+above, which is live:
+
+| Axis | Low | High |
+|---|---|---|
+| **Energy** | Sleepy half-lidded eyes, relaxed ear angle, low tail | Wide eyes, perked ears, high tail, alert posture |
+| **Verbosity** | Closed mouth, small head relative to body | Slightly open mouth, larger head/eye ratio |
+| **Focus** | Scattered gaze (eyes pointing slightly different directions), ears rotating independently | Locked gaze (both eyes forward), ears pointed forward |
+| **Discipline** | Slightly messy fur texture, asymmetric whiskers | Clean lines, symmetric features, precise ear angles |
+| **Specialty** | Body hue shifts toward the specialty color | Faint colored aura matches the specialty color |
+
+The Specialty row's aura/hue-shift half is the one cell partially
+addressable by existing (if disabled) infrastructure — see
+`VisualTraits.baseColorHue` above — but no code ties it specifically to the
+Specialty axis rather than the general hatching-time hue.
+
+# Sage & Apex Stage-Exclusive Behavior (Mostly Design Intent)
+
+The design research recommended stage-differentiating behaviors carrying
+explicit narrative rationale: late-stage cats doing kitten zoomies "breaks
+the wisdom/transcendence fantasy." Code-verifying each recommendation
+against `Behavior/BehaviorSelector.swift` and
+`Behavior/BehaviorChoreography.swift` found one genuinely shipped:
+
+- **Meditation is shipped, Sage+ exclusive.** `BehaviorSelector` registers
+  a `"meditation"` behavior gated `stageMin: .sage`, `baseWeight: 1.2`,
+  requiring `contentment > 60` — among the highest base weights of any cat
+  behavior. `BehaviorChoreography.applyMeditation` puts the creature in the
+  `loaf` body pose, tail wrapped, eyes closed for 80% of the behavior's
+  duration with a flutter-open finish — a real, distinct, code-verified
+  realization of the design intent's "deep contemplation."
+- **Everything else in this recommendation is unbuilt.** No separate
+  "contemplation" behavior distinct from meditation exists. The "knowing
+  slow-blink" is not Sage-exclusive — the shipped `slow_blink` behavior is
+  gated `stageMin: .drop`, available from Drop onward, not reserved for
+  Sage+. "Zoomies much rarer at Sage/Apex" is unbuilt — `zoomies` is gated
+  `stageMin: .critter` with a flat `baseWeight: 0.5` and no stage-scaled
+  rarity reduction found in `BehaviorSelector`. Apex-exclusive behaviors
+  (ethereal float, phase-shift, cosmic awareness) do not exist anywhere in
+  the behavior registry. Multi-tail emotional expression (fan wide =
+  confident, wrap tight = concerned) is unbuilt — `StageRenderer.buildApex`
+  drives extra-tail count and fan angle purely from `repoCount`, with no
+  emotion input.
+
+# Unbuilt Visual-Polish Design Intent
+
+Additional per-stage visual-polish recommendations, none of which were
+found in the shipped rendering code (grepped for "fur tip," "crack" in a
+creature context, "shimmer," and "swagger" — no hits beyond this citation),
+preserved here as intent rather than silently dropped:
+
+| Stage | Recommendation | Verified status |
+|---|---|---|
+| Egg | Crack marks at 60% and 80% of hatch threshold | Unbuilt |
+| Egg | Bounce physics ("vision says bouncy egg") | Unbuilt — Egg currently only wobbles (`zRotation` per the formula in [procedural animation](/REFERENCE/procedural-animation.md)), no vertical bounce |
+| Drop | Core-glow inner shimmer (glow lost from Egg) | Unbuilt |
+| Beast | Aura slow alpha pulse (2-3% oscillation over 4s) | Unbuilt — Beast's aura is a static `alpha = 0.08` `SKShapeNode` with no `SKAction` pulse |
+| Beast | Walk swagger (longer stride, tail held higher) | Unbuilt — Beast's walk cycle uses the same `updateWalkCycle` formula as every other stage, no per-stage stride/tail modulation |
+| Sage | Luminous fur tips (6-8 additive-blend edge lines pulsing with breath) | Unbuilt |
+| Sage | Emotion-responsive third eye (brighter when curious, dimmer when sleepy) | Unbuilt — the shipped third eye pulses on a fixed `SKAction` timer (alpha 0.15-0.35), not driven by emotional state |
+| Apex | Reactive crown (flare on events, dim during sleep) | Unbuilt — the shipped 5-star crown pulses independently per star with no event/sleep reactivity |
+| Apex | Aura color note: shipped Bone aura is "a regression from Sage's golden [Gilt] aura" | Design-research observation preserved for continuity — Sage's aura is Gilt (vertical oval), Apex's is Bone (full body-width radius); the research recommended Apex use Gilt too, which did not happen |
+
+The Apex dissolution-particle pool is the one Sec 5 visual-polish item
+already preserved elsewhere in this concept — see the Feature Introduction
+Timeline's "Orbiting particles" row above ("design intent; no
+dissolution-particle pool found in shipped code").
+
+# Design-Era Implementation Priority (Historical)
+
+The design research proposed a 9-item, week-ordered priority for the
+combined cat-shape and rendering-stack overhaul, with two rationale
+nuggets worth preserving alongside the ordering itself: **"Cat Shape
+Overhaul... the single biggest visual improvement"** and **"Eyes are where
+people look first."** This is design history, not an active roadmap — most
+items have since shipped in some form, tracked by their owning concept
+rather than this list:
+
+1. Cat Shape Overhaul (Week 1) — shipped, this concept's Bezier body-part
+   geometry
+2. Sprite Stacking for Creature (Week 1-2) — shipped, in a materially
+   different form (see [the Enhanced 2.5D Rendering Stack](/SYSTEMS/rendering-stack-2-5d.md))
+3. Eye Detail System (Week 2) — shipped, see Eye Construction above
+4. Mode 7 Ground Plane (Week 2) — never shipped (see
+   [3D rendering feasibility](/RESEARCH/3d-rendering-feasibility.md)'s
+   Outcome section)
+5. Cloud System (Week 2-3) — shipped (`World/CloudSystem.swift`)
+6. Turn/Movement Animation Refinement (Week 3) — unbuilt (see
+   [procedural animation](/REFERENCE/procedural-animation.md)'s Cat-Feel
+   Animation Refinements table)
+7. Atmospheric Depth (Week 3) — partially shipped, desaturation/alpha only,
+   blur half unbuilt (see
+   [the Enhanced 2.5D Rendering Stack](/SYSTEMS/rendering-stack-2-5d.md)'s
+   Deferred section)
+8. Normal-mapped Creature Lighting (Week 3-4) — shipped as a different
+   technique (multiply-blend overlay, not normal maps — see
+   [3D rendering feasibility](/RESEARCH/3d-rendering-feasibility.md)'s
+   Outcome section)
+9. SDF Glow Effects (Week 4) — shipped as a shape-based approximation (see
+   [OLED rendering techniques](/REFERENCE/oled-rendering-techniques.md))
 
 # The Diamond Indicator
 
@@ -193,3 +359,4 @@ dropped, since this concept is the Diamond Indicator's owning authority.
 [7] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3-6 (Design Philosophy, Proportions, Stage-by-Stage Recommendations, Feature Introduction Timeline)
 [8] `docs/archive/3D-RENDERING-RESEARCH.md` §14 "Cat Visual Enhancement" — target-state part table, cross-verified against `CatShapes.swift`
 [9] `PUSHLING_VISION.md` — "When AI Acts, Human Sees It" (lines 1009–1023)
+[10] `Pushling/Sources/Pushling/Behavior/BehaviorSelector.swift`, `Behavior/BehaviorChoreography.swift` (Sage-exclusive `meditation` behavior, verified shipped)

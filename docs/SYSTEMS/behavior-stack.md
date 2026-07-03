@@ -189,6 +189,14 @@ return nothing); preserved as unbuilt intent in
 [the feature roadmap](/FEATURES/roadmap.md#tier-3-developer-workflow-integration)
 rather than asserted as live here.
 
+**Session-event reactions** (first MCP command, session connect/disconnect,
+reconnect-after-absence) are wired through `SessionManager`/
+`SessionLifecycleReactions`, not this stack's own layer-priority machinery
+— that content, including the P4-T4-06 design table and what actually
+shipped of it, lives in
+[MCP session lifecycle's Session Event Reactions](/ARCHITECTURE/mcp-session-lifecycle.md#session-event-reactions),
+cross-linked from here rather than duplicated.
+
 # The Blend Controller
 
 `BlendController` never lets the resolved per-frame state snap

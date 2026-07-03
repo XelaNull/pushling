@@ -98,6 +98,104 @@ Matches `PUSHLING_VISION.md`'s first-audible-word paragraph and
 `PHASE-5.md` P5-T2-08 on stage (Beast), name source (`git config user.name`),
 whisper-volume ratio (0.7×), and one-time nature.
 
+## The Audio Design of the First Word (Design Intent, Not Fully Shipped)
+
+`docs/archive/CREATURE-VOICE-DESIGN.md` §10 specified a 6-step audio
+choreography for this moment, distinct from the plain whisper that shipped:
+
+1. **Normal babble** — Critter-stage syllable sounds, business as usual.
+2. **A longer pause** — 200ms more than the normal inter-word gap, "the
+   creature gathering itself."
+3. **Intake** — a tiny 50ms breath-in sound.
+4. **The word** — more heavily pitch-shifted than Sage's eventual voice
+   (+7–8 semitones), 0.7× rate (effortful), 25% breathiness (the effort is
+   audible), a slight wavering (±15-cent micro-pitch at 4Hz — "voice not
+   stable yet"), and lower volume than the surrounding babble (0.7×,
+   "almost whispered").
+5. **A pause** — 300ms of silence. "The creature surprised itself."
+6. **Resume babble** — back to normal Critter sounds, but with a subtly
+   different, excited/proud quality.
+
+The explicit engagement rationale: because the word is quieter and more
+processed than the babble around it, "the developer has to *lean in* to
+hear it. They're not sure. They wait for the next utterance... The
+uncertainty creates engagement."
+
+**What actually shipped** (`VoiceSystem.speakFirstWord`, verified above) is
+simpler: a flat 0.7× volume (0.21 = 0.3 base × 0.7) and 0.8× rate, with no
+breath-intake sound, no pre-word pause extension, no post-word 300ms
+silence, and no micro-pitch wavering. The whisper-volume *ratio* and the
+overall "quiet, uncertain" feeling survive; the specific 6-step staging and
+its numeric parameters (breath intake, ±15-cent/4Hz wavering, the 200ms/
+300ms pauses) do not. Under R3-amended this design is canon, shipped
+intent — this section preserves the fuller staging as the design target,
+not as rejected history.
+
+## Post-Milestone Word-Frequency Progression (Design Intent)
+
+`docs/archive/CREATURE-VOICE-DESIGN.md` §10 also specified how often
+recognizable TTS words should appear after the first word, tied to commits
+eaten since that milestone:
+
+| Commits after first word | TTS word frequency | Typical words |
+|---|---|---|
+| 0–20 | 5–10% | Just the first word, repeated occasionally |
+| 20–50 | 10–15% | First word + "hi" + "yes" + "no" |
+| 50–100 | 15–20% | Short common words + commit-learned words |
+| 100+ (approaching Sage) | 20–30% | Growing vocabulary, still mostly babble |
+| Sage transition | 100% TTS | Full creature speech (still processed) |
+
+Design requirement #5 alongside this table: "it must be repeatable — once
+the first word happens, subsequent real words should appear with
+increasing frequency, reinforcing that it wasn't a fluke." As noted in
+Post-Milestone Progression below, no frequency-cap or word-learning code
+was found anywhere in `Speech/` or `Voice/` — this table, and the
+underlying idea that the creature's vocabulary grows from words in the
+commits it eats ("the creature learns from what it eats!" — see
+[creature-voice-design](/REFERENCE/creature-voice-design.md)'s Beast
+word-selection heuristics), survive only as design intent. The one number
+that does survive in code is the coarser Critter-to-Beast babble/word ratio
+formula (`(commitsEaten − 75) / 124.0`, [voice-tts-stack](/SYSTEMS/voice-tts-stack.md)),
+which is a different mechanism (continuous ratio, not a first-word-anchored
+frequency table).
+
+## First Word Choice: What Was Considered
+
+`docs/archive/CREATURE-VOICE-DESIGN.md` §10 ranked candidate "first words"
+by emotional impact before settling on the developer's name: the
+developer's name (git `user.name`, "MAXIMUM IMPACT — it knows my name"),
+the creature's own name (self-awareness), "hello"/"hi" (universal
+greeting), a word from a recent commit message ("it learned that from MY
+code"), "code" or "commit" (world-vocabulary appropriate), and "friend"
+(emotionally powerful but risked feeling on-the-nose). The shipped ranking
+in `VoiceSystem.prerenderCommonPhrases` covers own-name/"hello"/commit-word/
+"friend" as a *phrase cache*, not this *first-word-choice* ranking — the
+"code"/"commit" option specifically has no surviving trace outside the
+archive.
+
+**Four-bullet rationale for the developer's-name choice**, condensed
+elsewhere to "for maximum emotional impact": it's maximally personal
+(every developer has a different first word); it implies recognition ("it
+sees ME"); it implies learning ("it learned this from the commits I fed
+it"); and it's typically short (1–2 syllables), easier to recognize amid
+babble.
+
+**Journal entry design (never fully shipped)**: the original schema
+included a `"context"` field describing what the creature was doing when
+the word occurred (e.g. `"Occurred during idle babble after processing
+commit 'fix login redirect'"`) and stated the entry should be surfaceable
+in dreams and via MCP, becoming part of the creature's permanent memory —
+with an explicit Sage-stage reminiscence line: *"...remember when I first
+said your name?"* The shipped journal write for Milestone 1 (Critter, own
+name) has no `context` field (see its entry format above), and Milestone 2
+(Beast, developer's name) has no journal write at all (see the gap noted
+above). The dream/MCP-surfacing and Sage-reminiscence intent for this
+specific milestone has no owning concept today — general Sage+ idle
+reminiscence exists as a mechanic in
+[journal-and-dreams](/REFERENCE/journal-and-dreams.md), but nothing ties it
+back to the first-word event specifically. Flagged as an open cross-concept
+gap, not something this concept alone can close.
+
 # Design Lineage: How Two Milestones Emerged From One Idea
 
 `docs/archive/CREATURE-VOICE-DESIGN.md` §10 (dated 2026-03-14, well before R3's

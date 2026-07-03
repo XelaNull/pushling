@@ -42,6 +42,17 @@ Three socket commands have **no MCP tool at all**: `reload`, `screenshot`,
 `debug_nodes`. These are operator/debug-only, invoked directly over the raw
 socket, not exposed to Claude.
 
+**Validation-error rule, code-verified as followed throughout.**
+`pushling/CLAUDE.md`'s MCP Server Rules stated the principle "return helpful
+error messages on invalid arguments: explain what's valid" — every
+`mcp/src/tools/*.ts` handler's client-side validation branch follows it
+without exception: an unknown `move` action returns `"Unknown action 'X'
+for move. Valid: goto, walk, stop, ..."`; an unknown `express` expression
+returns `"Unknown expression 'X'. Valid: joy, curiosity, ..."`; a missing
+`move` target names the valid target vocabulary for that specific action.
+No tool ever returns a bare "invalid input" without also naming the valid
+alternatives.
+
 # Connect Snapshot
 
 The `creature` object returned on `connect` — the snapshot the MCP server
@@ -93,8 +104,8 @@ daemon is not running." if disconnected.
 |---|---|
 | `self` | Emotional state (4 axes) + `emergent_state` + `mood_summary` + `circadian_phase` + `streak_days` |
 | `body` | Stage, appearance, personality axes, growth/XP progress, taught-trick names |
-| `surroundings` | Weather, terrain/biome, nearby objects, nearest/visible landmarks, companion |
-| `visual` | Forwards to the `sense`/`visual` socket action — currently a not-yet-implemented acknowledgement, not a screenshot (see [the command catalog](/ARCHITECTURE/ipc-command-catalog.md)) |
+| `surroundings` | Weather (`state`, `duration_minutes`), terrain/biome, nearby objects, nearest/visible landmarks, companion — see `mcp/src/tools/sense.ts buildSurroundings()`. **Not shipped:** a `forecast` field ("rain likely") was designed (`docs/archive/plan/phase-4-embodiment/PHASE-4.md` P4-T1-03, "a simple probability statement derived from current weather-state transition weights") but `buildSurroundings()`'s `weather` object carries only `state`/`duration_minutes` today — no forecast computation exists anywhere in `mcp/src/` or `Pushling/Sources/`. |
+| `visual` | Forwards to the `sense`/`visual` socket action — currently a not-yet-implemented acknowledgement, not a screenshot (see [the command catalog](/ARCHITECTURE/ipc-command-catalog.md)). **Not shipped, intent only:** the original design (`docs/archive/plan/phase-4-embodiment/PHASE-4.md` P4-T1-06) specified a natural-language scene description composed from surroundings+body+self data, plus an inline `screenshot_base64` PNG at 2170×60 @2x (<50ms capture, <100ms added latency) — richer than either the current ack or the separate operator-only `screenshot` command's path-returning shape (see [the command catalog](/ARCHITECTURE/ipc-command-catalog.md#sense--detail-not-covered-by-the-tool-contract)). This unbuilt-feature design belongs in a `FEATURES/` intent-canon entry, not here; flagged for the Orchestrator since no `FEATURES/` concept currently covers it (grep of `FEATURES/interactivity-unbuilt.md` and `FEATURES/roadmap.md` for "visual"/"screenshot_base64" returns nothing). |
 | `events` | Last 20 journal entries |
 | `developer` | Commit/touch activity timing, session state |
 | `evolve` | Progress toward next stage; if eligible, sends `sense`/`evolve` to trigger the ceremony |
@@ -118,6 +129,36 @@ SPEED_PTS`). See
 for a live client/daemon mismatch on how `target` is actually consumed
 server-side.
 
+**Response — sensory narrative, client-composed:** the daemon's own reply
+(see [the response-shape table](/ARCHITECTURE/ipc-command-catalog.md#tool-command-details--response-data-shapes))
+carries only mechanical fields (`position_x`, `facing`, `estimated_duration_ms`).
+`mcp/src/tools/move.ts`'s `generateMoveNarrative()` (lines 101–168) then
+composes a `narrative` string on top of that, and this **is** live, shipped
+behavior — not aspirational: per-action base prose (`"You pad left. The
+ground is steady beneath your paws."` for a walk-speed `goto`/`walk`;
+`"You sprint left -- ears flat, paws pounding."` at run speed; `"You creep
+left, belly low, eyes wide."` at sneak speed; distinct lines for `stop`,
+`jump`, `turn`, `retreat`, `pace`, `center`, `approach_edge`,
+`follow_cursor`), then **weather-modulated** for every non-`stop` action by
+appending to the base line: `" Rain patters on your fur."` (rain),
+`" Your paws leave prints in the snow."` (snow), `" Wind buffets you."`
+(storm) — read live from `StateReader.getWorld().weather`, no daemon round
+trip needed for the modulation itself. The tool's final JSON response is
+`{accepted, action, position_x, facing, estimated_duration_ms, position_z?,
+speed, narrative, target?, pending_events}` — the daemon's raw fields
+spread in verbatim, then `speed`/`narrative`/a client-computed
+`estimated_duration_ms` (which overrides the daemon's own estimate; see the
+citation below) layered on top.
+
+**Duration estimate has two independent authors.** The daemon computes its
+own `estimated_duration_ms` from world-thread state
+(`ActionHandlers.handleMove()`); `move.ts`'s `estimateDuration()` computes a
+second, client-side estimate from `StateReader`'s cached `creature_x` and
+the same speed table, and it's the **client's** number that survives into
+the final response (spread order: daemon fields first, then the
+client-computed `estimated_duration_ms` overwrites it) — a real, harmless
+double-computation rather than a single shared source of truth.
+
 # pushling_express
 
 > "Emotional display. Show what you feel. Express joy, curiosity, surprise, love, mischief, and more. Intensity and duration control the animation's amplitude and how long it lasts."
@@ -132,6 +173,40 @@ Requires the daemon. Response echoes back `transition_speed_s: 0.3` and
 `fade_to_autonomous_s: 0.8` — AI-directed expressions transition faster
 (0.3s) than autonomous ones (0.8s), the visible "this was intentional" cue.
 No stage gates — all 16 expressions are available from Egg onward.
+
+**Response — full visual pose description, shipped verbatim from the
+original design.** `mcp/src/tools/express.ts`'s `EXPRESSION_DESCRIPTIONS`
+constant (lines 35–52) is a live, code-verified, word-for-word match (modulo
+lowercasing the leading word) of `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
+P4-T2-02's "Animation Description" column — this is **shipped**, not
+unbuilt design intent:
+
+| Expression | Animation Description |
+|---|---|
+| `joy` | eyes bright, ears up, tail high, bouncy step |
+| `curiosity` | head tilt, ears rotate independently, eyes widen |
+| `surprise` | ears snap back, eyes wide, jump-startle, fur puffs |
+| `contentment` | slow-blink, kneading paws, purr particles |
+| `thinking` | head slight tilt, one ear forward one back, tail still |
+| `mischief` | narrow eyes, low crouch, tail tip twitching |
+| `pride` | chest out, chin up, tail high and still |
+| `embarrassment` | ears flat, looks away, tail wraps around body |
+| `determination` | ears forward, eyes focused, stance widens |
+| `wonder` | eyes huge, ears high, mouth slightly open |
+| `sleepy` | heavy blinks, yawns, ears droop |
+| `love` | slow-blink, headbutt toward screen, purr particles |
+| `confusion` | head tilts alternating sides, ear rotates, '?' symbol |
+| `excitement` | zoomies trigger, tail poofs, ears wild |
+| `melancholy` | tail low, slow movement, muted colors, quiet |
+| `neutral` | reset to default idle expression |
+
+Every string above is this description table, not a separate animation
+implementation — `EXPRESSION_DESCRIPTIONS[expression]` is echoed straight
+into the tool's response `visual` field:
+`{accepted: true, expression, visual: <the description above>, intensity,
+duration_s, transition_speed_s: 0.3, fade_to_autonomous_s: 0.8,
+pending_events}`. Claude reads its own expression back as prose, not a
+bare animation-state enum.
 
 # pushling_speak
 
@@ -162,7 +237,18 @@ filtering drops meaningful content.
 Requires the daemon. Egg stage (`state.getCreature().stage === "spore"` in
 the MCP-side check — see the growth-stages concept (SP3a) for the `spore`
 vs. `egg` naming history) returns a dedicated in-character refusal rather
-than reaching the daemon at all.
+than reaching the daemon at all — the live text (`mcp/src/tools/speak.ts:118`)
+is `"You cannot speak yet. You are pure light — no mouth, no voice."`, which
+differs in wording from `docs/archive/IPC-PROTOCOL.md`'s illustrative
+`STAGE_GATE` example (`"Spore cannot speak. You are pure light —
+communication is through brightness and pulse. Grow to Drop stage to unlock
+symbol expression."`) — that archived example describes a daemon-side
+`STAGE_GATE` error code that does not exist in the shipped `SocketServer`/
+`CommandRouter` error vocabulary (see
+[the wire protocol's error table](/ARCHITECTURE/ipc-wire-protocol.md#error-vocabulary));
+the real refusal never reaches the daemon at all, so the design intent
+survives in spirit (an in-character, stage-appropriate refusal) but not in
+either exact wording or mechanism.
 
 # pushling_perform
 
@@ -286,5 +372,9 @@ quirks / 10 routine slots; `identity` cannot be removed or reinforced (only
 [4] `mcp/src/ipc.ts` (`CreatureSnapshot` interface)
 [5] `PUSHLING_VISION.md` — MCP Integration: Claude as the Creature's Mind
 [6] `docs/archive/EMBODIMENT-REVIEW.md` §4 — MCP Tools: The Motor Cortex
-[7] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — Tracks 1–2 (superseded scope notes)
+[7] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — Tracks 1–2 (P4-T1-03, P4-T1-06, P4-T2-02 restored above; remaining scope notes superseded)
 [8] `mcp/README.md` — The 9 Tools (superseded seed table)
+[9] `mcp/src/tools/move.ts` (`generateMoveNarrative`, `estimateDuration`)
+[10] `mcp/src/tools/express.ts` (`EXPRESSION_DESCRIPTIONS`)
+[11] `mcp/src/tools/speak.ts` (Egg-stage refusal text)
+[12] `mcp/src/tools/sense.ts` (`buildSurroundings`)

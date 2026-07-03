@@ -56,7 +56,7 @@ the daemon).
 |---|---|---|---|
 | Ambient light | `ioreg` | All Touch Bar-equipped MacBooks | **Not yet** — no ambient-light code exists in the codebase today; remains a designed-but-unbuilt "pet by covering the sensor" interaction |
 | Accelerometer | IOKit HID, ~800Hz | **Apple Silicon only** | **Not yet** — same status |
-| Camera (face detection) | Vision framework | All Touch Bar-equipped MacBooks | **Not yet** — same status |
+| Camera (face detection) | Vision framework | All Touch Bar-equipped MacBooks | **Not yet** — no camera/Vision-framework code exists in the codebase today; remains a designed-but-unbuilt "face detected = the creature notices you" interaction |
 
 **The accelerometer caveat matters**: the Touch Bar only ever shipped on
 Intel and M1 MacBook Pros. Since the accelerometer requires Apple Silicon,

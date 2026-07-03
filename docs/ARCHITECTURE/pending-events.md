@@ -28,9 +28,64 @@ that runs through [the MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md).
 | Field | Type | Notes |
 |---|---|---|
 | `seq` | integer | Monotonically increasing, global across all sessions (`EventBuffer.nextSeq`) — **not** per-session. `events_dropped` meta-events are the one exception: they're synthesized with `seq: 0`. |
-| `type` | string | `commit`, `touch`, `surprise`, `weather`/`weather_change`, `evolve`, `milestone`, `emotion`, `trick`, `companion`, `object`, `hook`, `session`, `events_dropped` |
+| `type` | string | `commit`, `touch`, `surprise`, `weather`/`weather_change`, `evolve`, `milestone`, `emotion`, `trick`, `companion`, `object`, `hook`, `session`, `events_dropped` — see the liveness split below; only two of these thirteen strings are ever actually pushed by the daemon today |
 | `timestamp` | string | ISO 8601, generated at push time by a cached `ISO8601DateFormatter` |
-| `data` | object | Event-type-specific payload |
+| `data` | object | Event-type-specific payload — per-type field catalog below |
+
+# Event Type Payloads — Live vs. Designed-Only
+
+A genuine, code-verified discovery beyond what the archived
+`docs/archive/IPC-PROTOCOL.md` documented: grepping every call site of
+`EventBuffer.push(type:data:)` across `Pushling/Sources/` finds **exactly
+two** — `HookEventProcessor.swift:209` (`type: "hook"`) and
+`HookEventProcessor.swift:383` (`type: "commit"`). No other file references
+`eventBuffer.push(...)` at all. Of the thirteen `type` strings listed
+above, only `commit`, `hook`, and the drain-time-synthesized
+`events_dropped` are ever actually placed in the ring buffer — the other
+ten (`touch`, `surprise`, `weather`/`weather_change`, `evolve`, `milestone`,
+`emotion`, `trick`, `companion`, `object`, `session`) are valid-looking
+type strings that appear in this schema and in
+`mcp/src/index.ts`'s `eventSummary()` rendering switch (which has
+dead-code branches ready to format them), but **no code path anywhere in
+the daemon ever constructs and pushes one**. A session will never see a
+`touch` or `weather_change` pending event no matter how many times the
+developer taps the Touch Bar or the weather changes — those are surfaced
+to Claude, if at all, only via `pushling_sense`/`pushling_recall`'s
+separate SQLite-backed journal reads, not via this ring buffer.
+
+**Live (code-verified, actually pushed):**
+
+| Type | Data Fields | Source |
+|---|---|---|
+| `commit` | `sha`, `message`, `xp`, `lines_added`, `lines_deleted`, `repo`, `commit_type` | `HookEventProcessor.swift:383` — every field present on every push, computed from the post-commit hook payload plus the live XP formula (see [commit feeding & XP](/SYSTEMS/commit-feeding-xp.md)) |
+| `hook` | `hook_type` (the raw Claude Code hook name, e.g. `"PostToolUse"`), `data` (the inner hook-specific payload object, unmodified) | `HookEventProcessor.swift:209` — pushed for **every** Claude Code hook event, not just the ones that also trigger a visible reflex (see [the hook sensory system](/SYSTEMS/hook-sensory-system.md)) |
+| `events_dropped` | `count` | Synthesized at drain time from cursor math (see Buffer Overflow below), not pushed like the other two |
+
+**Designed-only (valid schema strings, zero live push call sites) —**
+restored here as design intent from `docs/archive/IPC-PROTOCOL.md`'s
+per-type field catalog, since the substance is real design content worth
+keeping even though none of it is wired up:
+
+| Type | Data Fields (as designed) |
+|---|---|
+| `touch` | `gesture` (tap/double_tap/long_press/swipe/drag), `position`, `duration_ms` |
+| `surprise` | `surprise_id`, `category`, `description` |
+| `weather`/`weather_change` | `from`, `to`, `duration_min` |
+| `evolve` | `from_stage`, `to_stage`, `total_xp` |
+| `milestone` | `milestone_id`, `description` |
+| `emotion` | `axis`, `from`, `to`, `trigger` |
+| `trick` | `trick_name`, `mastery_level`, `autonomous` |
+| `companion` | `companion_type`, `action` |
+| `object` | `object_id`, `interaction_type` |
+| `session` | `action`, `session_id` |
+
+If any of these is ever wired up, the field names above are the intended
+contract; `mcp/src/index.ts`'s `eventSummary()` already has matching
+rendering branches waiting for `touch`, `surprise`, `evolve`,
+`weather_change`, and `session` (not `milestone`/`emotion`/`trick`/
+`companion`/`object`, which have no MCP-side rendering either — they'd fall
+through to the generic `default: ${event.type}: ${JSON.stringify(event.data)}`
+branch today).
 
 # The Ring Buffer
 
@@ -106,3 +161,4 @@ socket round-trip.
 [3] `mcp/src/ipc.ts` (`PendingEvent`, `handleResponse`)
 [4] `mcp/src/index.ts` (`formatPendingEvents`, `eventSummary`)
 [5] `docs/archive/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))
+[6] `Pushling/Sources/Pushling/Feed/HookEventProcessor.swift:209,383` (the only two `EventBuffer.push` call sites in the codebase)

@@ -89,7 +89,15 @@ frame's offset before adding the new one** (`offsets[i] − prevNoiseOffsets[i]`
 rather than setting an absolute value — this lets noise compose additively
 on top of whatever else is moving that node (breathing, a behavior-driven
 rotation) without either one clobbering the other, and without long-session
-drift. Amplitude scales to 0.1× while asleep.
+drift. Amplitude scales to **0.1× while asleep** — this is the only state
+scaling `updateNoiseIdle` applies (`isSleeping ? 0.1 : 1.0`). The design
+research additionally proposed a **0.3× reduction while walking**, so
+noise doesn't fight the deliberate paw-lift motion of the walk cycle above
+— this half of the scaling was never built; `updateNoiseIdle` has no
+walk-state branch. The research also proposed whiskers additionally
+responding to *acceleration* (a twitch on sudden movement, layered on top
+of their scheduled micro-twitch) — also unbuilt, per a grep of
+`WhiskerController.swift` for any acceleration/velocity input.
 
 # Blink System
 
@@ -159,6 +167,24 @@ math as the design research's `criticalSpringDamper`/`fastNegExp` functions
 a pure first-order exponential decay toward the target rather than a
 second-order spring with independent velocity state.
 
+# Cat-Feel Animation Refinements (Mixed Shipped/Unbuilt)
+
+`docs/archive/3D-RENDERING-RESEARCH.md` §14 proposed an 8-row table of
+motion refinements meant to sell "cat" through movement rather than shape.
+Code-verifying each row against the current animation systems found a
+genuine mix — this is not a uniformly-unbuilt wishlist:
+
+| Animation | Design intent | Status |
+|---|---|---|
+| **Walk cycle** | Diagonal gait (FL+BR, then FR+BL), slight body sway, tail counter-balance | **Diagonal gait shipped** — `CreatureNode` assigns `PawController.cyclePhaseOffset` of `0` to front-left/back-right and `.pi` to front-right/back-left, so `updateWalkCycle`'s shared sine phase produces true FL+BR / FR+BL diagonal pairing. **Tail counter-balance is unbuilt** — no walk-linked tail-rotation code was found in `SegmentedTailController`. |
+| **Idle breathing** | Belly expansion, ear micro-adjustments, whisker flutter | **Shipped, via a different mechanism than proposed** — the Noise Idle System above already applies continuous ear/whisker micro-rotation and body-Y noise independent of walk state, achieving the same "never perfectly still" effect without a dedicated belly-expansion or walk-specific overlay. |
+| **Turning** | Head turns first (0.1s), body follows (0.2s), tail drags behind (0.3s) — "cats lead with the head" | **Unbuilt.** `CreatureNode.setFacing` is an instant `xScale` flip with no staged head/body/tail sequencing. |
+| **Sitting** | Rear lowers first, front paws adjust, tail wraps to side, settle wiggle | **Unbuilt.** The shipped `loaf` behavior (`BehaviorChoreography.applyLoaf`) sets body state, paw tuck, tail wrap, and half-lidded eyes all in the same frame — no staged settle sequence. |
+| **Jumping** | Crouch (compress) -> spring (rear extends first) -> flight (body stretches) -> land (front paws first, rear follows, bounce) | **Unbuilt as a general locomotion jump.** The closest shipped relative is the commit-eating "predator crouch" (`CommitEatingAnimation.swift`): a 15% body-Y compress, then a spring-forward stretch-and-settle — but this is a food-pounce reaction gated to the commit-eating sequence, not a general jump/land cycle, and it has no landing phase at all. |
+| **Landing** | Front paws absorb, body compresses 10%, spring back, dust particles | **Unbuilt** — no landing-specific compression or dust-particle trigger exists outside the choreography DSL's generic `dust` particle option (`ChoreographyParser.swift`), which is available to `pushling_perform` scripts but not wired to any autonomous jump/land event. |
+| **Grooming** | Paw rises, head tilts into paw, tongue blep, paw lowers | **Partially shipped, simpler than proposed.** `BehaviorChoreography.applyGrooming` lifts a front paw, sets `mouthState = "lick"` for the middle 50% of the behavior's duration, then returns paw and mouth to rest — the lick motion is real, but there is no head-tilt-into-paw stage and no `tongue_blep` state combined into this sequence (`tongue_blep` is its own separate, Drop-gated behavior — see `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` BUG-4). |
+| **Sleeping** | Breathing visible, occasional ear twitch, dream-kick (rear paw twitches), tail-tip curl tightens | **Partially shipped.** Breathing amplitude/period already differ while asleep (see the table above). Dream-kick, sleep-specific ear twitch, and tail-tip curl-tightening are unbuilt — grepped `Behavior/` and `Creature/` for `dreamKick`/`dream_kick`, sleep-context ear twitch, and tail-tip curl: zero hits. |
+
 # The Design-Era Spring-Damper Toolkit (Reference Formulas)
 
 `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §7-8 proposed a general-purpose animation
@@ -225,15 +251,54 @@ as `dragTarget = -bodyVelocityX × 0.008` fed through `criticalSpringDamper`
 at a 0.08s halflife. **This exact mechanism did not ship** — the closest
 shipped analog is `EarController`'s `rotate_toward` exponential lerp
 described above, which tracks a touch-point target rather than the body's
-own velocity. **Emotion-to-movement parameter mapping** (breath
-period/amplitude/speed/spring-halflife per emergent emotional state — Happy,
-Sad, Anxious, Content, Excited) and **velocity-driven squash-stretch**
+own velocity. **Velocity-driven squash-stretch**
 (`stretch = clamp(velocityY × 0.003, -0.15, 0.15)`, composed multiplicatively
-with breathing) are both **preserved as unbuilt design intent** — no
+with breathing) is likewise **preserved as unbuilt design intent** — no
 matching implementation was found in `CreatureNode.swift` or any body-part
-controller during this wave's code verification; `breathPeriodOverride`
-provides the *hook* an emotion-driven period override would use, but no
-caller currently sets it from an emotion-state mapping table.
+controller during this wave's code verification.
+
+Three of the six spring presets the design research proposed alongside the
+under-damped table above never shipped either — critically-damped, not
+under-damped, use cases:
+
+| Use case | Damping type | Halflife | Character |
+|---|---|---|---|
+| Sad droop | Critical | 0.4s | Sluggish |
+| Tail settle | Critical | 0.15s | Snappy |
+| Head tracking | Critical | 0.1-0.2s | Responsive |
+
+These three are unbuilt for the same reason the under-damped table's three
+rows *are* built (happy bounce, landing squash, startle jump map to real
+emote states) — no code path in `SegmentedTailController`, `EarController`,
+or `CreatureNode` was found driving a droop/settle/tracking target through
+`criticalSpringDamper` at these specific halflives.
+
+## Emotion-to-Movement Mapping (Unbuilt Design Intent)
+
+The design research's most granular unbuilt proposal maps four emergent
+emotional states — plus a fifth blended "Content" state — to five physical
+animation parameters each, intended to compose with the breathing/noise
+systems above via `breathPeriodOverride` and equivalent hooks on amplitude,
+speed, and spring halflife:
+
+| Emotion state | Breath period | Idle amplitude | Speed | Spring halflife | Vertical bias |
+|---|---|---|---|---|---|
+| Happy (high satisfaction + content) | 2.5s | 1.2x | 1.3x | 0.08s (snappy) | +2pt (up) |
+| Sad (low satisfaction) | 3.8s | 0.5x | 0.6x | 0.4s (sluggish) | -1pt (droop) |
+| Anxious (low energy + low satisfaction) | 1.5s | 1.0x | Variable | 0.15s | -0.5pt + tremor |
+| Content (high contentment, mid energy) | 3.0s | 0.9x | 0.8x | 0.2s | 0pt |
+| Excited (high energy + curiosity) | 2.0s | 1.5x | 1.5x | 0.06s | +1pt |
+
+No matching implementation was found in `CreatureNode.swift` or any
+body-part controller during this wave's code verification —
+`breathPeriodOverride` provides the *hook* an emotion-driven period
+override would use, but no caller currently sets it from a table shaped
+like this one. This is a **different, finer-grained mapping** than the
+shipped one: [personality & emotional state](/REFERENCE/personality-emotional-state.md#emotional-visual-feedback-axis--body-language)
+already documents a live, code-verified breathing override keyed to the
+*personality* Energy axis (period 2.0s above 70, 3.5s below 30) — that
+mapping is real and shipped today, but it is a single axis with two
+thresholds, not this table's five-state, five-parameter design.
 
 # What NOT To Do
 
@@ -256,3 +321,6 @@ Explicit rejections from the design research, still valid guidance:
 [3] `Pushling/Sources/Pushling/Creature/EarController.swift`, `Creature/WhiskerController.swift`
 [4] `Pushling/Sources/Pushling/Scene/CameraController.swift` (`updateYTracking`, `adaptiveYHalfLife`, pan decay)
 [5] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §7 (Animation Architecture), §8 (Procedural Animation Formulas)
+[6] `docs/archive/3D-RENDERING-RESEARCH.md` §14 "Cat Visual Enhancement — Animation Refinements for Cat Feel", cross-verified against `Pushling/Sources/Pushling/Creature/PawController.swift`, `CreatureNode.swift`, `Behavior/BehaviorChoreography.swift`
+[7] `Pushling/Sources/Pushling/Creature/PawController.swift` (`updateWalkCycle`, diagonal-gait phase offsets)
+[8] `Pushling/Sources/Pushling/Behavior/BehaviorChoreography.swift` (`applyGrooming`, `applyLoaf`)

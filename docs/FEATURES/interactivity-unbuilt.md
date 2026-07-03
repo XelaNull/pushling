@@ -35,14 +35,39 @@ single one-finger pan. Even once the `CameraController` pan/zoom `return`s
 above are lifted, the AppKit-level input to drive zoom by pinch would need
 to be added. See [the touch input pipeline](/SYSTEMS/touch-input-pipeline.md#pipeline).
 
+📐 **Fallback zoom input — two-finger same-direction drag.** Alongside the
+pinch recognizer above, the design also specifies a drag-based zoom
+fallback: 200pt of two-finger drag travel = 1.0 change in `zoomLevel`;
+dragging left zooms out, dragging right zooms in. No `twoFingerDrag`
+`GestureType` case exists (`GestureRecognizer` stops at `multiFingerTwo`/
+`multiFingerThree`, which don't carry drag distance), so this mapping has
+no code to attach to today. It's pan/zoom intent-canon like the pinch
+recognizer above — a second, independent path to the same
+`CameraController.zoom(delta:centerWorldX:)` entry point once one exists.
+
 📐 **`ZoomDetailController` — 4-tier zoom-dependent creature detail.**
-Tier thresholds (< 0.8x simplified, 0.8-1.2x normal, 1.2-2.0x enhanced,
-> 2.0x maximum, with 0.1 hysteresis) are fully implemented, but the class
-is referenced by zero other files in the codebase — a classic
-defined-but-unwired system. It cannot do anything useful until zoom is
-re-enabled anyway. Full rendering detail belongs to the creature-visual
-concept that owns `Creature/`; noted here because it's inert for the same
-root reason as pan/zoom above.
+Fully implemented (`Creature/ZoomDetailController.swift`) but referenced by
+zero other files in the codebase — a classic defined-but-unwired system; it
+cannot do anything useful until zoom is re-enabled. Four tiers, hysteresis
+0.1 (a tier only changes once zoom crosses the boundary by more than 0.1,
+preventing flicker at the edge):
+
+| Zoom | Tier | Whiskers | Inner Ears | Toe Pads (all paws) | Toe Beans (4/front paw) | Ear Tufts | Nose Highlight |
+|---|---|---|---|---|---|---|---|
+| < 0.8x | Simplified | hidden (alpha 0) | hidden (alpha 0) | hidden (alpha 0) | hidden | hidden | hidden |
+| 0.8-1.2x | Normal | alpha 1.0 | alpha 0.4 | alpha 0.3 | hidden | hidden | hidden |
+| 1.2-2.0x | Enhanced | alpha 1.0 | alpha 0.5 | alpha 0.45 | hidden | hidden | hidden |
+| > 2.0x | Maximum | alpha 1.0 | alpha 0.55 | alpha 0.5 | alpha 0.35 (Soft-Ember) | alpha 0.5 (Ash outline) | alpha 0.3 (Bone) |
+
+The Maximum-tier nodes (toe beans, ear tufts, nose highlight) are
+**lazily created** the first time zoom crosses into that tier
+(`createMaxDetailNodes()`, gated `stage >= .critter` — an egg/drop-stage
+creature has no paw/ear/nose sub-nodes to attach detail to yet) and then
+just toggled by alpha afterward. Toe bean size scales with stage (2.0pt
+paw size below Beast, 2.5pt at Beast+). This entire mechanism composes
+with, but is independent from, [counter-scaling](#live-pan--zoom) below —
+one changes *which* sprite parts are visible, the other changes the
+creature's overall *scale*.
 
 📐 **Creature counter-scaling under zoom.** Designed to keep the creature
 from clipping the 30pt bar as zoom increases: below a "comfortable" size
@@ -61,6 +86,79 @@ becomes user-driven again. See
 [camera control](/SYSTEMS/camera-and-parallax.md) for the zoom range this
 would apply against.
 
+📐 **Zoom-compensated hit-testing.** Once pan/zoom re-enables, a raw
+view-space touch needs an extra conversion step to land on the right
+world-space target: `worldX = camera.effectiveWorldX + (viewX -
+sceneCenter) / max(zoom, 0.1)`. The design's own caution: at high zoom,
+small finger movements map to large world distances, which could cause
+hit-test misses on small objects (a 2pt finger wobble at 3x zoom is a
+6pt+ world-space miss). No such conversion exists in code today (grep of
+`Input/*.swift` and `PushlingScene.swift`) — [the touch input
+pipeline](/SYSTEMS/touch-input-pipeline.md#touchtracker-coordinate--state-tracking)
+documents only the current normalized-to-scene (1085x30) conversion, which
+has no zoom term because zoom is disabled. This is the same class of
+unbuilt pan/zoom design intent as the rest of this section, not a dropped
+system-fact — it has no live counterpart to correct or contradict.
+
+📐 **Sage+ temporal vision (2-finger swipe).** Beyond the standard
+2-finger world-pan behavior (see [the gesture-response
+map](/REFERENCE/gesture-response-map.md#two-finger-dispatched-on-lift) for
+what's actually wired there today), the design gives Sage+ creatures an
+extra layer on the same gesture: swiping left triggers a "temporal rewind"
+vision — the sky gradient shifts backward in time with a faded ghost of
+the previous weather/lighting state overlaid — while swiping right shows a
+"temporal forward" prediction of the near future, based on the circadian
+cycle. During either, the whole scene takes on a Dusk tint at alpha 0.3;
+the effect holds only as long as both fingers stay down and reverts
+immediately on release. No trace of this exists in code
+(grep-verified: `temporal`/`rewind`/`forward vision` return zero hits
+outside the archive) — a full standard 2-finger world-pan hasn't shipped
+either (see [Live Pan & Zoom](#live-pan--zoom) above), so this Sage+
+extension has nothing built to layer onto yet.
+
+# Basic Gesture Responses — Creature-Side Gaps
+
+Three basic gesture responses from `PHASE-6.md`'s foundational
+gesture-to-creature table have a built *object/world* half but no built
+*creature* half — the event either has no listener at all, or there's no
+event in the first place:
+
+📐 **Tap left/right of creature — walk-to-point.** Tapping empty world
+space near (not on) the creature was designed to make it walk to the
+touch point, occasionally overshooting and stumbling, tail up, trotting.
+[The gesture-response map](/REFERENCE/gesture-response-map.md#tap)'s
+World row only shows the HUD overlay — there is no world-tap-near-creature
+case anywhere in `CreatureTouchHandler.handleTap` (grep-verified for
+`walk`/`overshoot`/`stumble`). This specific "tap to move" mechanic *does*
+exist, but only inside `CatchGame.handleTap` as mini-game input (see
+[mini-games](/SYSTEMS/mini-games.md#the-5-games)) — it was never
+generalized to ordinary world-tap gameplay.
+
+📐 **Tap-on-object — creature investigation.** The object side of a tap is
+fully built (bounce, sparkle, 30s cooldown — see [the gesture-response
+map](/REFERENCE/gesture-response-map.md#tap)), but `ObjectInteraction`'s
+`onObjectEvent` callback — which would carry the `.tapped` event to a
+creature response — is never assigned anywhere in the codebase
+(grep-verified: zero `objectInteraction.onObjectEvent = ` call sites). The
+designed creature response the event was meant to drive: ears perk toward
+the object (0.15s), head turns (0.2s), the creature trots over (1-3s
+depending on distance), then a personality-dependent investigation on
+arrival — high curiosity gets an extended exam (1s sniff, 0.5s paw,
+1s circle), low curiosity a brief glance, and toy-type objects (ball,
+yarn) may trigger autonomous play.
+
+📐 **Object flick — creature chase response.** `ObjectInteraction.flickObject`
+fires an `.creatureChase(objectId:targetX:)` event on every flick (see
+[the gesture-response map](/REFERENCE/gesture-response-map.md#flick) for
+the built physics side), but — same root cause as tap-on-object above —
+`onObjectEvent` has no listener, so the event reaches nobody. The designed
+response: if the creature sees the flicked object (within 200pt, facing
+toward it), it chases at run speed; on arrival, a personality-dependent
+reaction — high energy bats it further (a second impulse at 50% of the
+original), high focus examines it (1s sniff), low energy sits next to it
+and looks at the human, high discipline carries it back to where it was
+(fetch).
+
 # Track 4: Advanced Gestures & Display Modes
 
 None of P6-T4-01 through P6-T4-03/05 exist in code (grep-verified — no
@@ -75,24 +173,65 @@ written. (A closely-related but distinct 5-page stats popup *does* ship
 today via the P button's `StatsPopupView` — see
 [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md) — but it's
 reached by tapping the P-button menu's "Stats" item, not by a 3-finger
-swipe, and it doesn't include the Journal or Constellation modes.)
+swipe, and it doesn't include the Journal or Constellation modes.) The
+designed per-mode content, none of it built:
+
+| Mode | Content | Visual |
+|---|---|---|
+| Normal (default) | living world, creature, weather, no HUD | standard scene |
+| Stats | stage, XP, streak, satisfaction, curiosity, contentment, energy, mutation badges, touch count | Ash-tinted bottom overlay panel, creature dimmed to 60% |
+| Journal | last 10 journal entries, scrolling, brief summaries + timestamps | scrolling Bone-on-Void text list, creature walks in background |
+| Constellation | each milestone/achievement rendered as a star in a procedural map, connected by Ash lines | full-screen star map, creature at center |
+
+Swipe left = next mode, swipe right = previous; any single tap returns to
+Normal; each mode would fade in/out over 0.3s and read its content live
+from SQLite (journal, milestones, creature state) rather than being
+precomputed.
 
 📐 **4-finger memory postcards.** No `PostcardController` and no 4-finger
 `GestureType` case exist — `GestureRecognizer`'s multi-finger cases stop
 at `multiFingerTwo`/`multiFingerThree` (see
 [the touch input pipeline](/SYSTEMS/touch-input-pipeline.md#gesturerecognizer-the-12-gesture-types)).
 A 4-finger swipe is not distinguishable from a 3-finger swipe in the
-current recognizer at all.
+current recognizer at all. The designed content: each postcard is a
+first-person snapshot generated lazily (on swipe, not precomputed) from a
+milestone journal entry — hatch/first-word/first-mutation/evolve-type
+entries, rendered as a full-Touch-Bar card (gradient background + wrapped
+`SKLabelNode` text, horizontal carousel-style slide transitions), capped
+at 50 stored postcards (oldest archived beyond that). Example first-person
+text from the design doc, illustrating the intended voice:
+- *"I opened my eyes for the first time. Everything was dark and warm."*
+- *"I said my name. '...Zepus?' I wasn't sure it was mine yet."*
+- *"The first storm. I hid under a mushroom and shivered."*
+
+Single tap exits back to Normal mode.
 
 📐 **Konami Code gesture-sequence easter egg.** Surprise #58 is defined in
 `EasterEggSurprises.swift`, but no `KonamiDetector` or any
 gesture-sequence-tracking window exists in `Input/` to fire it — the
-surprise is data without a trigger.
+surprise is data without a trigger. The designed detector: a 10-gesture
+sliding window matching Up-Up-Down-Down-Left-Right-Left-Right-Tap-Tap,
+where Up/Down/Left/Right are directional swipes across the Touch Bar
+(bottom-to-top, top-to-bottom, right-to-left, left-to-right respectively)
+and Tap is a single tap on the creature; each qualifying gesture must land
+within 1.5s of the previous one or the window resets. On a full match:
+an 8-bit triumphant fanfare via `afplay`, the creature does a full lap of
+the Touch Bar trailing rainbow particles with a retro-pixel flash effect,
+and the match is logged to the journal as an easter-egg achievement.
 
 📐 **Automatic evening campfire spawn.** No time-period-transition spawn
 logic exists; campfire is available only as a manual IPC object preset
 (`WorldHandlers.swift`) and a debug-menu action — never spawned
-automatically at a 40%-per-evening-transition roll as designed.
+automatically at a 40%-per-evening-transition roll as designed. The
+designed trigger/behavior: fires on the "evening"/"late\_night" time-period
+transition, only if no campfire object already exists and the creature is
+Beast+; visual is an Ember glow with a tiny flame particle emitter and a
+warm light radius (Gilt @ alpha 0.08, 20pt radius); the creature would
+gravitate toward it and sit watching the flames (the `watching` interaction
+template); with Claude connected, the campfire would enable a "campfire
+stories" surprise variant (creature stares into the fire, thought bubbles
+surfacing memories). It's marked `temporary: true` and exempt from the
+12-object persistent-object cap, fading out over 30s at dawn.
 
 **Not unbuilt — built differently:** P6-T4-04's co-presence concept (human
 touch + Claude MCP command within 100ms) *is* implemented, just not as a
@@ -123,6 +262,16 @@ the first two — games can currently only be started by whatever direct
 call invokes `startGame`, not by a creature-presented invitation or an
 MCP tool call. See [mini-games](/SYSTEMS/mini-games.md#lifecycle).
 
+📐 **Game discovery — pre-unlock teasers.** Before a game unlocks, the
+design has the creature hint at it during idle so it's "a mystery until
+unlocked" rather than a silent locked slot: Catch is teased by the
+creature dropping a star and looking expectant; Memory by showing symbols
+in sequence; Treasure Hunt by digging while looking at the human; Rhythm
+Tap by musical notes floating past. No such idle-teaser behavior exists
+anywhere in `MiniGameManager` or the Autonomous layer (grep-verified) —
+locked games today are simply invisible until their play-count threshold
+is crossed. See [mini-games](/SYSTEMS/mini-games.md#the-5-games).
+
 # Touch Milestones — Unbuilt Payloads
 
 📐 **`pre_contact_purr` (500 touches).** The milestone unlocks correctly,
@@ -132,12 +281,27 @@ it's supposed to gate. See [touch milestones](/SYSTEMS/touch-milestones.md#the-9
 
 📐 **"Paying attention" rewards.** `PUSHLING_VISION.md`/`PHASE-6.md`
 describe a system that rewards a human tap landing within a short window
-of specific autonomous creature behaviors (zoomies, pounce, sneeze, etc.)
-with a distinct "we had a moment" sparkle ring. The sparkle visual itself
+of specific autonomous creature behaviors with a distinct "we had a
+moment" sparkle ring (Gilt particles, 10pt radius, 0.3s — visually
+distinct from the ordinary tap response). The sparkle visual itself
 exists (`TouchParticles.emitMomentRing`), but it has exactly one call
 site in the whole codebase — the P-button menu's placeholder `menuPlay()`
 action — and no autonomous-behavior-timing-window detection exists
-anywhere to actually award this reward during real gameplay.
+anywhere to actually award this reward during real gameplay. The designed
+per-behavior windows and rewards:
+
+| Autonomous Behavior | Tap Window | Reward |
+|---|---|---|
+| Zoomies | during the run | "noticed!" sparkle, +3 satisfaction |
+| Catching a mouse | during the pounce | "you saw!" sparkle, +5 satisfaction |
+| Sneezing | within 0.5s of the sneeze | sheepish look, +2 satisfaction |
+| Finding something | during examination | creature holds it up to show the human, +3 satisfaction |
+| Knocking something off | during or within 1s after | guilty-and-proud look, +2 satisfaction |
+| Slow-blink | during the blink | mutual moment — extended slow-blink, +5 contentment |
+| First-word ceremony | during the word | extended emotional moment, +10 contentment |
+
+Designed to count **once per behavior instance** — spam-tapping a single
+zoomie shouldn't award the reward repeatedly.
 
 📐 **Daily-gift world placement.** `PetStreak.checkDailyGift()` correctly
 fires `onGiftReady` with a randomly-chosen cosmetic item name once a
@@ -224,9 +388,12 @@ trigger-detection call sites themselves. Whether to wire or descope these
 
 # Citations
 
-[1] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — Track 4, P6-T3-04/05/06/08/09 cooperative subsections
+[1] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — Track 4 (P6-T4-01/02/03/05), P6-T1-02b/02c/05/10, P6-T2-06, P6-T3-04/05/06/08/09/11 cooperative and per-game subsections
 [2] `docs/archive/plan/TODO-CONTEXT-MENU-SYSTEM.md`
 [3] `PUSHLING_VISION.md` — Touch Interactions, Human Milestones, Creature-Initiated Invitations, Mini-Games
-[4] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` — §5 Creature Scaling Under Zoom, §6 Zoom Detail Tiers
+[4] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` — §4 Camera Controller (zoom fallback input), §5 Creature Scaling Under Zoom, §6 Zoom Detail Tiers, §9 Coordinate Conversion for Hit-Testing
 [5] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-16 Between-Session Autonomous Speech
-[6] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md)
+[6] `Pushling/Sources/Pushling/Creature/ZoomDetailController.swift` (tier alpha values, lazy max-detail creation)
+[7] `Pushling/Sources/Pushling/Input/ObjectInteraction.swift` (`onObjectEvent` — declared, never assigned; grep-verified) and `Input/CreatureTouchHandler.swift` (no `objectInteraction.onObjectEvent = ` call site)
+[8] `Pushling/Sources/Pushling/Input/Games/MiniGameManager.swift` (no idle-teaser/discovery logic)
+[9] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md), [the gesture-response map](/REFERENCE/gesture-response-map.md), [the touch input pipeline](/SYSTEMS/touch-input-pipeline.md)

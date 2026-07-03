@@ -43,6 +43,20 @@ darkness" more than a slogan — it is why a lit creature against `void`
 (#000000, genuinely unlit OLED pixels) reads as luminous rather than merely
 "a shape on black."
 
+# The Vector Advantage
+
+Every body-part shape is a `CGPath` Bezier curve, not a pixel-art sprite —
+this is a deliberate choice with a specific payoff at Touch Bar scale.
+Sub-pixel antialiasing on vector paths gives roughly **1.5-2x the
+expressiveness of equivalent pixel art** at the same dimensions: SpriteKit
+renders at floating-point coordinates, so a movement as small as 0.3pt
+visibly shifts an antialiased edge, producing perceived motion without the
+full-pixel jump a bitmap sprite would need. This is the rationale behind
+[procedural animation](/REFERENCE/procedural-animation.md)'s sub-pixel
+noise-idle and breathing amplitudes (fractions of a point) actually reading
+as motion on a 30pt-tall creature, rather than being invisible rounding
+error.
+
 # The Solid Fill Test (North Star)
 
 **Render the creature as one flat color at actual Touch Bar scale. If it
@@ -88,6 +102,22 @@ specifically: a creature walking toward the camera should look noticeably
 larger, mountain ranges should visibly overlap and parallax-scroll at
 different speeds, and the honest pass/fail signal is whether an observer
 volunteers "it feels 3D" unprompted, versus "it's flat."
+
+# Animation Over Detail
+
+At 30pt tall, **movement matters infinitely more than pixels** — the
+design research's named example is Celeste's Madeline, a character with no
+face at all who is nonetheless one of the most expressive protagonists in
+modern platformers, entirely through animation. The directive this pillar
+sets: invest engineering effort in breathing, ear flicks, tail curls, head
+tilts, and squash-and-stretch rather than in additional static shape
+detail, because **timing matters more than frame count**. This is the
+governing principle behind why
+[procedural animation](/REFERENCE/procedural-animation.md)'s breathing
+formula is described there as "the single most important animation" — a
+creature that never breathes reads as dead regardless of how detailed its
+silhouette is, and a creature that breathes, blinks, and sways its tail
+reads as alive even rendered as flat geometric primitives.
 
 # One New Feature Per Stage
 
@@ -192,6 +222,6 @@ this entry records the principle that shaped that implementation.
 # Citations
 
 [1] `PUSHLING_VISION.md` — Visual System: Art Direction, Visual Earned Complexity, The "Wow Factor" Moments, HUD Philosophy
-[2] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3 (Design Philosophy — Solid Fill Test, One New Feature Per Stage, Shape Language Arc, the Ori Principle, Animation Over Detail)
+[2] `docs/archive/VECTOR-GRAPHICS-RESEARCH.md` §3 (Design Philosophy — Solid Fill Test, One New Feature Per Stage, Shape Language Arc, the Ori Principle, Animation Over Detail), §4 (Vector Advantage)
 [3] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` — Design Principles (8 numbered), Success Criteria
 [4] `docs/archive/3D-RENDERING-RESEARCH.md` §1, §12 — "what reads at 20 feet..." framing, aspect-ratio-driven readability argument

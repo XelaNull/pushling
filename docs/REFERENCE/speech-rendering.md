@@ -45,6 +45,22 @@ These per-stage width values (`bubbleMaxWidth(for:)`) match
 `PHASE-5.md` P5-T1-02's "Bubble Max Width" column exactly
 (12/40/60/80/120) — a rare 1:1 match between design intent and shipped code.
 
+**Edge handling, restored in full.** P5-T1-02 specified three edge rules:
+(1) creature within 30pt of the right edge → bubble goes left; (2) creature
+within 30pt of the left edge → bubble goes right; (3) both edges at once
+(shouldn't happen) → bubble goes above. `positionModeForStage`
+(`SpeechCoordinator.swift`) implements only an explicit right-edge check
+(`x > sceneWidth − 30 → .sideLeft`); there is no explicit left-edge branch.
+This is a correct-by-default omission, not a missing rule in practice:
+`.sideRight` is the function's unconditional fallthrough, so a creature near
+the left edge already gets a right-positioned bubble without needing its own
+branch. Rule 3 ("both edges") is not reachable at all given the Touch Bar's
+own geometry — at 1085pt wide with a maximum 120pt bubble, no creature
+position can be within 30pt of both edges simultaneously, so an `.above`
+fallback for that case would be dead code if written. Net: the design's
+*outcomes* are all satisfied; only rule 2's *explicit branch* doesn't exist
+in source, and rule 3 was never codeable in the first place.
+
 # Hold Duration
 
 ```
@@ -118,10 +134,24 @@ rendering authority. See
 for how this glyph mismatch compounds into a verified selection bug when the
 MCP's pre-chosen glyph is re-processed by the daemon.
 
-**Rendering specifics**: each symbol is a single `SKLabelNode`, system bold,
-8pt, Gilt. Multi-character symbols (`zzz`, `...`, `!?`, `!!`) render as one
-label rather than per-character. `♪` rotates gently; the rest are static
-apart from the shared floating-glyph drift.
+**Rendering specifics**: each symbol is a single `SKLabelNode`
+(`configureFloatingGlyph`), system bold, a flat 8pt, Gilt (Dusk if the style
+is `dream`). Multi-character symbols (`zzz`, `...`, `!?`, `!!`) render as one
+label rather than per-character. `PHASE-5.md` P5-T1-05 additionally
+specified: a 0.2s fade-in for the glyph's appearance (the shipped
+`SpeechBubbleNode` uses a single shared 0.15s `appearDuration` for every
+style, including Drop — no Drop-specific override exists); heart and star
+rendered via a distinct emoji font path at 7pt (the shipped code applies the
+identical 8pt `SFProText-Bold` label to every symbol, with no per-glyph font
+or size branching); and the musical note (`♪`) given a 15-degree/1s
+rotation oscillation. **`DropSymbol.rotates` is declared but dead** —
+`DropSymbolSet.symbols`' `♪` entry sets `rotates: true`, but a repo-wide
+search of `Speech/` finds no code that ever reads `.rotates` or applies a
+`zRotation` to the floating glyph label; `updateFloatingGlyph` only ever
+moves `textLabel.position.x` (the shared sine drift, not a rotation). The
+doc's previous "♪ rotates gently" claim was itself unverified against code —
+corrected here: **nothing rotates** in the shipped floating-glyph animation
+today, for any symbol, and the `rotates` flag is inert.
 
 # The 7 Speech Styles
 

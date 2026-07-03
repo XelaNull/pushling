@@ -146,11 +146,16 @@ suppressed entirely while the creature is asleep
 
 # Apex Speech-Triggered World Effects (P5-T1-12)
 
-Apex is the only stage whose speech can reach back into the world: every
-rendered utterance is scanned by `SpeechCoordinator.checkWorldShaping(text:)`
-against a fixed keyword table (`worldShapeTriggers`, pattern → effect name →
-probability), gated by a **5-minute cooldown** (`worldShapeCooldownDuration`)
-so a single Apex monologue can't fire the effect repeatedly:
+Apex is the only stage whose speech can reach back into the world — and
+only when that speech is Claude-directed: `checkWorldShaping(text:)` is
+gated `currentStage == .apex && request.source == .ai`
+(`SpeechCoordinator.swift:211`), so autonomous Layer-1 speech (idle
+thoughts, weather reactions, etc.) never triggers it, only text spoken via
+`pushling_speak`. Matching utterances are scanned by
+`SpeechCoordinator.checkWorldShaping(text:)` against a fixed keyword table
+(`worldShapeTriggers`, pattern → effect name → probability), gated by a
+**5-minute cooldown** (`worldShapeCooldownDuration`) so a single Apex
+monologue can't fire the effect repeatedly:
 
 | Trigger words (substring match) | Effect | Roll chance |
 |---|---|---|
@@ -169,10 +174,21 @@ fresh random draw each check. On a hit, `onWorldShapeEffect` fires up to
 `rain`/`storm`/`clear`/`snow` are valid `WeatherState` cases**, so the
 `night`/`dawn`/`bloom`/`shake` effect names silently no-op (no matching
 `WeatherState`, no reaction of any kind); the mechanism as shipped is
-narrower than its own trigger table implies. This is the wave's own new
-finding, not carried from any source doc — `PUSHLING_VISION.md` and
-`docs/archive/plan/phase-5-speech/PHASE-5.md` name "Apex world-shaping speech" as a
-capability without this level of mechanism detail.
+narrower than its own trigger table implies.
+
+`debugForceWeather(_:)` calls `WeatherSystem.forceWeather(state,
+duration: 300)` — a fixed **5-minute override**, after which
+`overrideState` auto-clears (`DispatchQueue.main.asyncAfter`) and normal
+weighted transitions resume. This is real code, not just a design claim,
+but it's a fixed 5 minutes, not the "1-5 minutes" range
+`docs/archive/plan/phase-5-speech/PHASE-5.md`'s P5-T1-12 describes. Two
+further design elements from the same source have **no code at all**
+(grep-verified: `Ember`/`glow`/`journal` return nothing in this path):
+the trigger word briefly glowing Ember in the speech bubble when it fires
+an effect, and a journal-log entry recording the moment (e.g. *"Zepus
+said 'I wish it would rain' and the sky opened"*) — a hit today changes
+the weather silently, with no in-bubble or in-journal trace that the
+utterance caused it.
 
 # Citations
 
@@ -184,6 +200,7 @@ capability without this level of mechanism detail.
 [6] `Pushling/Sources/Pushling/Creature/CatBehaviors+Weather.swift`
 [7] `docs/archive/plan/phase-3-world/PHASE-3.md` (P3-T2-04 through P3-T2-09) — original spec; crossfade duration corrected above
 [8] `docs/archive/plan/TODO-GRAPHICS-OVERHAUL.md` Phase 4 "Weather & Atmosphere Polish" — all listed items (teardrop rain, variable snow-flake sizes, firefly trail) have since shipped; see this concept and [world complexity & ambient effects](/SYSTEMS/world-complexity-ambient-effects.md) for confirmation
-[9] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`worldShapeTriggers`, `checkWorldShaping`)
+[9] `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift` (`worldShapeTriggers`, `checkWorldShaping`, the `.apex && .ai` source gate at line 211)
 [10] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`wireSpeechSystem` — `onWorldShapeEffect` wiring)
-[11] `docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T1-12 "Apex World-Shaping Speech"
+[11] `Pushling/Sources/Pushling/World/WorldManager.swift` (`debugForceWeather` — fixed 5-minute override)
+[12] `docs/archive/plan/phase-5-speech/PHASE-5.md` P5-T1-12 "Apex World-Shaping Speech"

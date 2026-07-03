@@ -29,7 +29,7 @@ Source: `Input/MilestoneTracker.swift`, `Input/UnlockCeremony.swift`,
 | `belly_rub` | 250 total touches | Two-finger-on-creature belly rub |
 | `pre_contact_purr` | 500 total touches | **Not implemented** — the milestone unlocks and its threshold check exists, but no "creature purrs before contact" behavior reads `isUnlocked(.preContactPurr)` anywhere in the touch/creature code (grep-verified). See [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md). |
 | `touch_mastery` | 1000 total touches | `MilestoneTracker.particleMultiplier` returns 2.0 instead of 1.0 — read by `emitHeartParticle` (tap-on-creature hearts). Not wired into any other particle emitter (petting purrs, laser trail, pounce sparkles, object-tap sparkles all use fixed particle counts regardless of this milestone). |
-| `gentle_wake` | not a touch count — first successful `WakeUpBoop` completion (`recordSpecial(.gentleWake)`) | Ceremony only |
+| `gentle_wake` | not a touch count — first successful `WakeUpBoop` completion (`recordSpecial(.gentleWake)`) | Ceremony only. See [the 3-tap wake sequence](/REFERENCE/gesture-response-map.md#wake-up-boop--the-3-tap-sequence) for what "successful completion" actually requires. |
 
 The vision doc and `PHASE-6.md` additionally describe a `pet_streak_7`
 milestone (7-day streak unlocks a daily-gift behavior) as part of this

@@ -57,7 +57,11 @@ currently disabled at the `CameraController` level regardless.
 (0-1 on both axes) to scene points: `x = normalized.x * 1085`,
 `y = normalized.y * 30` (`sceneWidth`/`sceneHeight` constants). Up to **3**
 simultaneous touches are tracked (`maxTouches = 3`, the Touch Bar's hardware
-limit) in a dictionary keyed by `ObjectIdentifier`.
+limit) in a dictionary keyed by `ObjectIdentifier`. This conversion has no
+zoom term because zoom is disabled — the zoom-compensated view-to-world
+step a re-enabled camera would need is unbuilt design intent, not a
+current gap in this conversion; see [interactivity — unbuilt
+features](/FEATURES/interactivity-unbuilt.md#live-pan--zoom).
 
 `TouchState` (per active touch): `startPosition`, `currentPosition`,
 `previousPosition`, `startTime`, `duration`, `velocity` (`CGVector`,

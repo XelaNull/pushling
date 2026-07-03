@@ -108,6 +108,48 @@ this wave's verification, not a documentation drift — flagged for
 `docs/DECISIONS.md` / the Orchestrator's backlog (see this wave's return
 message).
 
+# Tokenization, Emotion Detection, and Word Scoring (Stages 1–3)
+
+Before stage reduction (Stage 4, below) runs, the daemon-side engine
+tokenizes and scores the input. `PHASE-5.md` P5-T1-06 specified this as a
+3-stage pipeline, and the shipped `SpeechFilterEngine` matches its structure
+closely:
+
+- **Stage 1 (Tokenization)**: each word is tagged by a `WordTag` enum whose
+  raw values double as importance scores — `filler`(0), `connector`(1),
+  `adverb`(2), `adjective`(3), `verb`(4), `noun`(5), `emotionWord`(6). The
+  design's stated hierarchy was "nouns > verbs > adjectives > adverbs >
+  fillers > connectors" — the shipped ordering matches for noun/verb/
+  adjective/adverb but **inverts the bottom two tiers**: code ranks
+  `connector` above `filler`, the design ranked fillers above connectors.
+  Minor, but a real discrepancy, not just a naming difference. Classification
+  uses a curated dictionary rather than NLP, matching the design's "~500
+  tagged words" scale in spirit (the code's own header comment states
+  "~500-word curated vocabulary lookups").
+- **Stage 2 (Emotion Extraction)**: `EmotionDetector.detect` returns one
+  `SpeechEmotion` category (positive/negative/neutral/questioning/
+  exclaiming/warning/affection/sleepy/contentment — see
+  [speech-rendering](/REFERENCE/speech-rendering.md) for how these map to
+  Drop symbols) via keyword and punctuation scoring. The design additionally
+  specified a numeric **confidence score (0.0–1.0)** alongside the category;
+  no such score exists anywhere in `EmotionDetector` — the shipped detector
+  is categorical only, with no confidence value attached to its result.
+- **Stage 3 (Key Word Selection / scoring boosts)**: `scoreWords` applies
+  three of the design's four boosts, verified exact — emotion words **+3**,
+  capitalized non-sentence-start words (treated as proper nouns) **+2**,
+  technical terms **+1** (a ~30-entry `technicalTerms` set: `"api"`,
+  `"auth"`, `"bug"`, `"refactor"`, `"deploy"`, etc.). The design's fourth
+  boost — **+2** for "words matching recent commit content" — does not
+  exist in code; there is no commit-context input anywhere in
+  `SpeechFilterEngine`, so a word's relevance to what the creature just ate
+  never affects which words survive filtering.
+
+The design's vocabulary-file architecture (`critter_vocab.json` 200 words,
+`beast_vocab.json` 1000 words, `sage_vocab.json` 5000 words,
+`emotion_tags.json`, `simplify_map.json`) is covered separately below under
+Vocabulary Simplification — none of these files exist; the shipped
+vocabulary is a small hardcoded Swift dictionary at every tier.
+
 # Failed Speech & the Journal
 
 - **Threshold**: `isFailedSpeech = contentLossPercent > 40` (percentage of
@@ -149,16 +191,31 @@ Applied by `SpeechFilterEngine.applyPersonalityModifiers`, after Stage 4
 | Discipline | < 0.3 | Informal substitutions: `"yes"→"ya"`, `"you"→"u"`. |
 | Discipline | > 0.7 | Appends `.` if the string has no terminal punctuation. |
 
-`PHASE-5.md` P5-T1-13 describes a richer 4-axis table that also modifies
-output based on **Focus** (scattered topic changes vs. precise technical
-terms) and **Specialty** (per-domain word-choice flavor). Verified: neither
-`focus` nor `specialty` is referenced anywhere in
-`applyPersonalityModifiers`, and `PersonalitySnapshot`
+`PHASE-5.md` P5-T1-13 describes a richer table spanning all 5 of the
+design's original personality axes, with only Energy and Discipline making
+it into `applyPersonalityModifiers`:
+
+| Axis | Low (0.0–0.3) | High (0.7–1.0) |
+|---|---|---|
+| Energy | Lowercase everything, trailing `...`, fewer `!` (shipped, above) | Occasional ALL CAPS, extra `!`, shorter punchier sentences (shipped, above) |
+| Verbosity | Maximum word reduction — fragments, single words, long pauses between bubbles | Minimum word reduction — full sentences preserved, extra descriptive words added |
+| Focus | Scattered topic changes, may reference unrelated things | Precise word choice, technical terms preserved even through filtering |
+| Discipline | Informal, dropped articles, sentence fragments, "ya" for "yes" (shipped, above) | Proper grammar always, complete sentences, periods at the end (shipped, above) |
+| Specialty | N/A (category, not spectrum) | Influences word choice: Systems creature uses precise terms, Web creature uses casual/emoji-adjacent language |
+
+Verified: neither `verbosity`, `focus`, nor `specialty` is referenced
+anywhere in `applyPersonalityModifiers`, and `PersonalitySnapshot`
 (`Behavior/LayerTypes.swift`) has no `specialty` field at all — see
 [the growth-stages/personality concept](/REFERENCE/personality-emotional-state.md)
-for the full 4-axis model. The Focus/Specialty speech modifiers are
-**designed but not implemented** — preserved here as intent, not current
-behavior.
+for the full 4-axis model. Verbosity's absence is notable because, unlike
+Focus and Specialty, `verbosity` **is** a live axis on `PersonalitySnapshot`
+— it drives the audio-side intonation range in
+[voice-tts-stack](/SYSTEMS/voice-tts-stack.md)'s
+`VoicePersonalityCalculator`, but that is a different mechanism (voice
+pitch/rate parameters) from this design's *text*-content Verbosity effect
+(word-count reduction and sentence-fragment intensity). The Verbosity/Focus/
+Specialty text-filtering modifiers are **designed but not implemented** —
+preserved here as intent, not current behavior.
 
 # Vocabulary Simplification
 

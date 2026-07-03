@@ -85,15 +85,24 @@ instrumentation lives in `Scene/FrameBudgetMonitor.swift`.
 
 # Deferred / Not Pursued
 
-Two ideas from the design-era research remain unbuilt and are not on any
+Three ideas from the design-era research remain unbuilt and are not on any
 active track: (1) **texture-caching static body shapes** — converting the
 per-frame-rerendered `SKShapeNode` body/head/ear shapes to `SKSpriteNode`
 textures (`view.texture(from:)`) at stage-transition time to halve per-frame
 shape-render cost — the codebase's only live use of `texture(from:)` today is
 the debug/MCP screenshot feature (`pushling_sense("visual")`), not a
-performance cache; and (2) a full **texture-atlas swap** (hand-drawn pixel
+performance cache; (2) a full **texture-atlas swap** (hand-drawn pixel
 sprites replacing the procedural Bézier paths) — deferred, no art pipeline
-exists for it. Both are preserved here as intent, not scheduled work.
+exists for it; and (3) **depth blur on the mid-ground and background
+parallax layers** — the research recommended `CIGaussianBlur` on distant
+mid-ground objects and a stronger blur plus color desaturation on the
+background layer ("aerial perspective — far objects blue-shifted and
+hazy"). What shipped instead, and is the entirety of the atmospheric-depth
+row above, is desaturation-toward-Ash plus alpha reduction via
+`PushlingPalette.atmosphericColor(_:depth:)` — the blur half of the
+recommendation was never implemented; a repo-wide grep for `GaussianBlur`
+or `CIFilter` returns zero hits outside this citation. All three are
+preserved here as intent, not scheduled work.
 
 # Citations
 

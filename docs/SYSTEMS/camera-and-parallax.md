@@ -143,10 +143,47 @@ back to the real `zoomLevel`/`panOffset` for a seamless return to normal
 camera behavior. The cinematic sequencer's own trigger conditions and
 sequences belong to a creature-visual concept, not this one.
 
+# Frame Update Order
+
+`PushlingScene.update(_:)` runs a fixed subsystem order every frame
+(outside of the hatching-ceremony gate, which suppresses everything else
+below it while active):
+
+1. **Cinematic sequencer** (`cinematicSequencer.update`) — runs first,
+   ahead of physics, so a cinematic's direct writes to camera/creature
+   state aren't immediately overwritten by the same frame's normal update.
+2. **Physics** (`updatePhysics`) — the 4-layer behavior stack resolves and
+   blends its output onto the creature node. This is the step [the
+   mini-game framework](/SYSTEMS/mini-games.md#input-takeover) does *not*
+   suspend, despite the design calling for a physics-only mode during a
+   mini-game.
+3. **World** (`updateWorld`) — this concept's own state: `CameraController`
+   is fed the creature's current X/height and computes `effectiveWorldX`/
+   `effectiveWorldY`/`zoomLevel` for the frame (including the face-offset
+   Y-tracking nudge that shifts focus upward as zoom increases — see
+   [Vertical (Y) Tracking](#vertical-y-tracking) above); `WorldManager` is
+   then updated with that effective camera position/zoom, which is what
+   drives parallax layer repositioning and terrain chunk
+   recycling/generation (see [world & terrain
+   parallax](/SYSTEMS/world-terrain-parallax.md)); the creature is then
+   positioned onto the terrain surface at its computed depth.
+4. **Render** (`updateRender`) — `creatureNode.update` (breathing, blink,
+   tail sway animations) and `emotionalVisualController.update`. **Not**
+   included here despite the source design's "zoom detail tier check,
+   counter-scaling applied" claim: neither `ZoomDetailController.update`
+   nor any counter-scale call appears anywhere in this step (grep-verified)
+   — both are real, built systems that are simply never invoked from the
+   render step, consistent with their [defined-but-unwired
+   status](/FEATURES/interactivity-unbuilt.md#live-pan--zoom).
+5. Everything after render (evolution progress bar, debug eating/speech,
+   diamond indicator, `GameCoordinator` pump, idle-timeout check) belongs
+   to other concepts and isn't part of this camera/world/render core.
+
 # Citations
 
 [1] `Pushling/Sources/Pushling/Scene/CameraController.swift`
 [2] `git log -p -- Pushling/Sources/Pushling/Scene/CameraController.swift` — commits `4159177`, `f13b1e0`, `8860e91`
 [3] [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md) — 📐 status for live pan/zoom
 [4] [world & terrain parallax](/SYSTEMS/world-terrain-parallax.md) — parallax layer configuration that consumes this camera's state
-[5] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — described pan/zoom as already-live; several numeric claims there don't match the code's designed values either, e.g. pan dampening `deltaX * 0.003` vs code's `deltaX * 0.15`, zoom range `[0.5, 3.0]` vs code's per-stage `minZoom` always 1.0)
+[5] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — described pan/zoom as already-live; several numeric claims there don't match the code's designed values either, e.g. pan dampening `deltaX * 0.003` vs code's `deltaX * 0.15`, zoom range `[0.5, 3.0]` vs code's per-stage `minZoom` always 1.0; §8 Frame Update Order is otherwise accurate and is restored above)
+[6] `Pushling/Sources/Pushling/Scene/PushlingScene.swift` (`update(_:)`, `updatePhysics`/`updateWorld`/`updateRender`, lines ~184-330)

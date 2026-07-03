@@ -26,8 +26,10 @@ than silently repeating a stale claim.
 | Git hook slows a commit | Developer frustration | Hook must complete in <100ms. Write JSON + signal, nothing else. Background all work. | Confirmed — `hooks/post-commit.sh` carries this exact budget in its own header comment |
 | Claude Code hook latency | Perceptible delay in the dev workflow | Hooks must complete in <50ms. Write JSON + signal only — never compute inline. | Confirmed for 6 of 7 hooks (`post-tool-use.sh`, `user-prompt-submit.sh`, `subagent-start.sh`, `subagent-stop.sh`, `post-compact.sh`, `session-end.sh` all say `<50ms` verbatim). **Refinement:** `session-start.sh` alone carries a `<100ms` budget in its own header comment, not `<50ms` — a deliberate, documented exception (it does a heavier SQLite read plus multi-KB stdout generation for the awakening text, and is the only hook Claude Code injects into context), not a doc/code contradiction to resolve either way |
 | Daemon crash mid-animation | Creature stuck in a weird state | Heartbeat file at `/tmp/pushling.heartbeat`. On relaunch, read recovery state, resume. | Confirmed — full mechanism documented in [persistence and recovery](/OPERATIONS/persistence-and-recovery.md) |
+| State file corruption | Creature state lost | SQLite WAL + daily backups to `~/.local/share/pushling/backups/` | Confirmed — full mechanism in [persistence and recovery](/OPERATIONS/persistence-and-recovery.md)'s Daily Backups section (`VACUUM INTO`, 30-day retention). This row was silently dropped from the migrated table by an uncommitted pre-WO-1 `CLAUDE.md` edit — no drop record ever existed for it, restored here since the mitigation it names is real, shipped, and otherwise undocumented in this table |
 | Touch Bar private API changes | App breaks on a macOS update | Abstract DFR calls behind a protocol. Test on beta macOS releases. | Not re-verified this wave — Touch Bar private-API integration detail is owned by a future rendering/hardware concept (SP6a/SP6b) |
 | TTS model loading too slow | Audio delay on first speak | Pre-load models at daemon launch: espeak-ng <50ms, Piper <200ms, Kokoro <500ms cold / <50ms warm | Not re-verified this wave — Voice/TTS is owned by the future speech-and-voice concept (SP4) |
+| TTS audio glitches | Pops, clicks, or stuttering | Use Audio Unit graph with ring buffer. Pre-render phrases when idle. Double-buffer output. | Not re-verified this wave — Voice/TTS is owned by SP4; grepped `docs/SYSTEMS/voice-tts-stack.md` and `docs/REFERENCE/creature-voice-design.md` for `double-buffer`/`Pre-render`/`ring buffer` and found no hits, so the shipped `AVAudioEngine` chain's actual glitch-prevention mechanism (if any) is unconfirmed against this stated mitigation — this row was silently dropped from the migrated table (same uncommitted pre-WO-1 edit as the row above) and is restored as the stated intent, not as a verified-live guarantee. Flagged for SP4's owner to reconcile against `Pushling/Sources/Pushling/Speech/`'s actual audio engine setup. |
 | Voice mismatch at stage transition | Jarring quality jump | Cross-fade TTS tiers over 3–5 utterances during the transition window | Not re-verified this wave — same, owned by SP4 |
 | Embodiment session leak | Creature stays "awake" after Claude disconnects | SessionEnd hook + 60s heartbeat timeout auto-transitions to dormant | Not re-verified this wave — session dormancy/idle behavior is owned by [MCP session lifecycle](/ARCHITECTURE/mcp-session-lifecycle.md) (SP2a), which documents a *different* idle-gradient timing (10/20/30s phases, no literal "60s heartbeat timeout" constant found there) — flagged as a claim worth reconciling against `SessionManager.swift` by whichever wave finalizes session-lifecycle content |
 | Behavior stack conflicts | AI-directed and autonomous fighting | Blend Controller interpolates ~200ms; Physics always wins; Reflexes hold a 500ms lease then release | Not re-verified this wave — owned by the creature/behavior-stack concept (SP3a) |
@@ -35,6 +37,21 @@ than silently repeating a stale claim.
 | XP not persisting | Creature resets on restart | XP column is `xp`, not `total_xp`. Call `persistXPAndStage()` after every XP change. | Confirmed — `creature.xp` is the actual column (see [the schema](/DATA_MODELS/state-database-schema.md)); **refinement below** — "after every XP change" is not fully true in the shipped code |
 | Hot-reload not triggering | Binary replaced but app doesn't restart | `HotReloadMonitor` watches the directory, not the file. Check LaunchAgent `KeepAlive` is enabled. | Confirmed mechanism — full detail in [persistence and recovery](/OPERATIONS/persistence-and-recovery.md), including the caveat that none of the shipped build scripts currently exercise this path in the common case |
 | Evolution not firing | XP crosses a threshold, no stage change | `checkEvolution()` must run after every persist; only evolves one stage per call | Confirmed the one-stage-per-call mechanic (`checkEvolution()` loops stages in order and evolves at most one per invocation); **refinement below** — "after every persist" is not fully true in the shipped code |
+
+# A Third Persist Path: `persistXPAndStageSync()`
+
+Beyond the async `persistXPAndStage()` this table and the pairing table
+below cover, `GameCoordinator+Loading.swift:126` defines a **synchronous**
+sibling, `persistXPAndStageSync()` — identical `UPDATE creature SET xp = ?,
+stage = ? WHERE id = 1` write, but via `try? db.execute(...)` directly
+rather than `db.performWriteAsync`. It has exactly one call site:
+`GameCoordinator.shutdown()` (`GameCoordinator.swift:308`), where it runs
+synchronously specifically because the database closes immediately
+afterward — an async write queued at shutdown could be dropped by the
+close racing ahead of it. See
+[persistence and recovery's shutdown sequence](/OPERATIONS/persistence-and-recovery.md#startup-order)
+for the full ordered list of what else `shutdown()` persists synchronously
+alongside this call.
 
 # Refinement: `persistXPAndStage()` / `checkEvolution()` Pairing
 

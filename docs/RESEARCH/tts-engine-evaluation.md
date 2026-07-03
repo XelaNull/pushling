@@ -41,6 +41,121 @@ utterances, a working Swift integration path, and a permissive license.
 | 12 | Kokoro via MLX Swift (`kokoro-ios`) | 4.5★ (same model as #9) | 100–200ms | ~315MB | Native Swift Package | Apache 2.0 (assumed) | 15.0 | Alternative to #7 if macOS 15+ becomes the floor; loses Piper-in-same-runtime versatility |
 | 13 | speech-swift (Soniqo) | 4–4.5★ | 100–300ms | ~315MB+ | Native Swift | Apache 2.0 | 14.0 | Worth watching for its CoreML/Neural-Engine execution (frees the GPU from SpriteKit contention) — young project, not adopted |
 
+# Supplementary Evaluation Detail
+
+The summary table above condenses each option to its verdict-relevant
+columns. Several options carried evaluation detail that didn't survive that
+condensation, restored here per option:
+
+**Option 1, `AVSpeechSynthesizer`** — Two details beyond the fallback
+verdict: (1) delegate callbacks fire per word boundary, a capability the
+source called out for syncing mouth animation to speech (no such sync
+exists anywhere in the shipped creature — there is no mouth-animation
+system driven by TTS timing). (2) macOS still ships the classic MacinTalk
+novelty voices, evaluated as a possible easter egg:
+
+| Voice | Character | Proposed creature use |
+|---|---|---|
+| Albert | Hoarse, old-man quality | Sage stage? |
+| Bells | Musical bell tones | Evolution ceremony |
+| Boing | Bouncy, cartoonish | Drop-stage babble |
+| Bubbles | Underwater gurgling | Spore stage? Water biome? |
+| Whisper | Breathy whisper | Late-night, sleepy creature |
+| Zarvox | Robot with melodic background | Early robotic speech |
+| Cellos | Sings text to a Grieg melody | Easter egg |
+
+These require the user to manually download them via System Settings →
+Accessibility → Spoken Content, which breaks the zero-setup requirement —
+the source's own reason for filing this under "possible easter egg," not a
+primary-path recommendation. No code references any of these voice names;
+the shipped system has no `AVSpeechSynthesizer` path at all (see
+[voice-tts-stack](/SYSTEMS/voice-tts-stack.md)).
+
+**Option 3, Piper** — The quality-tier ladder had a fourth rung below the
+bundled `low` tier: `x_low` (~8MB, 16kHz, "very robotic — good for
+'learning to speak' stage"), below `low` (~16MB), `medium` (~63MB), and
+`high` (~113MB). Named alternate voices considered: `en_US-lessac-medium`
+(clear American female), `en_US-amy-low` (the one actually bundled — see
+[voice-tts-stack](/SYSTEMS/voice-tts-stack.md)), and `en_GB-alba-medium`
+(British accent option). Speed is adjustable via the `length_scale`
+parameter (lower = faster); Piper has no direct pitch control, so any pitch
+shift happens as post-synthesis processing. Custom voice training is
+possible with roughly 30 minutes of reference audio — noted but never
+pursued.
+
+**Option 8, espeak-ng** — The source called this option's customization
+surface "THE KEY FEATURE" justifying its selection for Drop-stage babble.
+The full parameter table:
+
+| Parameter | Range | Creature use |
+|---|---|---|
+| Pitch | 0–99 (default 50) | High pitch (80–99) = tiny creature |
+| Speed | 20–450 wpm (default 175) | Slow (80–100) = deliberate creature speech |
+| Amplitude | 0–200 | Quiet for whispers, loud for excitement |
+| Word gap | 0–500ms | Long gaps = thinking creature |
+| Formant frequencies | Fully adjustable | Alien/creature quality |
+| Voice variants | File-based configs | Pre-built: whisper, croak, klatt |
+
+Voice-variant files can reshape the voice further — shifting formant
+frequencies for an alien/creature quality, adding breathiness/whisper/croak
+effects, modifying pitch range and contour, or creating echo effects. The
+"learning to babble" angle: espeak-ng can synthesize raw phonemes instead
+of real words (`espeak-ng --ipa "bʌ dæ gɪ pʊ"`), which is exactly how the
+shipped `generateBabbleText()` babble mechanism works (see
+[voice-tts-stack](/SYSTEMS/voice-tts-stack.md)) — though the shipped
+implementation doesn't touch these pitch/speed/amplitude/word-gap
+parameters directly; it generates phoneme text and lets the standard
+voice-parameter pipeline (pitch/rate from personality) apply on top,
+rather than tuning espeak-ng's own native controls. None of the
+whisper/croak/klatt voice-variant files or custom formant configs are
+present in the repo.
+
+**Option 5, Bark** — Beyond "latency alone disqualifying," the quantified
+comparison against the eventual winner: "Kokoro achieves 80% of the
+naturalness at 1/50th the size and 20× the speed." The full model also
+recommended 12GB of VRAM, which a menu-bar app cannot assume is available.
+
+**Option 9, Kokoro-82M** — The supporting evidence behind "the standout
+option": as of early 2026, a 44% win rate on TTS Arena V2, "beating many
+models 10–50× its size," with 54 voice presets across 8 languages. The full
+ONNX quantization ladder considered:
+
+| Format | Size | Quality | Speed |
+|---|---|---|---|
+| fp32 | ~330MB | Best | Baseline |
+| fp16 | ~165MB | Near-best | Faster |
+| q8 | ~80MB | Very good | Faster |
+| q4 | ~45MB | Good | Fastest |
+| q4f16 | ~45MB | Good+ | Fast |
+
+q8 (~80MB) was chosen as the best quality-to-size ratio — the only tier
+that survives into [voice-tts-stack](/SYSTEMS/voice-tts-stack.md)'s bundle
+accounting. The customization options considered for a Pushling-specific
+voice: blending two voices at arbitrary ratios for a unique timbre, speed
+control (0.5×–2.0×), post-synthesis pitch shifting, "pitch morphing"
+(an advanced parameter, 0.4–1.0), and custom voice training (possible but
+significant effort). The proposed construction recipe: select a warm,
+slightly higher-pitched base voice; blend with a second voice for unique
+character; apply a +2–4 semitone "cute" pitch-up; vary speed by emotional
+state. None of voice blending, pitch morphing, or a deliberate two-voice
+blend recipe exist in the shipped `SherpaOnnxBridge`/`VoiceSystem` — the
+shipped system uses a single Kokoro voice with the personality-driven pitch
+calculation in [voice-tts-stack](/SYSTEMS/voice-tts-stack.md)'s "Voice
+Parameters from Personality" table, not this blend-and-shift recipe.
+
+**§16, GPU/ANE staged recommendation** — Beyond "CoreML execution provider
+available in sherpa-onnx" (Decision Matrix, below), the source's explicit
+rollout plan was: use CPU inference initially, profile, and only enable
+CoreML/ANE execution if synthesis causes SpriteKit frame drops — plus the
+observation that because TTS generates audio in a single burst rather than
+streaming, the ~100–200ms synthesis can run on a background thread without
+touching the render loop regardless of which execution provider is used. No
+code in `Voice/` references CoreML or an ANE execution provider — the
+shipped `SherpaOnnxBridge` runs CPU inference unconditionally, meaning the
+"profile, then escalate" half of this plan has never been acted on (there
+is no known frame-drop problem to escalate in response to, so this may
+simply mean the escalation was never needed — not necessarily a gap).
+
 # Decision Matrix
 
 | Criterion | Weight | Winner |

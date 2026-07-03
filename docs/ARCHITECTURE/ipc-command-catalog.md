@@ -54,9 +54,94 @@ directly over the socket (e.g. `echo '{"id":"1","cmd":"screenshot"}' | nc -U /tm
 
 `sense`'s `visual` action, `sense`'s `full` covering everything except
 `visual`/`evolve`, and `nurture`'s ten actions are detailed below; per-command
-prose for the remaining commands lives with their MCP tool in
+*parameter* prose for the remaining commands lives with their MCP tool in
 [the MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md) to avoid
-duplicating one contract across two concepts.
+duplicating one contract across two concepts. The *response* `data` shapes
+for every stateful command — genuinely missing from both concepts until now
+— are below, code-verified against each `*Handlers.swift` and corrected
+against `docs/archive/IPC-PROTOCOL.md`'s "Tool Command Details" section,
+which described several of these shapes inaccurately (wrong field names,
+fields that don't exist, or fields the archived doc omitted).
+
+# Tool Command Details — Response `data` Shapes
+
+None of these are guesses or paraphrase — every field below is read
+directly from the `.success([...])` dictionary literal in the cited
+handler. Where the archived spec's claim differs from the live shape, the
+drift is called out explicitly rather than silently corrected.
+
+**`move`** (`ActionHandlers.handleMove()`) — `{accepted: true, action,
+position_x: Int, facing, estimated_duration_ms}`, plus `position_z` only
+when a `z` param was sent. `jump` is a special case with no
+`estimated_duration_ms`: `{accepted, action: "jump", position_x, facing}`.
+`pace` returns `{accepted, action: "pace", range, estimated_duration_ms}`
+(no `position_x`/`facing`). `follow_cursor` is rejected client-visibly:
+`{accepted: false, error: "follow_cursor is handled by the autonomous
+layer..."}`. **Drift:** the archived doc's `{accepted, position, facing}`
+names neither `position_x` nor `action`/`estimated_duration_ms`/`position_z`
+— the real shape is richer and uses a different position field name.
+
+**`express`** — `{expression, intensity, duration}` in the archived doc;
+live shape (`mcp/src/tools/express.ts`, client-composed — the daemon itself
+only echoes `{expression, intensity, duration}` unchanged) is `{accepted:
+true, expression, visual: <animation description>, intensity, duration_s,
+transition_speed_s: 0.3, fade_to_autonomous_s: 0.8}` — see
+[the tool contract's full description table](/ARCHITECTURE/mcp-tool-contract.md#pushling_express).
+
+**`perform`** (`ActionHandlers.handlePerform()`) — three distinct shapes
+depending on how the behavior resolved, **none of which include a
+`stage_ok` field** (the archived doc's `stage_ok: true` does not exist in
+code — a stage-gate failure is a hard `.failure(code: "STAGE_GATED")`, not
+a success response with a boolean flag):
+- Taught trick: `{accepted: true, behavior, source: "taught", mastery:
+  <displayName>, estimated_duration_ms}`
+- Built-in cat behavior: `{accepted: true, behavior, source: "built_in",
+  variant, estimated_duration_ms}`
+- Mapped/legacy behavior: `{accepted: true, behavior, source: "mapped",
+  variant, estimated_duration_ms}`
+- Sequence (`action: "sequence"`): `{accepted: true, steps: Int, label,
+  estimated_duration_ms}` — this one shape matches the archived doc exactly.
+
+**`world`** (`WorldHandlers.swift`) — response shape varies per action, and
+every one of them differs from the archived doc's flattened
+`{object_id, position, type}` / `{companion_id, type, name}` guesses:
+- `weather` (with a `type` param): `{type, previous, duration_s, note}` —
+  field is `duration_s`, not `duration`; no `type` echo distinct from the
+  request's. Without a `type` param, `weather` instead returns a status
+  read: `{current, time_of_day, moon_phase, is_full_moon, description}`.
+- `event`: `{event, started: true, duration_s}` on success, or `{event,
+  started: false, note}` if queued/stage-gated.
+- `time_override`: `{period, note}` (or `{current_period, note}` with no
+  `period` param; `{period: "auto", note}` to clear).
+- `place`/`create`: `{created: true, object: <ObjectInfo>, note}` where
+  `ObjectInfo` (`WorldManager+Objects.swift` `asDictionary`) is `{id, name,
+  base_shape, position_x, layer, size, interaction, wear, source,
+  created_at}` — there is no `object_id` or `preset` field in the response
+  at all; the object's SQLite integer `id` is the only identifier.
+- `remove`: `{removed: true, id, note}`.
+- `modify` (repair): `{repaired: true, ...}`.
+- `companion` (`action: "spawn"`/`"add"`): `{spawned: true, companion:
+  {type, name, display_name}, note}` — **no `companion_id` field exists**;
+  a companion is looked up by type/singleton state, not an ID. `action:
+  "remove"`/`"despawn"`: `{removed: true, note}`.
+
+**`recall`** — `{memories, count, filter}` (`CreationHandlers.handleRecall()`)
+— this one matches the archived doc's claim exactly, no drift.
+
+**`teach`** (`compose` action, `CreationHandlers.handleTeachCompose()`) —
+`{valid: true, name, category, tracks, duration_s, stage_min, note}` — **no
+`draft_id` field**; a composed-but-uncommitted choreography isn't persisted
+with an ID at all, it's re-validated from the same `choreography` params
+the caller sends again to `commit`. The archived doc's `draft_id`-based
+draft/commit model does not match how the shipped tool works.
+
+**`nurture`** (`habit` set, `NurtureHandlers.handleNurtureSetHabit()`) —
+`{created: true, name, behavior, frequency, strength, trigger_type, note}`,
+plus `personality_conflict`/`conflict_type`/`reluctance_level` when the
+creature's personality resists the habit (see
+[the nurture system](/SYSTEMS/nurture-system.md) for the rejection
+mechanic). **No `habit_id` field** — habits are addressed by `name`, not a
+generated ID, in every subsequent nurture call.
 
 # sense — Detail Not Covered by the Tool Contract
 
@@ -136,3 +221,6 @@ does, in addition to the numeric-pixel path it already supports).
 [4] `Pushling/Sources/Pushling/IPC/NurtureHandlers.swift`, `CreationHandlers.swift` (`handleNurture` dispatch)
 [5] `mcp/src/tools/move.ts`, `mcp/src/tools/nurture.ts`
 [6] `docs/archive/IPC-PROTOCOL.md` (superseded — see [SP2a traceability](/archive/traceability/SP2a.md))
+[7] `Pushling/Sources/Pushling/IPC/WorldHandlers.swift` (`handleWorldWeather`, `handleWorldEvent`, `handleWorldTimeOverride`, `handleWorldCreate`, `handleWorldRemove`, `handleWorldModify`, `handleWorldCompanion`)
+[8] `Pushling/Sources/Pushling/World/WorldManager+Objects.swift` (`ObjectInfo.asDictionary`, `addCompanion`)
+[9] `Pushling/Sources/Pushling/IPC/CreationHandlers.swift` (`handleRecall`, `handleTeachCompose`)

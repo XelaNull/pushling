@@ -63,23 +63,40 @@ scrubbers only, no custom rendering. Assessed as not useful for gaming.
 
 ## Games
 
-| Project | Stars | Engine | Genre |
-|---|---|---|---|
-| Touch-Bar-Lemmings | 534 | SpriteKit | Puzzle/Platformer |
-| TouchBarDino | 451 | SpriteKit | Runner |
-| Pac-Bar | 380 | SpriteKit | Pac-Man |
-| TouchBarSpaceFight | 376 | SpriteKit | Shooter |
-| TouchBreakout | 344 | SpriteKit | Breakout |
-| TouchBarPong | 138 | SpriteKit | Pong |
-| Flappy Bird (touchbar-flappy-bird) | 14 | SpriteKit | Flappy |
-| ESCapeEleanor | 8 | SpriteKit | Escape room (WWDC20 student submission) |
-| TouchBarGopher | 7 | Swift | Whack-a-mole |
-| Space-Bar | N/A | Native | Breakout hybrid |
-| JoesDungeon | 2 | SpriteKit | Dungeon |
-| TouchBarSpaceInvaders | 2 | Native | Space Invaders |
-| WhackBar | 1 | Swift | Whack-a-mole |
-| BananaMan | 0 | SpriteKit | Endless runner |
-| Doom (Adam Bell demo) | N/A | Custom renderer | FPS |
+The four SpriteKit games marked with a Key Technique below (Dino,
+SpaceFight, Breakout, Pong) are the design-era survey's "proven Touch Bar
+games" subset — the ones whose source was analyzed in enough depth to
+extract a specific technique, versus the rest of the catalog which is
+name/genre-only:
+
+| Project | Stars | Engine | Genre | Key Technique | URL |
+|---|---|---|---|---|---|
+| Touch-Bar-Lemmings | 534 | SpriteKit | Puzzle/Platformer | — | github.com/erikolsson/Touch-Bar-Lemmings |
+| TouchBarDino | 451 | SpriteKit | Runner | Physics, collision, scene size 1005x30 | github.com/yuhuili/TouchBarDino |
+| Pac-Bar | 380 | SpriteKit | Pac-Man | — | github.com/henryefranks/pac-bar |
+| TouchBarSpaceFight | 376 | SpriteKit | Shooter | Enemies, bullets, explosions, sound | github.com/insidegui/TouchBarSpaceFight |
+| TouchBreakout | 344 | SpriteKit | Breakout | Physics, particles, direct touch tracking, **600-unit coordinate space** | github.com/krayc425/TouchBreakout |
+| TouchBarPong | 138 | SpriteKit | Pong | Two-player paddle control | github.com/ferdinandl007/TouchBarPong |
+| Flappy Bird (touchbar-flappy-bird) | 14 | SpriteKit | Flappy | — | github.com/Jun0413/touchbar-flappy-bird |
+| ESCapeEleanor | 8 | SpriteKit | Escape room (WWDC20 student submission) | — | — |
+| TouchBarGopher | 7 | Swift | Whack-a-mole | — | github.com/Lancerchiang/TouchBarGopher |
+| Space-Bar | N/A | Native | Breakout hybrid | — | github.com/SuperBox64/Space-Bar |
+| JoesDungeon | 2 | SpriteKit | Dungeon | — | github.com/daybydayx1/JoesDungeon |
+| TouchBarSpaceInvaders | 2 | Native | Space Invaders | — | github.com/elijahsawyers/TouchBarSpaceInvaders |
+| WhackBar | 1 | Swift | Whack-a-mole | — | — |
+| BananaMan | 0 | SpriteKit | Endless runner | — | — |
+| Doom (Adam Bell demo) | N/A | Custom renderer | FPS | Full 3D FPS at 2170x60 with sound | — |
+
+Nyan Cat's technique (Animated image, 100fps timer, touch drag) is already
+captured in the Animations & Fun table below rather than duplicated here —
+the design-era survey listed it in both places.
+
+TouchBreakout's 600-unit coordinate space is the one prior-art datum for a
+sub-pixel touch-tracking coordinate scale distinct from Pushling's own
+1085x30-point scene (see
+[NSTouchBar private API reference](/REFERENCE/touch-bar-private-api.md) for
+Pushling's shipped scene dimensions and its own touch-delivery limitations,
+which diverge from what TouchBreakout demonstrated).
 
 ## Animations & Fun
 
@@ -109,17 +126,17 @@ scrubbers only, no custom rendering. Assessed as not useful for gaming.
 
 ## Tools & Frameworks
 
-| Project | Stars | Purpose |
-|---|---|---|
-| MTMR | 4,283 | Touch Bar customizer (JSON config) |
-| Pock | 10,140 | Dock in Touch Bar + PockKit widget SDK |
-| BetterTouchTool | Commercial | Touch Bar + gestures + automation |
-| Hammerspoon | 12K+ | macOS automation (Lua) + Touch Bar canvas |
-| touch-baer | 237 | Control Strip private API |
-| react-native-touchbar | 758 | React Native Touch Bar bridge |
-| TouchBarKit | N/A | Control Strip wrapper |
-| TouchBarHelper | N/A | Private API wrapper |
-| btt (Worie) | 125 | JavaScript wrapper for the BTT webserver |
+| Project | Stars | Purpose | URL |
+|---|---|---|---|
+| MTMR | 4,283 | Touch Bar customizer (JSON config) | github.com/Toxblh/MTMR |
+| Pock | 10,140 | Dock in Touch Bar + PockKit widget SDK | pock.app |
+| BetterTouchTool | Commercial | Touch Bar + gestures + automation | folivora.ai |
+| Hammerspoon | 12K+ | macOS automation (Lua) + Touch Bar canvas | hammerspoon.org |
+| touch-baer | 237 | Control Strip private API | github.com/a2/touch-baer |
+| react-native-touchbar | 758 | React Native Touch Bar bridge | GitHub |
+| TouchBarKit | N/A | Control Strip wrapper | github.com/L1cardo/TouchBarKit |
+| TouchBarHelper | N/A | Private API wrapper | github.com/ddddxxx/TouchBarHelper |
+| btt (Worie) | 125 | JavaScript wrapper for the BTT webserver | GitHub |
 
 ## Developer Tools
 

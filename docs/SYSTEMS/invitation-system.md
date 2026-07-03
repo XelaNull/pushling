@@ -74,17 +74,39 @@ frame or on change) once claimed.
 All types start at a base weight of 1.0 before biases apply; selection is
 a weighted random draw over whichever types pass the stage filter (which,
 per the wiring gap above, currently always evaluates against `.critter`).
-The specific animation/particle detail for each type's setup, offer, and
-accept sequences (ball fetch volleys, glowing-object transformation,
-vocabulary solidification, etc.) is prescribed in `PUSHLING_VISION.md`'s
-"Creature-Initiated Invitations" table and `PHASE-6.md`'s P6-T3-02, but
 `InvitationSystem` itself only emits lifecycle events
-(`.setup`/`.offer`/`.accepted`/`.selfResolved`/`.timeout`/`.cue`) — the
-actual creature animations, particle effects, and reward application for
-each type are not implemented in `InvitationSystem` and no consumer of
-`onInvitationEvent` was found elsewhere in the searched code. The
-lifecycle machinery is real and complete; the six types' individual
-payloads are not yet built out.
+(`.setup`/`.offer`/`.accepted`/`.selfResolved`/`.timeout`/`.cue`) —
+verified with no consumer of `onInvitationEvent` anywhere in the searched
+code. The lifecycle machinery above is real and complete; every type-specific
+animation, particle effect, and reward below is **designed, not
+implemented** (`PUSHLING_VISION.md`'s "Creature-Initiated Invitations"
+table and `PHASE-6.md`'s P6-T3-02/03):
+
+| Type | Setup | Accept Gesture | Interaction | Reward | Self-Resolution (ignored) |
+|---|---|---|---|---|---|
+| `ball_push` | pushes a ball toward the screen edge, looks up at the human | flick the ball back | fetch — chase/push-back, 3-5 volleys | +5 satisfaction, +3 contentment per volley | bats the ball around solo (3 swats), it rolls away |
+| `glowing_object` | a Dusk-colored, pulsing 4pt object spawns; creature sniffs cautiously, backs away, looks at human | tap the glowing object | object transforms — random from 5 types (hatches into a butterfly, opens into a flower, splits into sparkles, reveals a music box); 2s spectacle | +8 curiosity, +5 satisfaction; the transformation result may persist as a temporary world object for 5 minutes | approaches, paws cautiously, object dissolves into harmless sparkles |
+| `new_word` (Critter+) | creature says a new word hesitantly with a trailing `"?"`, looks at human | tap the creature (encouraging) | word's bubble text goes from 50% to 100% opacity with a Gilt outline flash; word is added to the creature's active vocabulary | +5 contentment, word permanently learned | word fades, creature shakes its head slightly, tries again later — word is **not** added |
+| `stuck_on_terrain` (Critter+) | walks to a terrain object (rock/log), can't pass, paws at it, silent meow | tap the obstacle | obstacle slides aside 2pt (physics), creature squeezes through, grateful, tail up | +3 contentment, +2 satisfaction | backs up, takes the long way around, slightly exasperated |
+| `fish_offering` (Beast+) | holds up a small Tide-colored fish sprite (3pt), offers it toward the screen edge | tap the fish | fish "accepted" — flies toward the edge and disappears, tallied in a `fish_accepted` SQLite counter; creature purrs with pride | +5 satisfaction, +3 contentment; **every 5th accepted fish is a "golden fish" worth double** | eats the fish itself, satisfied but less so than an accepted gift |
+| `commit_release` | during commit arrival, crouches with a butt wiggle, waiting | tap to "release" the commit (like saying "go!") | pounces with 1.5x normal pounce arc — more dramatic than autonomous eating | +10% XP bonus (stacks with the hand-feeding bonus if both apply — see [the gesture-response map](/REFERENCE/gesture-response-map.md#hand-feeding-not-a-gesture-type--a-parallel-touch-start-path)), +3 satisfaction | if not tapped within 3s, pounces on its own (normal eating sequence) |
+
+**Global self-resolution rules (P6-T3-03), also unimplemented:** a
+self-resolution is designed to be worth **half** the accepted-path's
+satisfaction/contentment reward — never zero, and never a punishment for
+ignoring the creature (no guilt mechanic) — preceded by a brief 0.5s
+"well, okay then" expression. Self-resolutions are also designed to log
+differently from accepted invitations, e.g.
+`{"type": "invitation", "invitation_type": "ball_push", "accepted": false, "self_resolved": true, "timestamp": "..."}`,
+versus an `accepted: true` entry for the accepted path — no such
+distinction exists in any journal-write call site today (both paths only
+reach `completeInvitation()`, which doesn't differentiate accepted from
+self-resolved for logging purposes).
+
+None of the setup/offer/accept/reward detail above, nor the per-type
+accept gesture, is differentiated in code — see the Lifecycle section
+below for what actually gates a response (a generic tap, regardless of
+type).
 
 # Lifecycle
 

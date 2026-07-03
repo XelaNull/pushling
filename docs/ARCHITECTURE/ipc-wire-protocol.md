@@ -31,6 +31,20 @@ Encoding is NDJSON — one JSON object per line, no embedded newlines. Both
 sides buffer partial reads and split on `\n`: a single `read()`/`data` event
 may deliver a partial line, multiple lines, or a line split across two reads.
 
+**Accepted, not completed.** A success response means the daemon has
+*accepted* the command, not that any animation it triggers has finished
+playing — every stateful command hands off to `BehaviorStack.enqueueAICommand()`
+or a `DispatchQueue.main.async`/`.sync` block and returns its `data`
+immediately, while the actual visual effect (walking, an expression fading
+in, a placed object animating into view) runs asynchronously on the render
+thread. `ok: true` is a queuing acknowledgement, not a completion signal —
+a client that wants to know when an action actually finishes has no wire
+mechanism to ask; it estimates from the response's own
+`estimated_duration_ms` field (see
+[the command catalog's response-shape table](/ARCHITECTURE/ipc-command-catalog.md#tool-command-details--response-data-shapes))
+or simply moves on, since the embodiment model treats "the body is doing
+it" as sufficient without a completion callback.
+
 **Startup:** the daemon `unlink()`s any stale socket file, `bind()`s,
 `listen()`s, and accepts on a dedicated `DispatchQueue` — never the render
 thread (`SocketServer.queue`, `qos: .userInitiated`). **Shutdown:** all client
@@ -143,6 +157,23 @@ about ten that do:
 - Non-blocking `read()`/`write()`, one line buffer (`ClientConnection.lineBuffer`) per connection for partial-read assembly.
 - Writes retry on `EAGAIN`/`EWOULDBLOCK` up to 50 times at 1ms intervals (~50ms max) before giving up silently.
 - `SIGPIPE` is ignored at `SocketServer.init()` so a client disconnect can't crash the daemon.
+- **Command processing is globally serial, not per-connection-serial-but-cross-connection-concurrent.**
+  `docs/archive/IPC-PROTOCOL.md` described the daemon as processing
+  "commands sequentially per connection but concurrently across
+  connections"; code-verified against `SocketServer.swift` to be
+  **stricter than that claim**: every accepted connection's
+  `DispatchSourceRead` is registered on the *same single serial* `queue`
+  (`DispatchQueue(label: "com.pushling.socket", qos: .userInitiated)`, no
+  `.concurrent` attribute), and `handleRead`/`processMessage` both run on
+  that one queue for every connection. With the `listen()` backlog capped
+  at 3 and realistically at most one MCP client connected at a time, the
+  practical difference is small — but the accurate statement is that the
+  daemon processes every command from every connection sequentially on one
+  global serial queue; there is no cross-connection concurrency at all, and
+  per-connection ordering is a trivial consequence of global ordering
+  rather than an independent guarantee. Flagged as a correction rather than
+  silently repeated, per this bundle's convention elsewhere (see
+  [development pitfalls](/OPERATIONS/development-pitfalls.md)).
 
 **Node MCP client:**
 - Plain `node:net`, no external dependency.

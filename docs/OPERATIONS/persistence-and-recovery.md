@@ -29,9 +29,17 @@ scripts that interact with `HotReloadMonitor`'s restart expectations are
    `start()` it (writes immediately, then every 30s).
 5. Create a `BackupManager` and call `backupOnLaunchIfNeeded()`.
 
-`shutdown()` reverses the durability-relevant steps: stop the heartbeat
-(writes a `"shutdown"` marker), then close the database (which checkpoints
-the WAL file before closing).
+`shutdown()` (`GameCoordinator.swift`) reverses the durability-relevant
+steps, and does more synchronous persisting than "stop the heartbeat, then
+close" implies: it stops the feed processor and voice integration, flushes
+touch-handler state, saves emotional state and personality
+(`EmotionalState.save`, `PersonalityPersistence.save`), persists XP/stage
+**synchronously** (`persistXPAndStageSync()` — see
+[the pitfalls concept](/OPERATIONS/development-pitfalls.md#a-third-persist-path-persistxpandstagesync)
+for why this needs its own sync variant rather than reusing the async
+`persistXPAndStage()`), and persists fog-of-war explored ranges
+synchronously — all of this **before** the heartbeat is stopped and the
+database is closed (which checkpoints the WAL file before closing).
 
 # Heartbeat & Crash Detection
 
@@ -145,3 +153,4 @@ per-Claude-Code-session by design, not meant to survive a daemon restart).
 [3] `Pushling/Sources/Pushling/State/BackupManager.swift`
 [4] `Pushling/Sources/Pushling/App/HotReloadMonitor.swift`
 [5] `docs/archive/plan/phase-1-foundation/PHASE-1.md` — P1-T2-08 (crash recovery), P1-T2-09 (backup system) — superseded snapshot; class names corrected above (no `StateManager` type exists; the shipped classes are `DatabaseManager` + `StateCoordinator`)
+[6] `Pushling/Sources/Pushling/App/GameCoordinator.swift` (`shutdown()`), `GameCoordinator+Loading.swift` (`persistXPAndStageSync`)

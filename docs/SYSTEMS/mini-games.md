@@ -25,6 +25,17 @@ object interaction runs while a game is active. This is a hard gate at
 the very top of the gesture dispatch switch, checked before any
 target-based routing.
 
+**Only input is gated — the behavior stack is not.** `PHASE-6.md`'s
+P6-T3-04 design has the normal 4-layer behavior stack suspended during a
+game, with only the Physics layer (breathing, gravity) continuing.
+Code-verified this isn't what happens: `PushlingScene.update`'s
+`updatePhysics()` calls `behaviorStack.update(...)` unconditionally, every
+frame, with no check against `miniGameManager.isGameActive` anywhere in
+that call path (grep-verified). The creature's Autonomous/Reflex/AI-Directed
+layers keep running underneath a mini-game exactly as they would
+otherwise — only the human's *touch input* is redirected, not the
+creature's own ongoing behavior.
+
 # Lifecycle
 
 ```
@@ -63,15 +74,66 @@ manager returns to `.inactive` after the fixed 3.0s result display.
 | Game | Max Score | Unlock Condition | Notes vs. design |
 |---|---|---|---|
 | `catch` (`catchStars`) | 25 | Always unlocked | Stars fall, tap left/right of creature to move it. |
-| `memory` | 50 | Complete 1 `catch` game | Symbol-sequence repeat game. |
-| `treasure_hunt` | 100 | 3 total games completed (any type) | Hot/cold hint-based search. |
-| `rhythm_tap` | 60 | 5 total games completed | Notes scroll toward a hit zone; tap on beat. |
+| `memory` | 50 | Complete 1 `catch` game | Symbol-sequence repeat game — built differently from the plan (below). |
+| `treasure_hunt` | 100 | 3 total games completed (any type) | Cursor-and-temperature-bar search — built differently from the plan (below). |
+| `rhythm_tap` | 60 | 5 total games completed | Notes scroll toward a hit zone; tap on beat — timing values match the plan exactly. |
 | `tug_of_war` | 1 (binary win/lose) | 8 total games completed | Rapid-tap pull; see below. |
 
 Unlock thresholds match `PHASE-6.md`'s P6-T3-11 table exactly (Catch free,
 Memory at 1 Catch play, Treasure Hunt at 3 total, Rhythm Tap at 5 total,
 Tug of War at 8 total) — this is one of the more faithfully-built Track 3
-systems.
+systems. The **discovery mechanic** the plan pairs with this table — the
+creature teasing a locked game during idle (dropping a star for Catch,
+showing symbols for Memory, digging for Treasure Hunt, floating notes for
+Rhythm Tap) so it's "a mystery until unlocked" — has no code anywhere
+(grep of `MiniGameManager` and the Autonomous layer); locked games are
+simply invisible until unlocked. See [interactivity — unbuilt
+features](/FEATURES/interactivity-unbuilt.md#cooperative-mini-game-modes).
+
+**Catch** (`CatchGame.swift`) matches `PHASE-6.md`'s P6-T3-05 spec almost
+exactly: 30s duration, stars fall at 40pt/sec, spawn interval ramps from
+one every 2.0s to one every 0.8s (`initialSpawnInterval`/
+`finalSpawnInterval`, linearly interpolated by elapsed time), a tap left
+or right of the creature bursts it 50pt/sec for 0.3s
+(`creatureMoveSpeed`/`moveBurstDuration`), and a missed star (reaching
+Y=0) produces a 3-particle Ash dust puff with no score penalty.
+
+**Memory** (`MemoryGame.swift`) is built to a **different design** than
+`PHASE-6.md`'s P6-T3-06: instead of 4 symbol *shapes* each mapped to a
+different *gesture type* (circle=tap, diamond=double-tap, star=long-press,
+wave=swipe), the shipped game uses **6 fixed color-coded positions**
+(Ember/Moss/Tide/Gilt/Dusk/Bone) and every input is a plain tap on the
+correct position in sequence — there is no gesture-type variety. Sequence
+length starts at 3 (`initialSequenceLength`) and grows by 1 each cleared
+round up to a cap of 10 (`maxSequenceLength`); each symbol is shown for
+0.6s (`showInterval`) with a 0.4s gap (`showPause`) — not the plan's
+degressive 0.8s-to-0.5s per-round timing. Max score 50 matches the table
+above (sum of successful round lengths). A wrong tap ends the round but
+the game retries at the same sequence length if time remains (2s grace
+before the 60s `gameDuration` cutoff); the plan's "perfect round = 2x
+multiplier" bonus has no corresponding code.
+
+**Treasure Hunt** (`TreasureHuntGame.swift`) is also built to a
+**different design** than `PHASE-6.md`'s P6-T3-07: instead of hot/cold
+speech-line hints (`"cold..."`/`"warmer!"`/`"HERE!"`) driven by swipe
+input, the shipped game renders a persistent temperature bar (60x3pt,
+Tide fill) and a screen cursor the player bursts left/right at 120pt/sec
+for 0.25s per tap (`moveSpeed`/`moveBurstDuration`) — tapping within 30pt
+of the cursor (`digRadius`) instead attempts a dig. **3 treasures per
+60s game** (`totalTreasures`), not the plan's single treasure. Finding one
+within 25pt (`findRadius`) scores `baseTreasureScore (40) +
+closenessBonus (15) * closeness-ratio + timeBonus (10) * remaining-time-ratio`
+— a continuous proximity/time formula, not the plan's discrete
+<15s/15-30s/30-45s/45-60s tiers.
+
+**Rhythm Tap** (`RhythmTapGame.swift`) is the most faithful of the three:
+120 BPM (`bpm`, matching the plan exactly) and perfect/good/OK timing
+windows of 50/100/200ms (`perfectWindow`/`goodWindow`/`okWindow`) match
+`PHASE-6.md`'s P6-T3-08 numbers exactly. It diverges on pattern count: 4
+hardcoded patterns of increasing complexity (`patterns`, 8-18 beats each)
+rather than the plan's "5 difficulty levels x 3 patterns" (15 total). The
+"notes from both directions, human vs. Claude" cooperative variant has no
+code — every note scrolls right-to-left toward a single hit zone.
 
 **Tug of War is solo-only.** The plan and vision docs describe it as
 "Human vs Claude, creature in the middle," with Claude pulling via
@@ -112,4 +174,5 @@ in-memory unlock-progression counters survive a restart.
 [2] `Pushling/Sources/Pushling/Input/Games/{CatchGame,MemoryGame,TreasureHuntGame,RhythmTapGame,TugOfWarGame,GameResultScreen}.swift`
 [3] `mcp/src/tools/perform.ts` (`VALID_BEHAVIORS` — no game parameter)
 [4] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — P6-T3-04 through P6-T3-11
-[5] [state database schema](/DATA_MODELS/state-database-schema.md), [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)
+[5] `Pushling/Sources/Pushling/Scene/PushlingScene.swift` (`updatePhysics()` — unconditional `behaviorStack.update` call)
+[6] [state database schema](/DATA_MODELS/state-database-schema.md), [interactivity — unbuilt features](/FEATURES/interactivity-unbuilt.md)
