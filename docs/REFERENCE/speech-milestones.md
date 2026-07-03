@@ -190,11 +190,14 @@ said your name?"* The shipped journal write for Milestone 1 (Critter, own
 name) has no `context` field (see its entry format above), and Milestone 2
 (Beast, developer's name) has no journal write at all (see the gap noted
 above). The dream/MCP-surfacing and Sage-reminiscence intent for this
-specific milestone has no owning concept today — general Sage+ idle
-reminiscence exists as a mechanic in
-[journal-and-dreams](/REFERENCE/journal-and-dreams.md), but nothing ties it
-back to the first-word event specifically. Flagged as an open cross-concept
-gap, not something this concept alone can close.
+specific milestone now has a home: see [Sage+ idle
+reminiscence](/REFERENCE/journal-and-dreams.md#sage-idle-reminiscence--design-intent-unbuilt-p8-t2-07)
+in journal-and-dreams, which documents the general mechanic (also
+unbuilt — zero call sites for its read paths) and calls out this specific
+"...remember when I first said your name?" line as a category with no
+home among PHASE-8's six reminiscence types. Two unbuilt systems (this
+milestone's missing `context` field, and the reminiscence mechanic itself)
+would need to connect before this line could ever be spoken.
 
 # Design Lineage: How Two Milestones Emerged From One Idea
 

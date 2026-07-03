@@ -22,6 +22,12 @@ const DOCS_ROOT = join(__dirname, '..', 'docs');
 const GENERATOR_CMD = 'node scripts/generate-docs-index.mjs';
 const GENERATED_BANNER = `<!-- GENERATED — do not hand-edit. Run: ${GENERATOR_CMD} -->`;
 
+// Root-index-only preamble declaring archive/ out of the OKF conformance
+// boundary. Not a bundle cross-link (backticked, not a markdown link), so
+// checkCrossLinks never touches it.
+const ARCHIVE_EXEMPTION_LINE =
+  "> **`archive/`** holds retired source documents and traceability records — historical storage outside the bundle's OKF conformance boundary (not scanned, not indexed, not link-checked). See `archive/traceability-matrix.md` for the migration record.";
+
 // Section directories that get their own generated index.md. Root docs/
 // also carries legacy pre-OKF files and docs/plan/ — those are untouched
 // scaffolding-era holdovers, not concepts, so they are never scanned.
@@ -247,7 +253,7 @@ function renderSectionIndex(section, concepts) {
 }
 
 function renderRootIndex(sectionData, rootConcepts) {
-  const lines = [GENERATED_BANNER, '', '# Docs Index', '', '## Root', ''];
+  const lines = [GENERATED_BANNER, '', '# Docs Index', '', ARCHIVE_EXEMPTION_LINE, '', '## Root', ''];
   if (rootConcepts.length === 0) {
     lines.push('_No root-level concepts yet._');
   } else {

@@ -386,6 +386,49 @@ the two built triggers) — none require new rendering machinery, only the
 trigger-detection call sites themselves. Whether to wire or descope these
 5 is a phase-3-backlog decision, not resolved here.
 
+# Visual Sense — Full Screenshot Design Intent (P4-T1-06)
+
+📐 **`pushling_sense(aspect: "visual")` — natural-language scene description +
+inline base64 screenshot.** `SenseHandlers.swift`'s `"visual"` case
+(`Pushling/Sources/Pushling/IPC/SenseHandlers.swift:29-33`, grep-verified)
+returns nothing but a static acknowledgement —
+`{"note": "Visual screenshot capture is not yet implemented. Use 'sense
+surroundings' for world state."}` — regardless of scene state. The full
+original design, from `docs/archive/plan/phase-4-embodiment/PHASE-4.md`
+P4-T1-06:
+
+```json
+{
+  "aspect": "visual",
+  "description": "Zepus stands in a forest biome at mid-afternoon. Cloudy sky with light fog. A mushroom to the right, a tree to the left. The fortress landmark of api-server is visible on the distant skyline. Zepus is facing right, ears relaxed, tail swaying gently.",
+  "screenshot_base64": "iVBORw0KGgo...",
+  "screenshot_size": {"width": 2170, "height": 60},
+  "pending_events": [...]
+}
+```
+
+The `description` string was designed to be composed live from
+surroundings + body + self data into a natural sentence (not a template
+lookup) — the same underlying data `sense surroundings`/`sense self`/`sense
+body` already expose separately, just narrated in prose. The screenshot
+half: the daemon renders the current frame via `SKView.texture(from:)`,
+exports it as PNG, and base64-encodes it inline into the response, at @2x
+resolution (2170x60px) and under 50ms capture time (under 100ms total added
+latency to the `sense` call).
+
+**Not the same shape as the one screenshot mechanism that does exist.** A
+separate, operator-only `screenshot` command (`CommandRouter.swift:75,191`)
+is fully implemented — it captures a PNG and writes it to
+`/tmp/pushling_screenshot.png`, returning the file path, not inline base64
+data. `pushling_sense(aspect: "visual")` forwards to the `sense`/`visual`
+socket action, not to `screenshot`, so the MCP tool never reaches this
+working capture path — the two were designed as (and remain) separate
+delivery mechanisms with separate response shapes. See [the current-state
+note in the MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md#pushling_sense)
+and [the command catalog's `sense`
+detail](/ARCHITECTURE/ipc-command-catalog.md#sense--detail-not-covered-by-the-tool-contract)
+for the shipped-today behavior this design intent would replace.
+
 # Citations
 
 [1] `docs/archive/plan/phase-6-interactivity/PHASE-6.md` — Track 4 (P6-T4-01/02/03/05), P6-T1-02b/02c/05/10, P6-T2-06, P6-T3-04/05/06/08/09/11 cooperative and per-game subsections
@@ -397,3 +440,4 @@ trigger-detection call sites themselves. Whether to wire or descope these
 [7] `Pushling/Sources/Pushling/Input/ObjectInteraction.swift` (`onObjectEvent` — declared, never assigned; grep-verified) and `Input/CreatureTouchHandler.swift` (no `objectInteraction.onObjectEvent = ` call site)
 [8] `Pushling/Sources/Pushling/Input/Games/MiniGameManager.swift` (no idle-teaser/discovery logic)
 [9] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md), [the gesture-response map](/REFERENCE/gesture-response-map.md), [the touch input pipeline](/SYSTEMS/touch-input-pipeline.md)
+[10] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — P4-T1-06 pushling_sense "visual"; `Pushling/Sources/Pushling/IPC/SenseHandlers.swift` (`"visual"` case, grep-verified not-implemented ack) and `Pushling/Sources/Pushling/IPC/CommandRouter.swift` (the separate `screenshot` command)

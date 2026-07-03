@@ -10,11 +10,12 @@ timestamp: 2026-07-02T00:00:00Z
 This is **the** authority for the speech-filtering pipeline, superseding the
 filtering sections of `PUSHLING_VISION.md` ("The Filtering Approach"),
 `docs/archive/plan/phase-4-embodiment/PHASE-4.md` (P4-T2-03), and
-`docs/archive/plan/phase-5-speech/PHASE-5.md` (P5-T1-06, P5-T1-07, P5-T1-13,
-P5-T1-15). [The MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md)'s
+`docs/archive/plan/phase-5-speech/PHASE-5.md` (P5-T1-06, P5-T1-07, P5-T1-08,
+P5-T1-13, P5-T1-15). [The MCP tool contract](/ARCHITECTURE/mcp-tool-contract.md)'s
 `pushling_speak` section explicitly defers the pipeline's internals here.
 Verified against `Pushling/Sources/Pushling/Speech/SpeechFilterEngine.swift`,
 `Pushling/Sources/Pushling/Speech/SpeechCoordinator.swift`,
+`Pushling/Sources/Pushling/Speech/SpeechCache.swift`,
 `Pushling/Sources/Pushling/IPC/ActionHandlers.swift`, and
 `mcp/src/tools/speak.ts`.
 
@@ -292,6 +293,56 @@ Claude → pushling_speak(text, style?)
 See [the IPC command catalog](/ARCHITECTURE/ipc-command-catalog.md) for the
 generic wire-envelope shape this rides on.
 
+# Speech Cache & Replay (P5-T1-08)
+
+Step 7 of the round-trip above ("Cache utterance (`SpeechCache`)") is more
+than a one-line footnote — `SpeechCache.swift` is real infrastructure with
+three designed consumers, only one of which is actually wired. This section
+was flagged as a gap in an earlier migration pass (recorded, never landed —
+see `docs/archive/traceability-matrix.md`'s P5-T1-08 row) and is restored
+here in full against current code.
+
+**Storage — fully shipped.** `SpeechCoordinator.speak()` calls
+`speechCache?.store(...)` after every rendered bubble or narration overlay,
+regardless of style or source (`SpeechCoordinator.swift:194`). The
+`speech_cache` SQLite table matches P5-T1-08's design exactly: `id`, `text`
+(the already-filtered text actually spoken, not Claude's original), `style`,
+`stage`, `timestamp`, `source` (`"ai"` vs `"autonomous"`), `emotion`, and
+`tts_cache_path`. Capacity is a hard **100-utterance FIFO** —
+`SpeechCache.store()` deletes every row outside the newest 100 by timestamp
+on every write (`SpeechCache.swift:100-109`). This is a distinct cache from
+the 50MB WAV audio-file cache documented at
+[voice-tts-stack#caching](/SYSTEMS/voice-tts-stack.md#caching) — that one
+stores rendered TTS audio keyed by an FNV-1a hash of
+`(text, pitch, rate, stage)`; this one stores the plain-text utterance
+history keyed by insertion order. The `tts_cache_path` column is the only
+overlap point between the two (populated by the voice layer, read by
+neither of this cache's own consumers below).
+
+**Three designed replay consumers — one live, two dead (grep-verified this
+pass, zero callers repo-wide for both dead ones):**
+
+| Consumer | Method | Status |
+|---|---|---|
+| Dream replay (during sleep) | `dreamUtterance()` + `dreamFragment(from:)` | **Live** — wired to the wake-up path via `SpeechCoordinator.showDreamBubble()`. Full mechanic (not duplicated here): [journal-and-dreams#1-wake-time-dream-bubble](/REFERENCE/journal-and-dreams.md#1-wake-time-dream-bubble-matches-the-vision-doc) |
+| Sage+ reminiscence | `failedSpeechEntries()` | **Dead** — zero callers. Full gap detail (not duplicated here): [journal-and-dreams#sage-idle-reminiscence](/REFERENCE/journal-and-dreams.md#sage-idle-reminiscence--design-intent-unbuilt-p8-t2-07) |
+| Idle replay | `recentUtterances()` | **Dead** — zero callers; undocumented elsewhere until now, detailed below |
+
+**Idle replay — the one consumer with no doc home before this pass.**
+P5-T1-08 specifies a third scenario, simpler than and independent of both
+rows above: during ordinary autonomous idle (no human touch, no active
+Claude session) at **any** stage, the creature occasionally shows a thought
+bubble echoing a verbatim past utterance at 50% opacity, rate-limited to
+once per 5 minutes of idle time. `recentUtterances(count:)` — a plain
+"last N by timestamp" query with no stage gate and no failed-speech filter —
+is the read path this design calls for, but nothing in `Behavior/` or
+`Speech/` ever invokes it: no idle-behavior selector rolls for it, no
+5-minute rate limiter exists, and no rendering path consumes its result.
+Unlike the Dream and Sage rows, this scenario has no stage requirement, no
+sleep requirement, and replays the full utterance rather than a fragment —
+it is a third, independently-unbuilt consumer, not a duplicate of the other
+two.
+
 # A Naming Footnote: Egg vs. Spore
 
 The MCP-side Egg-stage refusal (`stage === "spore"` in `speak.ts`) checks
@@ -314,4 +365,5 @@ is ever contacted.
 [6] `Pushling/Sources/Pushling/Behavior/LayerTypes.swift` (`PersonalitySnapshot`)
 [7] `PUSHLING_VISION.md` — Speech Evolution: The Filtering Approach
 [8] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — P4-T2-03
-[9] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-06, P5-T1-07, P5-T1-13, P5-T1-15
+[9] `docs/archive/plan/phase-5-speech/PHASE-5.md` — P5-T1-06, P5-T1-07, P5-T1-08, P5-T1-13, P5-T1-15
+[10] `Pushling/Sources/Pushling/Speech/SpeechCache.swift`

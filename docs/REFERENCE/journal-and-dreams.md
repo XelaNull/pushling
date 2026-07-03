@@ -118,6 +118,37 @@ anywhere in `Pushling/Sources`, suggesting it may be unbuilt; flagged here
 for whichever wave owns touch gestures
 ([touch interaction](/SYSTEMS/touch-input-pipeline.md)) to confirm.
 
+## Sage+ Idle Reminiscence — Design Intent, Unbuilt (P8-T2-07)
+
+`docs/archive/plan/phase-8-polish/PHASE-8.md` P8-T2-07 designs a Sage+-stage
+idle behavior where the creature occasionally narrates a memory drawn from
+its own journal (5% chance per idle-behavior-selection cycle, `"narrate"`
+style — environmental text, no speech bubble): failed-speech recall,
+growth reflection, commit memory, object nostalgia, habit reflection, and
+companion memory, with an expanded Apex tier adding meta-awareness,
+philosophical, and developer-directed lines. **No call site exists for
+this anywhere in the codebase.** `SpeechCache.failedSpeechEntries()` — its
+own doc comment reads "Retrieve failed speech entries for Sage
+reminiscence" — and `SpeechCache.recentUtterances()` are both fully
+implemented read paths with **zero callers** repo-wide (grep-verified);
+nothing in `Behavior/` or `Speech/` selects a reminiscence category, rolls
+the 5% chance, or renders the narration. This is the same
+declared-but-unwired shape as the DreamEngine's unwired mastery-weighted
+trick replay noted above.
+
+A specific reminiscence line has no home in PHASE-8's six categories at
+all: [the first-word milestone](/REFERENCE/speech-milestones.md#milestone-1-the-first-word-critter-own-name-visual)'s
+original design (`docs/archive/CREATURE-VOICE-DESIGN.md` §10, via
+[speech-milestones](/REFERENCE/speech-milestones.md#first-word-choice-what-was-considered))
+specified the entry should be surfaceable through this exact mechanic with
+an explicit Sage-stage line — *"...remember when I first said your
+name?"* — once the creature reaches Sage. That intent has never been wired
+into either the first-word write path (Milestone 1's journal entry has no
+`context` field to narrate from) or this reminiscence system (no
+first-word-specific category exists among the six above). Two independent
+unbuilt systems would need to connect for this specific line to ever be
+spoken; neither exists today.
+
 # Citations
 
 [1] `Pushling/Sources/Pushling/State/Schema.swift` (`journal` table CHECK constraint, lines 138-152)

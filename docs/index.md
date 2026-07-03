@@ -2,6 +2,8 @@
 
 # Docs Index
 
+> **`archive/`** holds retired source documents and traceability records — historical storage outside the bundle's OKF conformance boundary (not scanned, not indexed, not link-checked). See `archive/traceability-matrix.md` for the migration record.
+
 ## Root
 
 - [Pushling Vision & Philosophy](vision.md) — The dual-layer embodiment model and the core principles that every other concept in this bundle is built to serve.
