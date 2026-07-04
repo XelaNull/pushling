@@ -75,18 +75,25 @@ or is specified here because the pipeline's table doesn't yet cover it
 ## 2a. `wiggle` -- a `bodyState` not yet in the pipeline's table
 
 Grepped occurrences: `Surprise/CatSurprises.swift:180`, `Surprise/VisualSurprises.swift:42`
-(`$0.body = "wiggle"`). [body-pose-pipeline.md's §2](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
-claims a complete 21-string enumeration ("22 files... 21 distinct
-strings") but its table does not include `wiggle` (nor `tense` --
-`CatSurprises.swift:96` -- nor the eye state `locked_up` used alongside
-it, `CatSurprises.swift:96`, though eye states are a different
-controller's contract) -- flagged for Samantha in [§10](#10-open-questions-for-samantha),
-not corrected here since that table isn't this concept's file. The
-grammar needs it regardless, so it's specified here as a **dynamic**
-state (matching that table's `bounce`/`spin` convention -- an oscillation
-formula, not a fixed tuple, since a lateral rear-shimmy has no home in the
-6-component `(yScale, xScale, yOffset, zRotation, headOffset, pawAlpha)`
-tuple as defined):
+(`$0.body = "wiggle"`). **Update (post-flesh-out-keystone-revise):**
+[body-pose-pipeline.md's §2](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
+no longer claims a 21-string enumeration -- a later wave completed it to
+the full, code-verified **111-string inventory** (22 hand-tuned core
+strings + 89 aliased in [its §2b](/SYSTEMS/body-pose-pipeline.md#2b-the-remaining-89-strings--alias-map--fallback-rule)),
+and both gaps this section originally flagged are now resolved there:
+`tense` is aliased to the `crouch` tuple, and `wiggle` is explicitly
+carved out as a **named non-alias** -- the pipeline's table catalogs the
+string's existence and its consumers but points back here for the
+render definition, rather than defaulting it to `shiver` the way the
+similar-sounding `stagger`/`wobble` jitter family is. This section
+remains the **authority** for that render definition -- the pipeline
+only defers to it, it doesn't duplicate it. (`locked_up`, `CatSurprises.swift:96`,
+is a separate eye-state controller's contract, not a `bodyState`, and
+isn't this table's concern either way.) It's specified here as a
+**dynamic** state (matching that table's `bounce`/`spin` convention -- an
+oscillation formula, not a fixed tuple, since a lateral rear-shimmy has
+no home in the 6-component `(yScale, xScale, yOffset, zRotation,
+headOffset, pawAlpha)` tuple as defined):
 
 ```
 wiggleXOffset(t) = ±0.6-0.8pt lateral, oscillating at 3Hz -> 5Hz over the
@@ -341,12 +348,16 @@ files, no cross-edits), flagged for Samantha to route:
   doesn't fit the pipeline's single-`bodyNode` transform model cleanly --
   needs a build-time call on whether a shear approximation is good enough
   or a real anchor split is worth it.
-- **`bodyState` enumeration completeness:** this wave's research turned up
-  `wiggle`, `tense`, and the eye state `locked_up` as real, shipped
-  strings not present in [body-pose-pipeline.md's §2 table](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
-  or its "21 distinct strings" count -- worth a follow-up grep pass on
-  that file specifically (not redone here, per this wave's disjoint-files
-  rule).
+- **`bodyState` enumeration completeness -- RESOLVED:** this wave's
+  research turned up `wiggle`, `tense`, and the eye state `locked_up` as
+  real, shipped strings not present in
+  [body-pose-pipeline.md's §2 table](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
+  at the time. A later flesh-out-keystone-revise wave closed this gap:
+  the table now covers the full 111-string inventory, `tense` aliases to
+  `crouch`, and `wiggle` is carved out as this concept's own render
+  authority (see [§2a](#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table)'s
+  updated text). `locked_up` remains out of scope for either doc -- it's
+  an eye-state controller's contract, not a `bodyState`.
 - **Critter and Sage pounce apexes** (3pt, 4pt above) are this concept's
   proposal, not yet cross-confirmed by [body-pose-pipeline.md's §4](/SYSTEMS/body-pose-pipeline.md#4-positiony-application--isairborne-terrain-clamp-suspension)
   (which explicitly left them open) -- should be folded back into that

@@ -81,9 +81,15 @@ The dossier's lossless rule keeps dropped items in the dossier itself as their p
 
 All 8 dropped items check out against what the dossier actually promised for each (either total silence or a specific named forward-reference) — no silent vanishing, no over-eager premature landing.
 
-## Doc-Consistency Note (not a coverage gap)
+## Doc-Consistency Note (RESOLVED 2026-07-04, audit REVISE)
 
-`docs/SYSTEMS/companionship-rituals.md:271` links "Sleep Geography" to `/REFERENCE/personality-emotional-state.md`, but Sleep Geography's actual landed section is `docs/SYSTEMS/idle-life-and-rest.md#4-sleep-geography` (verified above — the feature itself is correctly and fully covered there). The same paragraph also states "as of this wave's authoring [camera-and-parallax.md] has no edge-clamp section yet (grep-verified)" — that was true when companionship-rituals.md was authored, but `docs/SYSTEMS/camera-and-parallax.md` now has a full `# Camera Dwell & Edge-Clamp (Designed, not built)` section (line 262), confirming the dependency Bunting/Reunion Runway/Sleep Geography flagged did land — the stale claim is a same-wave cross-link timing artifact, not a real gap. Both are wrong citations inside an otherwise-correct doc; flagging for Samantha to fix the link target and stale sentence, not a coverage failure.
+Three same-wave cross-link timing artifacts in `companionship-rituals.md` were flagged during authoring and are now all fixed (none was ever a coverage gap):
+
+1. **Sleep Geography link** — pointed at `/REFERENCE/personality-emotional-state.md`; Sleep Geography's real home is `docs/SYSTEMS/idle-life-and-rest.md#4-sleep-geography`. **Fixed** (commit `378cd9e`).
+2. **Camera edge-clamp "no section yet" claim** — stale once `camera-and-parallax.md` landed its `# Camera Dwell & Edge-Clamp` section. **Fixed** (commit `378cd9e`).
+3. **World-objects decal "no section yet" claim** (the 3rd artifact this note originally missed) — was still asserting `world-objects-system.md` "does not yet carry a decal section (grep-verified)" after that concept landed its `# Memory-Decal Budget (Milestone Marks)` section. **Fixed** in the punch-list REVISE — companionship-rituals now cross-links the real decal section.
+
+Coverage itself (42/42 tiered features) was never affected by any of the three; these were citation-freshness fixes inside otherwise-correct docs.
 
 ## Generator Check
 

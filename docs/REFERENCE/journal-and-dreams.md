@@ -155,7 +155,7 @@ hunt, social, or storm content in any literal sense. The four labels the
 dossier uses are an evocative gloss this concept has to construct fresh,
 not content already sitting in the engine waiting to be surfaced.
 
-**A second correction, code-verified: 5 of the 15 declared patterns are
+**A second correction, code-verified: 6 of the 15 declared patterns are
 unreachable.** `DreamEngine.resolveDreamPattern` (`DreamEngine.swift:302-329`)
 is a hard-coded if/return chain, checked in this exact order, that returns
 on the first match: `.lateNightCoding` (hour ≥22 or <5) → `.errorStreak`
@@ -164,9 +164,10 @@ on the first match: `.lateNightCoding` (hour ≥22 or <5) → `.errorStreak`
 `.streakBuilding` (commitCount >20) → `.noActivity` (<5 total entries) →
 `.quiet` (<15 total entries) → `.generic` (fallback). That is 9 reachable
 cases. `.highDebugging`, `.highChaos`, `.shortCommits`, `.verboseCommits`,
-and `.multiRepo` all have complete template banks in `DreamTemplates.swift`
-(lines 85-125) but no branch in `resolveDreamPattern` ever returns them —
-dead-but-declared code, the same shape as this concept's own already-noted
+`.multiRepo`, and `.longSession` all have complete template banks in
+`DreamTemplates.swift` (lines 71-76, 85-125) but no branch in
+`resolveDreamPattern` ever returns them — dead-but-declared code, the same
+shape as this concept's own already-noted
 `MasteryTracker.selectDreamBehavior()` gap above. Flagged for whoever next
 touches `resolveDreamPattern`; not fixed here (no code changes in this
 pass).
@@ -194,16 +195,26 @@ cases:
 | **Flick-and-track** (searching, vigilant) | `.diverseLanguages`, `.multiRepo`, `.highDebugging` | `.diverseLanguages` yes / other two dead | "a tower with many doors", "the bug was hiding under a floorboard", "standing between several towers" | `tailState: "flick"` — new value alongside `sway`/`wrap`; whiskerTwitch already covers the "tremble" half |
 | **Suckle** (bonded contentment) | `.touchHeavy`, `.streakBuilding` | both reachable | "made of warm things", "the streak grew… it felt warm" | a new `mouthState` field — none of the 7 existing `DreamOutput` fields touch the mouth |
 | **Shiver-and-tighten** (mild distress) | `.errorStreak` | reachable | "I hope the human is okay", "I sat close" | `bodyState`: a tighter `sleep_curl` variant (coordinate with [body-pose-pipeline](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table) before adding a new tuple) + a shortened `breathPeriodOverride` |
-| **Still** (baseline REM, no differentiation) | `.lateNightCoding`, `.quiet`, `.noActivity`, `.shortCommits`, `.verboseCommits`, `.generic` | mixed (3 reachable, 2 dead) | low-intensity/neutral tone across all six | none — this is exactly what ships today (whiskerTwitch-only) |
+| **Still** (baseline REM, no differentiation) | `.lateNightCoding`, `.quiet`, `.noActivity`, `.generic`, `.shortCommits`, `.verboseCommits`, `.longSession` | mixed (4 reachable, 3 dead) | low-intensity/neutral tone across all seven | none — this is exactly what ships today (whiskerTwitch-only) |
 
 Every category rides on top of the shared 0.25s/10s whisker baseline —
 idle-life-and-rest.md's job is to layer the four differentiated categories
 *onto* that baseline via new `pawState`/`tailState`/`mouthState` values and
-a curl variant, not to replace it. The dead five patterns (`.highChaos`,
-`.multiRepo`, `.highDebugging`, `.shortCommits`, `.verboseCommits`) are
-mapped above for design completeness, but since `resolveDreamPattern` never
-selects them, their somatic categories are currently moot in practice —
-worth noting if `resolveDreamPattern`'s dead branches ever get wired up.
+a curl variant, not to replace it. The dead six patterns (`.highChaos`,
+`.multiRepo`, `.highDebugging`, `.shortCommits`, `.verboseCommits`,
+`.longSession`) are mapped above for design completeness, but since
+`resolveDreamPattern` never selects them, their somatic categories are
+currently moot in practice — worth noting if `resolveDreamPattern`'s dead
+branches ever get wired up.
+
+**This table is the single authority for `DreamPattern`-to-somatic-category
+assignment.** [idle-life-and-rest.md's Dream Theater
+section](/SYSTEMS/idle-life-and-rest.md#5-dream-theater--somatic-twitch-per-dream-pattern)
+cross-links here for which pattern maps to which category rather than
+carrying its own copy — it previously did, and the two had drifted apart
+(the same category, e.g. `.streakBuilding`, landed in different somatic
+buckets in each doc). That concept still owns the somatic-render mechanism
+itself: motion shapes, amplitudes, timing, and frame budget.
 
 # Surfacing Channels
 

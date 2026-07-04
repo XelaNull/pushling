@@ -163,20 +163,33 @@ philosophy of framing where the creature is *going*, not just where it
 is — so a creature walking steadily in one direction re-triggers the exit
 ease less often than a naive re-center-to-exact-position would.
 
-**Per-stage window** (design numbers — not dossier-literal except the Beast
-row, which the dossier states outright as "±90pt... ±200pt during
-zoomies/sprint"; the rest interpolate against each stage's existing
-`maxPanOffset` scale and [locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md)'s
-per-stage travel speeds):
+**Per-stage window** (panel-literal — `.proposals[0].features[3].stageGating`,
+the Camera Deadzone feature entry in
+`.samantha/scratch/flesh-out-design-2026-07-03.json`, is the authoritative
+source and reads in full: "Egg/Drop: ±40pt deadzone (small creature, small
+world). Critter: ±90pt. Beast+: ±120pt, ±200pt during zoomies/sprint.
+Sage/Apex: camera eases 1.4x slower — contemplative framing."). A prior
+version of this table invented numbers that contradicted this source
+outright (Drop ±15pt, Critter ±60/±150pt, Beast ±90pt) and dropped the
+Sage/Apex 1.4x-slower-ease modifier entirely, wrongly claiming "no
+stage-specific override given in source material" — restored below.
+**Adjudication, not invention**: the panel names only Beast+ explicitly for
+the ±200pt widened figure; Critter's widened column below extrapolates from
+the same feature's general (non-stage-gated) pitch text — "Zoomies widen
+the deadzone to ±200pt so sprints visibly streak most of the strip" — since
+`zoomies` is already Critter-eligible (`CatBehaviorsExtended.swift:11-17`,
+`minimumStage: .critter`) and the pitch gives no separate Critter-specific
+figure; flagged here as a reasoned inference, not a literal per-stage panel
+citation, distinct from the Beast+/Sage/Apex rows which are panel-literal:
 
-| Stage | Base window (±pt) | Widened window (±pt) | Widening trigger |
-|---|---|---|---|
-| Egg | N/A | N/A | No directed movement at this stage — same Egg canon-vs-code conflict flagged as **DECISION-pending** in `docs/DECISIONS.md` D-1 and in [body-pose-pipeline.md](/SYSTEMS/body-pose-pipeline.md#4-positiony-application--isairborne-terrain-clamp-suspension). |
-| Drop | ±15pt | — | Drop has no sprint gait; the hop-scurry covers ~3-4pt per hop ([locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md)), so this window holds several hops before a reframe, and stays inside Drop's own 20pt `maxPanOffset` ceiling. |
-| Critter | ±60pt | ±150pt | `zoomies` (`CatBehaviorsExtended.swift:11-17`, `minimumStage: .critter`) or any resolved `walkSpeed` (`LayerTypes.swift:152`) above the stage's normal-walk band. |
-| Beast | ±90pt | ±200pt | Dossier-literal figures — Beast's native sprint/skid gait (`baseRunSpeed` 50pt/s, [locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md)) or `zoomies`. |
-| Sage | ±90pt | ±200pt | Glide-walk covers similar ground at lower cadence; no stage-specific override given in source material. |
-| Apex | ±90pt | ±200pt | Drift/zoomies; for travel distances >300pt the gait engine's teleport-blink fires instead of a tracked walk ([locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md#per-stage-signature-gaits)) — see [Apex Teleport-Blink Easing Suspension](#apex-teleport-blink-easing-suspension-designed-not-built) below. |
+| Stage | Base window (±pt) | Widened window (±pt) | Exit-ease duration | Widening trigger |
+|---|---|---|---|---|
+| Egg | ±40pt | — | 0.8s | Panel-literal, grouped with Drop under one "small creature, small world" figure — contingent on whether Egg's directed-movement path is actually reachable at all, the same Egg canon-vs-code conflict flagged as **DECISION-pending** in `docs/DECISIONS.md` D-1 and in [body-pose-pipeline.md](/SYSTEMS/body-pose-pipeline.md#4-positiony-application--isairborne-terrain-clamp-suspension). |
+| Drop | ±40pt | — | 0.8s | Panel-literal. Drop has no sprint gait; the hop-scurry covers ~3-4pt per hop ([locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md)), so this window holds several hops before a reframe, and stays inside Drop's own 20pt `maxPanOffset` ceiling. |
+| Critter | ±90pt | ±200pt (inferred — see adjudication above) | 0.8s | `zoomies` (`CatBehaviorsExtended.swift:11-17`, `minimumStage: .critter`) or any resolved `walkSpeed` (`LayerTypes.swift:152`) above the stage's normal-walk band. |
+| Beast | ±120pt | ±200pt | 0.8s | Panel-literal "Beast+" figures — Beast's native sprint/skid gait (`baseRunSpeed` 50pt/s, [locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md)) or `zoomies`. |
+| Sage | ±120pt | ±200pt | 1.12s (0.8s × 1.4) | Inherits Beast+'s window verbatim — the panel gives Sage/Apex no separate window size, only the slower contemplative ease. Glide-walk covers similar ground at lower cadence. |
+| Apex | ±120pt | ±200pt | 1.12s (0.8s × 1.4) | Inherits Beast+'s window verbatim, same 1.4x ease modifier as Sage. Drift/zoomies; for travel distances >300pt the gait engine's teleport-blink fires instead of a tracked walk ([locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md#per-stage-signature-gaits)) — see [Apex Teleport-Blink Easing Suspension](#apex-teleport-blink-easing-suspension-designed-not-built) below. |
 
 A third, smaller widening tier exists in the source material but is owned
 by its consumer, not this concept: the Play & Toys lens's play-bout
@@ -359,7 +372,7 @@ every row below it whenever both would otherwise apply):
 | 2 | **Apex teleport-blink** | Excursion >300pt at Apex | Frozen 150ms, then instant snap (no ease) | Unaffected | 150ms, hard-coded |
 | 3 | **Edge-clamp** | Bunting trigger; Devoted-tier Sleep Geography | Eases to `edgeClampTargetScreenX` (34pt) over 0.4s, then holds | Untouched (P-button framing is X-only) | Until `clearEdgeClamp()`, 0.4s ease back |
 | 4 | **Camera dwell** | New/Familiar-tier Sleep Geography (`.resting` reached) | Frozen at hold-start value | Untouched | Until wake; resumes via `smoothFollowRemaining` (5s) |
-| 5 | **Deadzone (+ widening)** | Default once built — always active outside modes 1-4 | Held while inside the per-stage window; 0.8s lead-room ease on exit; window widens per the [widening table](#horizontal-deadzone--locomotion-reads-as-travel-designed-not-built) during zoomies/sprint/play-bout | Normal comfort/edge-zone lerp, terrain-Y-only per the [airborne fix](#terrain-y-only-tracking-during-airborne-frames-designed-not-built) | Continuous |
+| 5 | **Deadzone (+ widening)** | Default once built — always active outside modes 1-4 | Held while inside the per-stage window; 0.8s lead-room ease on exit (1.4x slower — 1.12s — at Sage/Apex); window widens per the [widening table](#horizontal-deadzone--locomotion-reads-as-travel-designed-not-built) during zoomies/sprint/play-bout | Normal comfort/edge-zone lerp, terrain-Y-only per the [airborne fix](#terrain-y-only-tracking-during-airborne-frames-designed-not-built) | Continuous |
 | — | **Today's shipped baseline** | No deadzone built yet | Hard snap every frame (`baseWorldX = creatureWorldX`) | As shipped (comfort/edge lerp, no airborne fix) | N/A — this row disappears once row 5 ships |
 | — | **Mini-games** | `MiniGameManager.isGameActive` | Not a distinct camera mode — [mini-games.md](/SYSTEMS/mini-games.md#input-takeover) code-verifies only *touch input* is redirected during a game (only `.tap` reaches `handleTap`), not the behavior stack or the camera; whichever mode above (1-5) was already active keeps running unmodified underneath a game | Same | N/A |
 
@@ -417,7 +430,7 @@ below it while active):
 [4] [world & terrain parallax](/SYSTEMS/world-terrain-parallax.md) — parallax layer configuration that consumes this camera's state
 [5] `docs/archive/MULTITOUCH-CAMERA-REFERENCE.md` (superseded reference — described pan/zoom as already-live; several numeric claims there don't match the code's designed values either, e.g. pan dampening `deltaX * 0.003` vs code's `deltaX * 0.15`, zoom range `[0.5, 3.0]` vs code's per-stage `minZoom` always 1.0; §8 Frame Update Order is otherwise accurate and is restored above)
 [6] `Pushling/Sources/Pushling/Scene/PushlingScene.swift` (`update(_:)`, `updatePhysics`/`updateWorld`/`updateRender`, lines ~184-330; `updateWorld`'s `creatureFocusY`/`baseY` read at line 310, terrain-Y computation at lines 330-334, position write at lines 338-342)
-[7] `.samantha/specs/pushling-flesh-out-dossier-2026-07-03.md` (Camera Deadzone, Airborne Arc System, Sleep Geography, Bunting, Apex teleport-blink sections; Risks section on the camera per-mode-matrix requirement) and `.samantha/scratch/flesh-out-design-2026-07-03.json` (`.grounds[0]`/`.grounds[1]` camera baseline and hard constraints; `.proposals` Play Drive ±25pt widening detail)
+[7] `.samantha/specs/pushling-flesh-out-dossier-2026-07-03.md` (Camera Deadzone, Airborne Arc System, Sleep Geography, Bunting, Apex teleport-blink sections; Risks section on the camera per-mode-matrix requirement) and `.samantha/scratch/flesh-out-design-2026-07-03.json` (`.grounds[0]`/`.grounds[1]` camera baseline and hard constraints; `.proposals[0].features[3].stageGating` — Camera Deadzone's per-stage window authority, restored verbatim above; `.proposals` Play Drive ±25pt widening detail)
 [8] `Pushling/Sources/Pushling/Creature/CatBehaviorsExtended.swift:11-17` (`zoomies`, `minimumStage: .critter`)
 [9] `Pushling/Sources/Pushling/TouchBar/TouchBarView.swift:63,71` (`ProgressButtonView`/`MenuStripView` overlay frames) and `Pushling/Sources/Pushling/TouchBar/TouchBarMenu.swift` (`expandedWidth`, per-item widths)
 [10] [locomotion-and-gait.md](/SYSTEMS/locomotion-and-gait.md) — per-stage travel speeds, zoomies-deadzone cross-reference, Apex teleport-blink and OLED-void citation

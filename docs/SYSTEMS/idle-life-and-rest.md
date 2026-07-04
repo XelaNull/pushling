@@ -362,15 +362,25 @@ of the single uniform 10s-interval twitch pulse that runs today
 **mapping this doc introduces** to make "dream content" mean something
 visible — flagging it explicitly since it is an interpretive bridge, not
 a 1:1 reflection of an existing design document (none maps this pairing
-today):
+today).
 
-| `DreamPattern` case | Somatic category | Motion |
-|---|---|---|
-| `.manyCommits`, `.streakBuilding` | Chase | Front paws paddle alternating 1pt strokes @ ~2Hz, 2-3s bursts every 20-40s (`pawStates` alternation, no new controller) |
-| `.highDebugging`, `.errorStreak`, `.highChaos` | Storm | 300ms full-body shiver (reuses the `shiver` dynamic tuple) then the curl rung tightens by one increment |
-| `.touchHeavy` | Social | Tiny mouth `suckle` (new `mouthState` literal, alongside existing `lick`/`closed`/`yawn`) + soft ear swivel every 15-25s |
-| `.lateNightCoding`, `.diverseLanguages`, `.multiRepo` | Hunt | Tail-tip flicks ~8deg + whisker tremble (reuses `whiskerTwitch: Bool`, already a live `DreamOutput` field, `DreamEngine.swift:30`) |
-| `.quiet`, `.noActivity`, `.generic`, `.shortCommits`, `.verboseCommits`, `.longSession` | Calm | No category-specific motion beyond the existing uniform twitch — these patterns are dream-text-only today and stay that way; forcing a somatic read onto "quiet" would misrepresent it |
+**Which `DreamPattern` maps to which category is owned by
+[journal-and-dreams.md](/REFERENCE/journal-and-dreams.md#dream-theater--somatic-categories-mapped-to-dreamengine-content)**
+— this section previously carried its own copy of that assignment, and it
+had drifted from journal-and-dreams.md's (e.g. `.streakBuilding` landed in
+different somatic buckets in each doc). That doc is the correct owner: it's
+the one that actually reasons about what `DreamEngine`'s content *is*, this
+one only renders it. This section's job is narrower — what each of
+journal-and-dreams.md's five categories (Paddle, Flick-and-track, Suckle,
+Shiver-and-tighten, Still) actually does to the body:
+
+| Somatic category (assignment owned by journal-and-dreams.md) | Motion |
+|---|---|
+| Paddle | Front paws paddle alternating 1pt strokes @ ~2Hz, 2-3s bursts every 20-40s (`pawStates` alternation, no new controller) |
+| Flick-and-track | Tail-tip flicks ~8deg + whisker tremble (reuses `whiskerTwitch: Bool`, already a live `DreamOutput` field, `DreamEngine.swift:30`) |
+| Suckle | Tiny mouth `suckle` (new `mouthState` literal, alongside existing `lick`/`closed`/`yawn`) + soft ear swivel every 15-25s |
+| Shiver-and-tighten | 300ms full-body shiver (reuses the `shiver` dynamic tuple) then the curl rung tightens by one increment |
+| Still | No category-specific motion beyond the existing uniform twitch — these patterns are dream-text-only today and stay that way; forcing a somatic read onto them would misrepresent it |
 
 All amplitudes 0.5-1pt, riding the vector sub-pixel advantage already
 established in [the body pose pipeline](/SYSTEMS/body-pose-pipeline.md).

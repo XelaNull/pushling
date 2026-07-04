@@ -20,40 +20,18 @@ substrate (below), or the reflex-priority machinery (behavior-stack.md).
 
 # The Bond Tier
 
-Every ritual below scales its intensity off one shared metric. No existing
-code computes it — this is its founding definition, assembled from three
-real, persisted signals, none of which currently talk to each other:
-
-| Input | Source | Citation |
-|---|---|---|
-| Pet-streak days | `PetStreak.streakDays`, persisted `creature.streak_days` | [touch milestones — pet streak](/SYSTEMS/touch-milestones.md#pet-streak-daily-interaction) |
-| Touch milestones unlocked | Count of `MilestoneID` cases with `earned_at` set (of 9 total) | [touch milestones](/SYSTEMS/touch-milestones.md#the-9-milestones) |
-| Days known | `Date().timeIntervalSince(creature.created_at)` — not a stored field, must be computed at read time from the existing `created_at` column | [state database schema](/DATA_MODELS/state-database-schema.md), `creature.created_at` |
-
-```
-bondScore = min(1.0, streakDays / 14.0)
-          + min(1.0, milestonesUnlocked / 6.0)
-          + min(1.0, daysKnown / 30.0)
-// range 0.0-3.0
-```
-
-| Tier | `bondScore` | Label |
-|---|---|---|
-| 0 | 0.0 – 1.0 | New |
-| 1 | 1.0 – 2.2 | Familiar |
-| 2 | 2.2 – 3.0 | Devoted |
-
-The three inputs are deliberately uncorrelated — a human who touches
-constantly on day one is still New (days-known term near 0); a human who
-returns daily for a month without ever petting still climbs to Familiar off
-streak + days alone. **Canonical home:** the dossier assigns bond-tier
-ownership to [personality & emotional state](/REFERENCE/personality-emotional-state.md)
-as a first-class derived stat alongside the four `EmotionalState` axes; that
-concept did not carry this definition as of this wave's authoring (grep-
-verified, no `bond` hits). The formula above is specified here — where five
-of the six rituals that consume it live — and should be promoted verbatim
-if/when personality-emotional-state.md picks it up, rather than re-derived
-independently (a second bond formula would silently desync from this one).
+Every ritual below scales its intensity off one shared metric: a New /
+Familiar / Devoted tier derived from three persisted signals — pet-streak
+days, touch milestones unlocked, and days known. **Canonical home:**
+[personality & emotional state's Bond Tier
+section](/REFERENCE/personality-emotional-state.md#bond-tier--a-derived-stat-pet-streak--milestones--days-known)
+now owns the `bondScore` formula, its three inputs' citations, and the
+tier thresholds — ratified there verbatim from this doc's original
+definition (that concept's own text confirms the promotion, and cites back
+here as the metric's origin). This section no longer needs to carry a
+second copy that could silently desync from that one. Five of the six
+rituals below key off the resulting New/Familiar/Devoted label; this doc
+only consumes the tiers.
 
 # 1. Reunion Runway — bond-weighted greeting choreography
 
@@ -95,8 +73,25 @@ its own number, so it never becomes a fourth conflicting jump-height source.
 **Stage reinterpretation** (per dossier, using the pipeline's existing
 per-stage scalars where they overlap): Drop gets a hop-scurry approach with
 no leap (matches its 0.5/0.6 scale/offset scalars — deformation halves at
-this stage anyway). Sage swaps the run for a measured approach ending in one
-deep [`arch`](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)-adjacent
+this stage anyway). Critter runs the choreography above as written — the
+shared run-in, skid-stop, and bond-tier finishers described at the top of
+this section are Critter's own version, not a stage-agnostic default,
+named explicitly here rather than left implicit. Beast trades the run for
+a low prowl-rush that resolves into a pounce-greeting instead of a skid-stop:
+the run-in eases down into the [`crouch` bodyState
+tuple](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
+partway through rather than staying upright, then resolves into the
+[`pounce` tuple](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)
+at contact — reusing [hunt & pounce's canonical Stalk→Launch
+phases](/SYSTEMS/hunt-and-pounce.md#2-the-canonical-grammar) (the same
+crouch/pounce shape [independently reinvented nine
+times](/SYSTEMS/hunt-and-pounce.md#1-the-fragments-code-verified-ground-truth)
+elsewhere in the codebase) rather than inventing a tenth variant for this
+ritual alone; the leap-height cap for Beast's finisher, where one applies,
+still defers to the 6pt ceiling above — this reinterpretation changes the
+approach shape, not the cap. Sage swaps the run for a measured approach
+ending in one deep
+[`arch`](/SYSTEMS/body-pose-pipeline.md#2-the-bodystate--transform-tuple-table)-adjacent
 bow — no version of this concept's run-in survives Sage's 0.85 restraint
 scalar as a full sprint without breaking the Solid Fill Test at speed. Apex
 does not run at all: a 4pt forward drift plus one slow blink plus a gilt
@@ -154,11 +149,13 @@ breathing period stretched toward 4s, blink every 8-12s, wander and
 in hook activity: `headOffset` pops via the pipeline's additive head-delta
 mechanism (no new channel needed) in ~300ms, then the torso follows over
 700ms back toward `stand`. Past 5 minutes of continued silence, relocates
-toward the P-button end and waits — this last behavior overlaps [Waiting at
-the Door](/REFERENCE/personality-emotional-state.md)'s RoutineEngine-gated
-version; Flow Loaf's version is unconditional (fires on any pause, not a
-predicted-return window) and should share one destination-walk call rather
-than two competing "go wait by the button" triggers.
+toward the P-button end and waits — this last behavior overlaps Waiting at
+the Door, an unbuilt dossier-appendix item with no owning concept yet (its
+RoutineEngine-gated return-prediction confidence is unproven, per the
+dossier's own appendix note); Flow Loaf's version is unconditional (fires
+on any pause, not a predicted-return window) and should share one
+destination-walk call rather than two competing "go wait by the button"
+triggers, once Waiting at the Door lands somewhere.
 
 **Stage gating:** Drop cannot loaf (its `bodyState` machinery is Critter+
 per the pipeline's stage gate) — puddle-rests instead, one blink per 10s.
@@ -344,19 +341,20 @@ permanent, low-alpha terrain decal at the world X coordinate where they
 occurred. Rarely, the creature walks back to one, sits, gazes, and
 sometimes touches it.
 
-**Decal budget — specified here, cross-linked forward.** Terrain marks are
+**Decal budget — specified here, adopted downstream.** Terrain marks are
 1-node decals that must not compete with
 [`WorldObjectRenderer.maxObjectNodes = 40`](/SYSTEMS/world-objects-system.md)
 (`World/WorldObjectRenderer.swift:80`, guarded at line 153) — that cap is
 scoped to *interactive* placed objects (12 persistent + 3 consumables per
 the file's own header comment, line 5), not passive terrain decoration, so
 milestone marks get their **own** 5-node ceiling, oldest-evicted-first once
-a 6th milestone would stamp a mark. [World objects
-system](/SYSTEMS/world-objects-system.md) is the natural eventual home for
-this budget's enforcement (it already owns the analogous interactive-object
-cap); as of this wave's authoring it does not yet carry a decal section
-(grep-verified) — this doc originates the number, that concept should adopt
-it rather than re-deriving a different one.
+a 6th milestone would stamp a mark. [World objects system's Memory-Decal
+Budget section](/SYSTEMS/world-objects-system.md#memory-decal-budget-milestone-marks)
+now carries this number as its own adopted authority over the enforcement
+shape (it already owns the analogous interactive-object cap) — this doc
+originates the 5-node ceiling and the eviction policy; the enforcement
+detail (the proposed `decals` dictionary, the missing `position_x` storage
+column) lives at that section, cross-linked rather than re-derived here.
 
 | Milestone type | Mark visual | Alpha |
 |---|---|---|

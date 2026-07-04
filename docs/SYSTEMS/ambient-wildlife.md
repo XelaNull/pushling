@@ -177,9 +177,12 @@ elsewhere) a leaf on a gust or a snowflake clump.
 (`World/CompanionSystem.swift:354-357`) already repositions the butterfly
 companion onto the creature (`companion.positionX = creatureX`,
 `companion.positionY = creatureY + 8`) every time that behavior is
-selected (`CompanionSystem.swift:112`, weight 2.0-4.0) — but nothing on
-the creature side ever responds. It is a shipped behavior with zero
-creature-facing effect today.
+selected (`CompanionSystem.swift:112` — a 2-4 second `durationRange` entry,
+not a selection weight; selection itself is either random-from-pool or
+forced to `landCreature` when the creature is within 30pt, per
+`selectNextBehavior`'s proximity branch at `CompanionSystem.swift:278`) —
+but nothing on the creature side ever responds. It is a shipped behavior
+with zero creature-facing effect today.
 
 **Fix: one new callback.** `CompanionSystem` needs
 `var onCreatureLanded: ((LandingSource) -> Void)?`, matching the existing
@@ -245,7 +248,7 @@ governor and its place in the species table above for when it's promoted.
 [8] `Pushling/Sources/Pushling/Behavior/BehaviorChoreography.swift:41-42,118-133` (`grooming` behavior, fully appendage-rendered)
 [9] `Pushling/Sources/Pushling/Creature/CreatureNode.swift:20,69-70,75,298` (`headNode`, breath amplitude constants, `breathPeriodOverride`)
 [10] `Pushling/Sources/Pushling/Creature/EyeController.swift:13-16,106-107,234-239,252-265` (`validStates`, `x_eyes` placeholder, `setLookTarget` — implemented, zero callers)
-[11] `Pushling/Sources/Pushling/World/CompanionSystem.swift:62,91,112,278,354-357` (`landCreature`, its weight, and its butterfly-only call site)
+[11] `Pushling/Sources/Pushling/World/CompanionSystem.swift:62,91,112,278,354-357` (`landCreature`, its 2-4s `durationRange` entry, its proximity-forced selection branch, and its butterfly-only call site)
 [12] `Pushling/Sources/Pushling/Behavior/BehaviorSelector.swift:170`, `Pushling/Sources/Pushling/Behavior/BehaviorChoreography.swift:58-59,224-234` (`predator_crouch`, subsumed by hunt-and-pounce.md)
 [13] `.samantha/specs/pushling-flesh-out-dossier-2026-07-03.md` — "Ambient Prey: Bug Season", "Moth to Her Flame", "Landed-On-Me Freeze", "Bird Flush Stalk" (dropped-appendix disposition)
 [14] [hunt-and-pounce.md](/SYSTEMS/hunt-and-pounce.md), [invitation-system.md](/SYSTEMS/invitation-system.md), [world-complexity-ambient-effects.md](/SYSTEMS/world-complexity-ambient-effects.md), [body-pose-pipeline.md](/SYSTEMS/body-pose-pipeline.md), [gesture-response-map.md](/REFERENCE/gesture-response-map.md)

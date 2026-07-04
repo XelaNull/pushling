@@ -169,10 +169,15 @@ A new `windVector: CGFloat` property on `WeatherSystem`, range `[-1, 1]`,
 updated every frame inside `update(deltaTime:)`. **Confirmed absent from
 the codebase today** — the only existing wind value is
 `RainRenderer.windDrift` (`RainRenderer.swift:120`), a *private*,
-rain-renderer-internal `CGFloat` in `[-15, 15]`pt/s that only angles falling
-raindrop sprites and is re-randomized fresh on every rain activation
-(`RainRenderer.swift:168, 238`) — not a world-readable signal, and
-`windVector` does not reuse it.
+rain-renderer-internal `CGFloat` whose **magnitude is always 5-15pt/s**
+(`windDriftRange = 5...15`, `RainRenderer.swift:84`) with an independently
+randomized sign (`* (Bool.random() ? 1 : -1)`) — so the value lands in
+`[-15, -5] ∪ [5, 15]`, never near zero, not a flat `[-15, 15]` range — that
+only angles falling raindrop sprites and is re-randomized fresh on every
+rain activation (`RainRenderer.swift:168, 238`) — not a world-readable
+signal, and `windVector` does not reuse it. (This is the one place this
+codebase describes `RainRenderer.windDrift`; environment-reactions.md
+cross-links here rather than repeating it.)
 
 | `currentState` | `windVector` magnitude | Pattern |
 |---|---|---|
@@ -273,9 +278,11 @@ scheduler:
 
 With both in place, "first drops" is defined as the moment
 `transitionProgress` crosses 0.4 — the front is visible and sensed from
-0.0 (the `weatherApproaching` call), and the 20-40s lead time falls
+0.0 (the `weatherApproaching` call), and a **12-24s lead time** falls
 naturally out of wherever 0.4 lands within that transition's randomly
-rolled 30-60s duration. The full sense-beat, shelter-seeking timing (settle
+rolled 30-60s duration (0.4 × 30-60s = 12-24s) — this concept is the
+sole authority for that derivation; environment-reactions.md consumes the
+resulting number without re-deriving it. The full sense-beat, shelter-seeking timing (settle
 ≈0.35), and the per-incoming-state front visual on the far parallax layer
 are [environment-reactions.md §3](/SYSTEMS/environment-reactions.md#3-weather-on-the-horizon)'s
 territory.

@@ -301,12 +301,14 @@ shipped generic `jitterRange` (±3%–±20%). This concept does not adjudicate
 which number wins (that's a build-time decision for whoever ships the gait
 engine); it flags the two live, disagreeing candidates.
 
-**Grooming thoroughness** — already precisely defined by
+**Grooming thoroughness** — Discipline drives grooming thoroughness via
+the `beatCount` formula owned by
 [emotional body language](/SYSTEMS/emotional-body-language.md#discipline-modulation)'s
-`beatCount = round(1 + discipline × 3)` (1 beat chaotic, up to 4, with a
-5th "flank" beat gated at `discipline > 0.8` specifically). Ratified here
-verbatim as the Discipline → thoroughness canon — no second formula
-needed; ownership of the grooming *chain* itself stays with that concept.
+Grooming Chain (1 beat chaotic, up to 4, with a 5th "flank" beat gated at
+`discipline > 0.8` specifically). This concept does not restate the exact
+formula — see that concept's Discipline Modulation section for the
+literal derivation; ownership of both the formula and the grooming
+*chain* itself stays there.
 
 **Wind-down punctuality** — [idle life & rest](/SYSTEMS/idle-life-and-rest.md#8-evening-wind-down-ritual)
 states that "High-Discipline creatures run [the wind-down ritual] within

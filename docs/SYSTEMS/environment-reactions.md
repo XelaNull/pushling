@@ -152,9 +152,13 @@ the glance-back beat layered in identically.
 
 # 3. Weather on the Horizon
 
-20-40 seconds of advance warning before `WeatherSystem` transitions to
+**12-24 seconds** of advance warning before `WeatherSystem` transitions to
 rain, storm, or snow — the creature senses the front before the human can
-read it. **Concrete hook point, verified against shipped code:**
+read it. That number is [weather.md](/SYSTEMS/weather.md#weather-transition-lead-time-hook)'s
+derivation, not this concept's own — it owns the hook mechanism and the
+math (0.4 × its 30-60s `transitionDurationRange` = 12-24s); this section
+consumes the resulting signal and does not re-derive it. **Concrete hook
+point, verified against shipped code:**
 `WeatherSystem.checkForWeatherChange()` runs once every 5 minutes
 (`checkInterval = 300`, `WeatherSystem.swift:145`) and, on a hit, calls
 `selectNextWeather()` then `beginTransition(to:)` (`WeatherSystem.swift:265,
@@ -168,9 +172,9 @@ sense-beat their full runway *inside* the crossfade's own 30-60s window
 rather than needing a second, separate scheduler: "first drops" is defined
 as the point where `WeatherTransition.progress` (already computed every
 frame by `updateTransitionRenderers`, `WeatherSystem.swift:343`) crosses
-0.4 — i.e., the front is visible and sensed from progress 0.0, and the
-20-40s lead time falls naturally out of wherever 0.4 lands within that
-transition's randomly-rolled 30-60s duration.
+0.4 — i.e., the front is visible and sensed from progress 0.0, resolving
+to the 12-24s lead time [weather.md derives](/SYSTEMS/weather.md#weather-transition-lead-time-hook)
+from that same 0.4 threshold.
 
 | Incoming state | Front visual (far parallax layer, zPos -100, per [world terrain & parallax](/SYSTEMS/world-terrain-parallax.md#parallax-layers)) |
 |---|---|
@@ -223,11 +227,15 @@ sit-under-shelter pose needs the `sit` bodyState (degrades to walk-to-cover
 
 A new `windVector` scalar in `[-1, 1]`, derived from `WeatherSystem`'s
 current state — **confirmed absent from the codebase**: the only existing
-"wind" value is `RainRenderer.windDrift` (`RainRenderer.swift:120`), a
-private, rain-renderer-internal `CGFloat` in `[-15, 15]`pt/s used solely to
-angle falling raindrop sprites, randomized fresh on every rain activation
-(`RainRenderer.swift:168, 238`) — it is not a world-readable signal and this
-feature does not reuse it; `windVector` is new, computed signal:
+"wind" value is `RainRenderer.windDrift`, a private, rain-renderer-internal
+signal that is not world-readable and that this feature does not reuse
+(full magnitude/sign detail owned by
+[weather.md's Wind Vector section](/SYSTEMS/weather.md#wind-vector), not
+repeated here). `windVector` is new, computed signal; the production
+table below restates
+[weather.md's Wind Vector table](/SYSTEMS/weather.md#wind-vector) (which
+owns the values) only so the reaction-by-channel table further down has
+its inputs in view:
 
 | `WeatherSystem.currentState` | `windVector` behavior |
 |---|---|
@@ -277,7 +285,11 @@ perfectly steady (another `auraState` request to §8 of the pose pipeline —
 (`accumulationNode`, `SnowRenderer.swift:82`, building at `0.05`/minute and
 melting at `0.2`/minute — `SnowRenderer.swift:68,71`) accumulates but
 records nothing about the creature's passage; this feature makes it
-remember.
+remember. The footprint-decay and snow-cap **state spec** (the two rows
+below) is authored and owned by
+[weather.md's Snow Memory section](/SYSTEMS/weather.md#snow-memory--footprint--cap-state);
+it is restated here only because the Shake-off and First-snow verb rows
+that consume it need the same table for context.
 
 | Mechanism | Spec | New vs. extension |
 |---|---|---|
@@ -396,10 +408,14 @@ the designed-but-unbuilt campfire
 ([`docs/FEATURES/interactivity-unbuilt.md`](/FEATURES/interactivity-unbuilt.md) —
 if the campfire has spawned, the ritual targets the campfire instead of the
 generic terrain rise, and campfire wins any conflict) → this ritual. Also
-suppressed within 10 minutes of an active invitation, per
-[invitation-system.md](/SYSTEMS/invitation-system.md)'s shared ambient-event
-cooldown pool (once that pool exists — flagged the same way §1/§3 flag their
-pending personality-axis dependency).
+suppressed within **10 minutes** of an active invitation — this ritual is
+the origin of that number, not
+[invitation-system.md](/SYSTEMS/invitation-system.md#the-unified-ambient-event-governor)'s
+shared cross-type floor (which is only 90s); that concept's unified
+governor table cites this 10-minute window as the tightest suppression
+rule among the ambient-event families precisely because it was specified
+here first (flagged the same way §1/§3 flag their pending
+personality-axis dependency).
 
 **Stage gating:** Drop can't sit still — bounces gently in place facing the
 sun instead (reuses its perpetual hop, no new timing). Critter runs a
@@ -427,10 +443,12 @@ Every reaction above is either (a) a reflex injection via the already-shipped
 or (b) pooled-particle/single-node cosmetic additions within the existing
 frame budget (~5.7ms design allocation, [grounds[1]](#citations)). The two
 genuinely new signals this document introduces are `windVector` (§4, one
-`Double` derived from `WeatherSystem.currentState`, updated on the same
-5-minute check cadence weather already uses) and the weather-transition
-lead-time callback (§3, fired once per `beginTransition` call, not
-per-frame). No feature here proposes a new node cap, a new particle pool
+`CGFloat` derived from `WeatherSystem.currentState`, updated **every
+frame** inside `WeatherSystem.update(deltaTime:)` per
+[weather.md's production table](/SYSTEMS/weather.md#wind-vector) — 0.3-0.5s
+eases per value change plus 3-8s gust pulses, not the 5-minute weather-check
+cadence) and the weather-transition lead-time callback (§3, fired once per
+`beginTransition` call, not per-frame). No feature here proposes a new node cap, a new particle pool
 beyond the existing pooling rule, or a new palette color — puddle droplets,
 snow flecks, and debris all draw from the 8-color Display P3 set via
 alpha/lerp only.

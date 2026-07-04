@@ -30,19 +30,23 @@ and compose formula — it multiplies into them, it does not redefine them.
 
 `EmotionalState`'s four `[0,100]` axes collapse to two continuous `[-1,+1]`
 signals, computed fresh every frame from the already-live
-`EmotionalSnapshot` (no new persisted state):
+`EmotionalSnapshot` (no new persisted state). This concept originated the
+formula, but
+[personality-emotional-state.md](/REFERENCE/personality-emotional-state.md#valence--arousal-the-shared-mood-coordinate)
+is its ratified owner going forward — it owns the axes the formula
+collapses, so a second feature needing valence/arousal reads the formula
+from there, not from here:
 
 ```
 valence = clamp(((satisfaction - 50) + (contentment - 50)) / 100, -1, 1)
 arousal = clamp(((energy - 50) + (curiosity - 50)) / 100, -1, 1)
 ```
 
-This is this concept's own design contribution — no code or prior doc
-defines a valence/arousal collapse today; `EmotionalVisualController`
-reads the four raw axes independently (see [§2](#current-shipped-baseline-what-emotionalvisualcontroller-already-does)). The formula is
-deliberately symmetric (average of two 0-50-centered axes) so `valence=0,
-arousal=0` is the exact neutral midpoint every axis decays toward per
-[the emotional-state decay table](/REFERENCE/personality-emotional-state.md#emotional-state-4-axes).
+`EmotionalVisualController` reads the four raw axes independently today
+(see [§2](#current-shipped-baseline-what-emotionalvisualcontroller-already-does))
+rather than through this collapse. This section owns everything
+downstream of the coordinate — the Posture Vocabulary parameters and
+composites below — not the collapse formula itself.
 
 ## The Five Parameters
 

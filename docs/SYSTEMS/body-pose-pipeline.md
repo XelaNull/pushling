@@ -141,7 +141,7 @@ actually contend over every frame, common enough across states to be worth
 individually hand-tuned. The remaining 89 (one-off Surprise-keyframe
 cosmetics, the `TaughtBehaviorEngine` choreography vocabulary, and
 genuinely arbitrary player-authored text) are handled by the **alias
-map** in [§2b](#2b-the-remaining-89-strings-alias-map--fallback-rule)
+map** in [§2b](#2b-the-remaining-89-strings--alias-map--fallback-rule)
 immediately below the dynamic-states table — every one of the 111 is
 accounted for; none render as an unhandled no-op. Tuple order is
 `(yScale, xScale, yOffset pt, zRotation rad, headOffset pt, pawAlpha)`,
@@ -280,7 +280,8 @@ every `bodyState` string that exists in the codebase today:
 | `slouch` | `loaf` | Surprise keyframe | Slumped-relaxed, same family |
 | `spooky_pose` | `arch` | Surprise keyframe | Classic arched-back Halloween-cat silhouette |
 | `squeeze` | `curl` | Surprise keyframe | Compact tight-space posture |
-| `stagger` / `wiggle` / `wobble` | `shiver` | Surprise keyframe | Nearest jitter/unsteady oscillation family |
+| `stagger` / `wobble` | `shiver` | Surprise keyframe | Nearest jitter/unsteady oscillation family |
+| `wiggle` | *(no alias — dynamic state, not aliased here)* | Surprise keyframe (`Surprise/CatSurprises.swift:180`, `Surprise/VisualSurprises.swift:42`) | **Not** the `shiver` family despite the visual-verb overlap: [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table) owns `wiggle` as its own oscillation formula (rear-half lateral shimmer, front-anchored) — this pipeline catalogs the string's existence but defers its render definition to that concept, the same deferral pattern used for [Posture Vocabulary](#what-this-concept-does-not-cover) below |
 | `stand_hind_legs` | `alert` | Surprise keyframe | Approximation only — lifted/attentive read; no dedicated bipedal tuple exists |
 | `swagger` | `arch` | Surprise keyframe (`EasterEggSurprises`' leet-speak egg) | Confident-display family, same as `flex` |
 | `tense` | `crouch` | Surprise keyframe | Tight, guarded compression |
@@ -524,12 +525,19 @@ never driven by `state.auraState` anywhere in the codebase — confirmed by
 grep across every consumer of `.auraState`. It is **distinct** from the
 mutation-rarity "rarity_aura" nodes in `CreatureNode+Effects.swift`
 (separate node name, separate `MutationSystem`-driven trigger — do not
-conflate the two systems). Six literal `auraState` strings are produced
-today: `subtle` (stage default), `pulse` (`meditate` perform action, also
-`EmergentStates`' Content-state override), `sparkle` (`celebrate`),
-`static` (`glitch`, Sage+), `transcendent` (`transcend`, Apex+), `warm`
-(`EmergentStates`' Content-state preferred override,
-`EmergentStates.swift:96`).
+conflate the two systems). **Seven** literal `auraState` strings are
+produced today (re-grepped for this wave, one more than this section
+previously counted): `subtle` (stage default), `pulse` (`meditate` perform
+action, also `EmergentStates`' Content-state override), `sparkle`
+(`celebrate` perform action, also `ExpressionMapping`'s `wonder` case at
+intensity > 0.7), `static` (`glitch`, Sage+), `transcendent` (`transcend`,
+Apex+), `warm` (`EmergentStates`' Content-state preferred override,
+`EmergentStates.swift:96`), and `hearts` (`ExpressionMapping.swift:144`,
+the `love` expression case — grep-verified, not present in this table
+before this wave). `ResolvedCreatureState.defaultState` (`LayerTypes.swift:188`)
+also emits a distinct **eighth** value, `none`, for stages gated below
+`hasAura` (pre-Beast) — not a color to render, but the state that means
+"no aura node reads this frame at all."
 
 | `auraState` | Alpha | Pulse period | Color |
 |---|---|---|---|
@@ -539,6 +547,15 @@ today: `subtle` (stage default), `pulse` (`meditate` perform action, also
 | `sparkle` | 0.10 → 0.25 | 0.6s sine (faster — matches `celebrate`'s energetic read) | Gilt |
 | `static` | random 0.05-0.30 per frame (no smooth interpolation — deliberately noisy) | n/a | Ash, desaturated |
 | `transcendent` | 0.20 → 0.35 | 4.0s sine (slow, matching Apex's existing 0.5Hz alpha-oscillation cadence, `CreatureNode.swift:215`) | Gilt, lerped toward Dusk |
+| `hearts` | 0.12 → 0.22 | 1.4s sine (gentle, matching the `love` expression's `slow_blink` eye cadence rather than an energetic one) | Ember, lerped 40% toward Bone (reusing `PushlingPalette.softEmber`'s existing derived blend — no new color, a warm blush rather than the alarm-red Ember reads unblended) |
+| `none` | 0 (node not rendered) | n/a | n/a — pre-`hasAura` stages (below Beast) skip the aura node entirely, per this section's opening paragraph's `stage >= .beast` gate |
+
+**Unknown-aura fallback:** any `auraState` string not in this table (a
+future producer this wave didn't anticipate, or data-driven text arriving
+through the same `habit`/`quirk`/`step` free-form paths [§2's unmapped-strings
+rule](#2-the-bodystate--transform-tuple-table) already handles for
+`bodyState`) falls back to the `subtle` row — the same "unknown state =
+neutral" principle, not a crash or a frozen last-color.
 
 All colors drawn from the existing 8-color Display P3 palette per
 [grounds[1]](#citations)'s hard rule — no new color, only alpha/lerp
@@ -579,6 +596,10 @@ exist per stage.
   *further* multiplicative modifier layer riding this pipeline's compose
   point, owned and tabulated by
   [emotional body language](/SYSTEMS/emotional-body-language.md).
+- The `wiggle` `bodyState`'s render formula — a dynamic rear-shimmer
+  oscillation this table catalogs but does not tuple, owned by
+  [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table)
+  (see the alias note in [§2b](#2b-the-remaining-89-strings--alias-map--fallback-rule)).
 
 # Citations
 
