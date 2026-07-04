@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0004 — Canonical Authority Is the Tracked docs/ OKF Bundle"
 description: The version-controlled docs/ bundle is the sole canonical spec authority; PUSHLING_VISION.md is fully absorbed and carries a canon-has-moved banner until its Phase-2 archival.
-status: Proposed
+status: Accepted
 tags: [adr, canon, okf, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

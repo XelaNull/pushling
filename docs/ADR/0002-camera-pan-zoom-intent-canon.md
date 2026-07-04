@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0002 — Live Pan/Zoom Camera Is Intent-Canon"
 description: The designed live pan/zoom camera is ratified as canon-of-intent with unbuilt parts marked 📐 (planned); the shipped fixed-viewport behavior is documented as a deliberate transitional state, not the target design.
-status: Proposed
+status: Accepted
 tags: [adr, camera, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

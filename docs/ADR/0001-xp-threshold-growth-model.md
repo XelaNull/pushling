@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0001 — Ratify XP-Threshold Growth Model"
 description: Shipped XP thresholds (100/500/2000/8000/20000) and the egg first stage are ratified as canon, superseding PUSHLING_VISION.md's unbuilt commits-eaten/Spore model.
-status: Proposed
+status: Accepted
 tags: [adr, growth, xp, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

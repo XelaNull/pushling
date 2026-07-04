@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0006 — Doc-vs-Code Adjudication Framework"
 description: Where docs contradict shipped code, code wins unless the human ruled otherwise, and every adjudication is recorded, never silently picked. Complemented by intent-canon preservation of designed-but-unbuilt features under 📐 markers.
-status: Proposed
+status: Accepted
 tags: [adr, canon, process, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

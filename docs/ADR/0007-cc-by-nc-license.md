@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0007 — License Pushling Under CC BY-NC 4.0"
 description: Pushling is licensed Creative Commons Attribution-NonCommercial 4.0 — free to use, share, and adapt with attribution; commercial use is prohibited.
-status: Proposed
+status: Accepted
 tags: [adr, license, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0003 — Two Complementary First-Word Milestones Are Canon"
 description: Canon documents both shipped first-word milestones — Critter's own-name FirstWordCeremony and Beast's developer-name first audible word — as complementary, neither superseding the other. Amends R3's original considered-and-rejected framing.
-status: Proposed
+status: Accepted
 tags: [adr, speech, voice, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 

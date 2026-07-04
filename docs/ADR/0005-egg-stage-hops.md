@@ -2,7 +2,7 @@
 type: ADR
 title: "ADR 0005 — Egg Stage Locomotion: The Egg Hops"
 description: Code intent is ratified over canon text — the Egg makes occasional slow scoots rather than staying silent and motionless; no .egg gate is added, and the hop's rendering is pending the body-pose-pipeline keystone fix.
-status: Proposed
+status: Accepted
 tags: [adr, egg, locomotion, decisions]
 timestamp: 2026-07-04T03:07:17Z
 ---
@@ -13,7 +13,8 @@ timestamp: 2026-07-04T03:07:17Z
 
 ## Status
 
-Proposed
+Accepted
+Accepted 2026-07-04 (human).
 
 ---
 
