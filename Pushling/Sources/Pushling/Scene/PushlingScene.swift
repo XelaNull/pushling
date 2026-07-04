@@ -872,6 +872,16 @@ final class PushlingScene: SKScene {
         // Sleep state (modifies CreatureNode's internal breathing)
         creature.setSleeping(behaviorStack?.physics.isSleeping ?? false)
 
+        // Current jump velocity — feeds the §5 global velocity
+        // squash-stretch pass inside CreatureNode.updateBreathing().
+        creature.physicsVelocityY = behaviorStack?.physics.activeJump?.velocityY ?? 0
+
+        // Body pose (body-pose-pipeline.md §1) — the 13th controller.
+        creature.bodyPoseController?.setState(
+            state.bodyState, duration: 0,
+            isReflexPriority: output.bodyStateWonByReflexOrPhysics
+        )
+
         // Body part states via controllers
         creature.earLeftController?.setState(state.earLeftState, duration: 0)
         creature.earRightController?.setState(state.earRightState, duration: 0)

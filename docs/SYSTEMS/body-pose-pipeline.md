@@ -457,7 +457,7 @@ private func updateBreathing(deltaTime: TimeInterval) {
 
     let rawYScale = breathScale * dropHopSquash * pose.yScale * (1.0 + velocityStretch)
     bodyNode?.yScale = clamp(rawYScale, 0.6, 1.3)
-    bodyNode?.xScale = clamp(1.0 / sqrt(bodyNode!.yScale), 0.6, 1.3) * pose.xScale
+    bodyNode?.xScale = clamp(1.0 / sqrt(bodyNode!.yScale) * pose.xScale, 0.6, 1.3)  // pose.xScale clamped INSIDE the cap — §5's hard silhouette cap wins (reconciled 2026-07-04; the pre-reconciliation outside-multiply let roll_side reach 1.61, escaping the cap)
 
     if currentStage == .drop {
         bodyNode?.position.y = dropHopOffset + pose.yOffset

@@ -34,6 +34,17 @@ struct BehaviorStackOutput {
 
     /// Whether any reflexes are currently active.
     let isReflexActive: Bool
+
+    /// Whether `creatureState.bodyState` this frame was won by Physics or
+    /// Reflexes (the two highest-priority layers) rather than AI-Directed/
+    /// Autonomous. Feeds `BodyPoseController`'s 0.15s reflex-interrupt vs.
+    /// 0.3s expression-change internal blend choice
+    /// (body-pose-pipeline.md §1). Derived inline in `resolveOutputs` from
+    /// data already in scope there — `resolveOutputs` itself only ever
+    /// returned the merged value, discarding which layer won, so this is
+    /// new (if small) surface area, not truly "already computed" per §1's
+    /// literal claim.
+    let bodyStateWonByReflexOrPhysics: Bool
 }
 
 // MARK: - Behavior Stack
@@ -164,6 +175,12 @@ final class BehaviorStack {
             autonomous: autonomousOutput
         )
 
+        // 2b. bodyState's per-property winner, for BodyPoseController's
+        // reflex-interrupt vs. expression-change blend choice (§1) — see
+        // BehaviorStackOutput.bodyStateWonByReflexOrPhysics's doc comment.
+        let bodyStateWonByReflexOrPhysics =
+            physicsOutput.bodyState != nil || reflexOutput.bodyState != nil
+
         // 3. Detect state changes and notify blend controller
         detectStateChanges(resolved: resolved)
 
@@ -198,7 +215,8 @@ final class BehaviorStack {
             creatureState: blended,
             breathingScale: physics.breathingScale,
             isAIActive: aiDirected.isActive,
-            isReflexActive: reflexes.isActive
+            isReflexActive: reflexes.isActive,
+            bodyStateWonByReflexOrPhysics: bodyStateWonByReflexOrPhysics
         )
     }
 

@@ -62,6 +62,12 @@ final class SpriteStackRenderer {
     /// The resting Y position offset for each layer (no breath modulation).
     private var restOffsets: [CGFloat] = []
 
+    /// Each layer's base alpha (the value baked into its fillColor before
+    /// body-pose-pipeline.md §7 — now carried on `node.alpha` instead, so
+    /// `poseAlpha` can multiply it per-frame without double-dimming a
+    /// fillColor that also has its own alpha channel).
+    private var baseAlphas: [CGFloat] = []
+
     // MARK: - Public Properties
 
     /// Current number of stack layers (shadow + highlight).
@@ -103,6 +109,7 @@ final class SpriteStackRenderer {
 
         let bodyZ = bodyNode.zPosition
         restOffsets = []
+        baseAlphas = []
         stackLayers = []
 
         // -- Shadow layers (below body) --
@@ -111,13 +118,17 @@ final class SpriteStackRenderer {
             node.strokeColor = .clear
             node.name = "sprite_stack_shadow_\(i)"
 
-            // Outermost shadow is farthest below, most transparent
+            // Outermost shadow is farthest below, most transparent.
+            // Base alpha now lives on node.alpha (not baked into
+            // fillColor) so §7's poseAlpha can multiply it per-frame.
             let t = shadowCount > 1
                 ? CGFloat(i) / CGFloat(shadowCount - 1)
                 : 0.5
             let alpha = Self.shadowAlphaOuter
                 + (Self.shadowAlphaInner - Self.shadowAlphaOuter) * t
-            node.fillColor = PushlingPalette.withAlpha(PushlingPalette.ash, alpha: alpha)
+            node.fillColor = PushlingPalette.ash
+            node.alpha = alpha
+            baseAlphas.append(alpha)
 
             // Stack below body: outermost first (i=0 is farthest down)
             let offset = -Self.baseSpacing * CGFloat(shadowCount - i)
@@ -137,13 +148,15 @@ final class SpriteStackRenderer {
             node.strokeColor = .clear
             node.name = "sprite_stack_highlight_\(i)"
 
-            // Innermost highlight is closest to body, most opaque
+            // Innermost highlight is closest to body, most opaque.
             let t = highlightCount > 1
                 ? CGFloat(i) / CGFloat(highlightCount - 1)
                 : 0.5
             let alpha = Self.highlightAlphaInner
                 + (Self.highlightAlphaOuter - Self.highlightAlphaInner) * t
-            node.fillColor = PushlingPalette.withAlpha(PushlingPalette.bone, alpha: alpha)
+            node.fillColor = PushlingPalette.bone
+            node.alpha = alpha
+            baseAlphas.append(alpha)
 
             // Stack above body: innermost first (i=0 is closest above)
             let offset = Self.baseSpacing * CGFloat(i + 1)
@@ -160,10 +173,20 @@ final class SpriteStackRenderer {
 
     // MARK: - Per-Frame Update
 
-    /// Called every frame with the current breath yScale.
-    /// Modulates stack spread to create belly expansion illusion.
-    /// - Parameter breathScale: Current body yScale (1.0 to 1.03).
-    func update(breathScale: CGFloat) {
+    /// Called every frame with the current breath yScale plus the composed
+    /// body-pose channels (body-pose-pipeline.md §7) — propagates pose
+    /// shape to the depth stack so it doesn't visibly strand outside the
+    /// front body's new silhouette when it squashes, curls, or rotates.
+    /// - Parameters:
+    ///   - breathScale: Current body yScale (1.0 to 1.03).
+    ///   - poseYScale: The front body's final composed yScale (§6) — matched
+    ///     here, not just the raw breath scale, so depth layers squash too.
+    ///   - poseZRotation: The front body's final composed zRotation (§6).
+    ///   - poseAlpha: The front body's pose-driven alpha multiplier (e.g.
+    ///     `glitch`'s flicker, a future body fade) — dims the whole depth
+    ///     stack together, not just the front layer.
+    func update(breathScale: CGFloat, poseYScale: CGFloat,
+                poseZRotation: CGFloat, poseAlpha: CGFloat) {
         guard !stackLayers.isEmpty, let body = bodyNode else { return }
 
         // Breath deviation from rest (0.0 at rest, up to ~0.03 at peak)
@@ -184,6 +207,9 @@ final class SpriteStackRenderer {
 
             // Match body's xScale for facing direction
             layer.xScale = body.xScale
+            layer.yScale = poseYScale
+            layer.zRotation = poseZRotation
+            layer.alpha = baseAlphas[index] * poseAlpha
         }
     }
 
@@ -196,6 +222,7 @@ final class SpriteStackRenderer {
         }
         stackLayers.removeAll()
         restOffsets.removeAll()
+        baseAlphas.removeAll()
         shadowCount = 0
         highlightCount = 0
         bodyNode = nil

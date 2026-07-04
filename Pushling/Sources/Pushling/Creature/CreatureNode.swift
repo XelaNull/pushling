@@ -37,6 +37,23 @@ final class CreatureNode: SKNode {
     private(set) var pawBLController: PawController?
     private(set) var pawBRController: PawController?
 
+    /// The 13th part controller — owns bodyNode/headNode/paw-alpha's pose
+    /// contribution. Gated `stage >= .drop` (see body-pose-pipeline.md §1
+    /// and this file's `createControllers` for the divergence note on that
+    /// gate). Does not own a node; `updateBreathing()` is the sole writer
+    /// of the transform it computes.
+    private(set) var bodyPoseController: BodyPoseController?
+
+    /// Current jump vertical velocity, set per-frame by PushlingScene from
+    /// `PhysicsLayer.JumpState.velocityY` — feeds the §5 global velocity
+    /// squash-stretch pass inside `updateBreathing()`.
+    var physicsVelocityY: CGFloat = 0
+
+    /// Previous frame's `bodyPoseController.currentPose.headOffset` —
+    /// subtract-then-add delta pattern on `headNode`, matching
+    /// `updateNoiseIdle`'s existing convention (body-pose-pipeline.md §2).
+    private var previousPoseHeadOffset: CGFloat = 0
+
     // MARK: - Visual Traits (Git History → Appearance)
 
     /// Visual traits from git history — determines body color, eye shape, etc.
@@ -191,12 +208,24 @@ final class CreatureNode: SKNode {
     /// Main update loop — breathing, blinks, tail, whiskers.
     /// - Parameter deltaTime: Seconds since last frame.
     func update(deltaTime: TimeInterval) {
+        // === BODY POSE — advance the 13th controller's internal ease/
+        // dynamic-overlay BEFORE breathing reads its currentPose, so the
+        // compose point below always sees this frame's pose, not last
+        // frame's (body-pose-pipeline.md §1/§6).
+        bodyPoseController?.update(deltaTime: deltaTime)
+
         // === BREATHING — The most important animation ===
         // Per-frame sine-wave Y-scale. Never stops. Never an SKAction.
         updateBreathing(deltaTime: deltaTime)
 
         // === EGG WOBBLE ===
-        if currentStage == .egg {
+        // Safe today only because `bodyPoseController` is nil at Egg
+        // (gated `stage >= .drop`) — `updateBreathing()`'s compose point
+        // already skips writing bodyNode.zRotation at Egg for the same
+        // reason. The `bodyPoseController == nil` guard makes that
+        // dependency explicit so a future gate-move to `.egg` can't
+        // silently let this clobber a composed pose zRotation.
+        if currentStage == .egg, bodyPoseController == nil {
             let wobble = sin(breathingTime * 3.0)
                 * 0.06 * eggHatchProgress
             bodyNode?.zRotation = CGFloat(wobble)
@@ -329,13 +358,62 @@ final class CreatureNode: SKNode {
         }
         let breathScale = 1.0 + amplitude * breathValue
 
-        // Apply to body node — this is a post-process multiplier.
-        // Compose breathing with drop hop squash (multiplicative)
-        bodyNode?.yScale = breathScale * dropHopSquash
-        // Apply drop hop Y offset (absolute, not additive)
+        // === BODY POSE COMPOSE — the single compose point ===
+        // (body-pose-pipeline.md §5 + §6). Everything the behavior stack
+        // resolves for `bodyState` lands here, composed — not clobbering —
+        // with breathing/drop-hop. Nothing outside this function may write
+        // bodyNode's transform.
+        let pose = bodyPoseController?.currentPose ?? BodyPoseTuple.identity
+        let (finalYScale, finalXScale) = CreatureNode.composedBodyScale(
+            breathScale: breathScale, dropHopSquash: dropHopSquash,
+            poseYScale: pose.yScale, poseXScale: pose.xScale,
+            velocityY: physicsVelocityY
+        )
+        bodyNode?.yScale = finalYScale
+        bodyNode?.xScale = finalXScale
+
         if currentStage == .drop {
-            bodyNode?.position.y = dropHopOffset
+            // Apply drop hop Y offset (absolute, not additive), composed
+            // with the pose's own yOffset on top.
+            bodyNode?.position.y = dropHopOffset + pose.yOffset
+        } else {
+            bodyNode?.position.y = pose.yOffset
         }
+        if currentStage != .egg {
+            bodyNode?.zRotation = pose.zRotation
+        }
+        // At Egg, leave bodyNode.zRotation untouched here (matches the
+        // file's defensive `bodyNode?.` convention used everywhere else in
+        // this function) — it's egg-wobble's own write, applied outside
+        // this function; see that call site's guard for the dependency.
+
+        headNode?.position.y += pose.headOffset - previousPoseHeadOffset
+        previousPoseHeadOffset = pose.headOffset
+
+        [pawFLController, pawFRController, pawBLController, pawBRController]
+            .forEach { $0?.node.alpha = pose.pawAlpha }
+    }
+
+    /// Pure compose math for §5's global velocity squash-stretch pass,
+    /// composed multiplicatively with breathing/drop-hop/pose at the
+    /// single compose point above. Extracted as a static helper — mirrors
+    /// `PushlingScene.composedCreatureY`'s pattern — so it's covered by a
+    /// deterministic unit test without a live SKNode tree.
+    static func composedBodyScale(
+        breathScale: CGFloat, dropHopSquash: CGFloat,
+        poseYScale: CGFloat, poseXScale: CGFloat,
+        velocityY: CGFloat
+    ) -> (yScale: CGFloat, xScale: CGFloat) {
+        let velocityStretch = clamp(velocityY * 0.003, min: -0.15, max: 0.15)
+        let rawYScale = breathScale * dropHopSquash * poseYScale * (1.0 + velocityStretch)
+        let yScale = clamp(rawYScale, min: 0.6, max: 1.3)
+        // Clamp the FULL product (reciprocal-sqrt * pose.xScale), not just
+        // the reciprocal-sqrt term alone — otherwise a pose with xScale > 1
+        // (e.g. roll_side's 1.30) can push the composed xScale past the
+        // hard [0.6, 1.3] silhouette cap (grounds[1]). This resolves the
+        // canon §5-vs-§6 contradiction in favor of §5's ratified hard cap.
+        let xScale = clamp((1.0 / sqrt(yScale)) * poseXScale, min: 0.6, max: 1.3)
+        return (yScale, xScale)
     }
 
     // MARK: - Blink System (P2-T1-05)
@@ -634,6 +712,13 @@ final class CreatureNode: SKNode {
                 pawBRController = c
             }
         }
+
+        // Body pose — gated stage >= .drop per the WO-6 dispatch
+        // (see BodyPoseController's header comment for the divergence
+        // note against §3's Egg amplitude row).
+        if stage >= .drop {
+            bodyPoseController = BodyPoseController(stage: stage)
+        }
     }
 
     private func clearControllers() {
@@ -649,6 +734,8 @@ final class CreatureNode: SKNode {
         pawFRController = nil
         pawBLController = nil
         pawBRController = nil
+        bodyPoseController = nil
+        previousPoseHeadOffset = 0
         additionalTailNodes.removeAll()
         beardStrandNodes.removeAll()
         bodyNode = nil
@@ -674,5 +761,6 @@ final class CreatureNode: SKNode {
         pawFRController?.setState("ground", duration: 0)
         pawBLController?.setState("ground", duration: 0)
         pawBRController?.setState("ground", duration: 0)
+        bodyPoseController?.setState("stand", duration: 0)
     }
 }
