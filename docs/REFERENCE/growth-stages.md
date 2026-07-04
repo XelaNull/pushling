@@ -21,7 +21,7 @@ stage gates speed/behavior availability every frame, see
 
 | Stage | `GrowthStage` raw value | XP Threshold to Enter | Size (pts, code-verified) | Key Unlock |
 |---|---|---|---|---|
-| **Egg** | `.egg` = 0 | 0 (starting stage) | 9×11 | Just exists. Silent, no directed movement. |
+| **Egg** | `.egg` = 0 | 0 (starting stage) | 9×11 | Just exists — silent, but not still: occasional slow hops (`baseWalkSpeed 3`, "Egg hops slowly"), anticipation of the creature inside (D-1). Invisible until the keystone renders it. |
 | **Drop** | `.drop` = 1 | 100 | 10×12 | Eye expressions, sleep, commit reactions, symbol-only speech |
 | **Critter** | `.critter` = 2 | 500 | 14×16 | Touch response, mood display, first speech bubbles, first word |
 | **Beast** | `.beast` = 3 | 2,000 | 18×20 | Running, digging, schedule awareness, full sentences |
@@ -70,7 +70,7 @@ same live-vs-unbuilt discipline as the three source concepts.
 
 | Stage | Gait dialect | Jump/hover apex | Pose scalar (scale/offset) | Blend-duration multiplier | Catch % / Whiff % |
 |---|---|---|---|---|---|
-| **Egg** | Roll — **DECISION-pending**, see `docs/DECISIONS.md` D-1 | N/A — **DECISION-pending**, see D-1 | 0.3 / 0.3 | N/A (rolls, does not reverse-flip in the walking sense) | N/A (excluded — pre-directed-movement per this doc's canon, contradicted by code per D-1) |
+| **Egg** | Occasional slow hop (`baseWalkSpeed 3`; D-1 RESOLVED — the Egg hops, anticipation of the creature inside; invisible until the keystone renders it) | N/A (drifts, does not pursue destinations) | 0.3 / 0.3 | N/A (hops, does not reverse-flip in the walking sense) | N/A |
 | **Drop** | Hop-scurry (promotion of the already-shipped ambient hop) | 2pt (shares the ambient hop's own ceiling) | 0.5 / 0.6 | ~0× (near-zero, featherweight ramp) | 30% / 70% |
 | **Critter** | 4-beat walk, 2-beat trot | Not yet specified — flagged for the Airborne Arc System follow-up; hunt & pounce proposes 3pt pending confirmation | 1.0 / 1.0 | 1.0× (200ms baseline) | 35% / 65% |
 | **Beast** | Sprint + skid | 6pt (hard-capped) | 1.15 / 1.10 | 2.0× (400ms) | 75% / 25% |

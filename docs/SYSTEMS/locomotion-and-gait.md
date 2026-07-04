@@ -110,23 +110,17 @@ there" complaint is a **rendering** problem, not a movement problem:
   free-running `breathingTime` sine) is this concept's job — see
   [signature stage gaits](#per-stage-signature-gaits) below.
 
-**Flagged cross-wave discrepancy — Egg locomotion.**
-[Growth stages](/REFERENCE/growth-stages.md) states, as ratified canon,
-that Egg is "Just exists. Silent, no directed movement." [The body pose
-pipeline](/SYSTEMS/body-pose-pipeline.md#3-per-stage-amplitude-scalars)
-repeats this framing ("Barely poses... pre-directed-movement"). Verifying
-against `AutonomousLayer` directly this wave found **no stage gate
-anywhere in `updateStateMachine`/`updateIdle`/`updateWalking` that excludes
-`.egg`** from transitioning into `.walking` — `GrowthStage.baseWalkSpeed`
-defines `3` for Egg (`LayerTypes.swift:47`), and `updateIdle`'s fallback
-(`AutonomousLayer.swift:427-429`, `if let behavior = selectedBehavior {...}
-else { transitionTo(.walking) }`) fires unconditionally whenever no
-behavior is selected for the current stage — which is plausible for Egg
-given its minimal behavior repertoire. **This needs a decision, not a
-silent pick**: either Egg's directed-movement path is reachable today (and
-"no directed movement" is aspirational, not current-code canon) or there
-is a gate this wave's grep missed. Flagging for Samantha/`DECISIONS.md`
-rather than asserting either way. Practically, even if reachable, Egg's
+**Egg locomotion — RESOLVED (D-1, 2026-07-04).** The human ratified code
+intent: **the Egg hops.** Occasional slow scoots (`GrowthStage.baseWalkSpeed`
+= `3` for Egg, `LayerTypes.swift:47`'s `// Egg hops slowly`) are canon —
+anticipation of the creature growing inside — and there is deliberately **no
+`.egg` gate** excluding it from `.walking` (this wave's grep found none
+because none is intended: `updateIdle`'s unconditional
+`transitionTo(.walking)` fallback at `AutonomousLayer.swift:427-429` is the
+live path Egg movement rides). The prior "no directed movement" framing in
+[growth stages](/REFERENCE/growth-stages.md) and [the body pose
+pipeline](/SYSTEMS/body-pose-pipeline.md#3-per-stage-amplitude-scalars) has
+been corrected to describe the hop. Practically, even though reachable, Egg's
 `baseWalkSpeed=3` translation renders as a **slide**, not a **roll** —
 `zRotation` during Egg movement is not currently coupled to `positionX` at
 all; the only `zRotation` Egg gets is the ambient wobble

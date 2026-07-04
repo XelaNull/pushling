@@ -389,7 +389,7 @@ gap for the eventual Airborne Arc System build, not invented here:
 
 | Stage | Apex cap | Source |
 |---|---|---|
-| Egg | N/A | No directed movement at this stage — **DECISION-pending**, see `docs/DECISIONS.md` D-1 (Egg canon-vs-code conflict: `baseWalkSpeed` is `3` in code with a `// Egg hops slowly` comment and no stage gate, contradicting this table's "no directed movement" premise). |
+| Egg | N/A (no jump) | The Egg makes occasional slow hops (`baseWalkSpeed 3`, "Egg hops slowly"; `docs/DECISIONS.md` D-1 RESOLVED — the hop is ratified canon, anticipation of the creature inside). Like all Egg locomotion it routes through the dropped `positionX`/`bodyState` channel, so it is invisible until this pipeline ships — a rendering gap, not an absent behavior. |
 | Drop | 2pt | Dossier: "Drop 2pt hop" — matches the *existing* perpetual Drop hop's own `2.0 × hopValue` amplitude (`CreatureNode.swift:209`), so a directed jump and the ambient hop share one visual ceiling. |
 | Critter | **not yet specified** — flag for the Airborne Arc System follow-up WO. |
 | Beast | 6pt | Dossier: "Beast 6pt." |

@@ -30,16 +30,12 @@ RULES:
 
 <!-- Items not yet resolved. -->
 
-### OPEN — D-1 — Egg locomotion: canon vs code conflict
+### RESOLVED — D-1 — Egg locomotion: canon vs code conflict
 
 **Filed:** 2026-07-03 (Phase-2 flesh-out, FO-LOCOMOTION; verified by Samantha)
-**Conflict:** `growth-stages.md` (canon) states the Egg stage is *"Silent, no directed movement."* But the code gives Egg real locomotion: `LayerTypes.swift:47` → `case .egg: return 3  // Egg hops slowly`, and there is **no `.egg` gate** excluding it from `.walking` anywhere in `AutonomousLayer`. The code comment ("Egg hops slowly") indicates the author *intended* Egg to move — so it is genuinely ambiguous which side is stale, not a clear code-drift.
-**Two new concepts repeat the canon framing:** `body-pose-pipeline.md` and `locomotion-and-gait.md` both currently echo "Egg — no directed movement"; both to be flagged DECISION-pending against this item rather than asserting a side.
-**Question for the human (via Orchestrator):**
-- (A) Canon right → Egg should NOT move; add the missing `.egg` gate (code fix, phase-3), keep canon text.
-- (B) Code right → Egg DOES hop slowly (baseWalkSpeed 3); correct `growth-stages.md`'s "no directed movement," let the flesh-out concepts describe it.
-- (C) Hybrid — e.g. Egg drifts but doesn't pursue destinations.
-**Kernel built (not stalled):** flesh-out concepts note the Egg case DECISION-pending; growth-stages.md unchanged pending the ruling.
+**Resolved:** 2026-07-04 (human ruling, relayed via Orchestrator) — **Option B: the Egg HOPS.** Code intent is ratified as canon: the Egg makes occasional slow scoots (`baseWalkSpeed 3` class, per `LayerTypes.swift:47`'s `// Egg hops slowly`) — anticipation of the creature growing inside. **No `.egg` gate is added** — hopping is the intended behavior. Note: the hop is *invisible* in the shipped build until the phase-3 keystone (`body-pose-pipeline.md`) fix ships, since Egg locomotion routes through the same dropped `positionX`/`bodyState` channel; the ratified behavior is real, its rendering is pending.
+**Conflict (historical):** `growth-stages.md` stated the Egg stage is *"Silent, no directed movement."* But the code gave Egg real locomotion: `LayerTypes.swift:47` → `case .egg: return 3  // Egg hops slowly`, with **no `.egg` gate** excluding it from `.walking` in `AutonomousLayer`. The code comment showed authored intent to move — genuinely ambiguous which side was stale, so escalated rather than adjudicated.
+**Actions taken (2026-07-04):** `growth-stages.md`'s "Silent, no directed movement" amended to the slow occasional hop; the DECISION-pending Egg-row notes in `growth-stages.md`, `body-pose-pipeline.md`, and `locomotion-and-gait.md` un-parked to describe the ratified hop (rendering-pends-keystone).
 **ADR:** pending
 
 ---
