@@ -36,7 +36,7 @@ The mapping is mostly 1:1, with two exceptions worth calling out:
   (`action: "set"/"remove"/"list"/"suggest"/"reinforce"`, sub-type in
   `params.type`) even though the daemon also accepts a direct form
   (`action: "habit"/"preference"/...`) — see
-  [the command catalog's nurture section](/ARCHITECTURE/ipc-command-catalog.md#nurture-two-calling-conventions).
+  [the command catalog's nurture section](/ARCHITECTURE/ipc-command-catalog.md#nurture--two-calling-conventions).
 
 Three socket commands have **no MCP tool at all**: `reload`, `screenshot`,
 `debug_nodes`. These are operator/debug-only, invoked directly over the raw
@@ -125,7 +125,7 @@ Launch Pushling.app to inhabit your creature."
 
 Speeds: walk 30 pt/s, run 80 pt/s, sneak 12 pt/s (`mcp/src/tools/move.ts
 SPEED_PTS`). See
-[the command catalog's target-parameter note](/ARCHITECTURE/ipc-command-catalog.md#current-implementation-note-moves-target-parameter)
+[the command catalog's target-parameter note](/ARCHITECTURE/ipc-command-catalog.md#current-implementation-note--moves-target-parameter)
 for a live client/daemon mismatch on how `target` is actually consumed
 server-side.
 

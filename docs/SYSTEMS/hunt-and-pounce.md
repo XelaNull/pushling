@@ -66,13 +66,13 @@ or is specified here because the pipeline's table doesn't yet cover it
 |---|---|---|---|---|
 | **Lock** | Target enters range | `alert` (pipeline: 1.05/0.95/+0.2/0/+0.25/1.0) | 0.2-0.5s | Freeze; eyes `wide`; ears rotate to `perk`; tail goes rigid (`still`) |
 | **Stalk** | Immediately after Lock | `crouch` (pipeline: 0.72/1.12/-0.6/0/-0.2/1.0) | Variable (see [catch-rate table](#3-per-stage-catch-rates--pounce-profiles)) | Creep at 3-5pt/s (Critter baseline) with 300-800ms full freezes (only tail-tip `twitch_tip` and eyes move during a freeze); reuses the existing horizontal-locomotion channel (`walkSpeed`), not a new movement system |
-| **Wiggle** | Stalk completes at range | `wiggle` **(gap -- see [§2a](#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table))** | 0.5-0.9s | Rear-of-silhouette lateral oscillation, count scales with playfulness (personality `energy` axis, `Creature/PersonalitySystem.swift:91`) |
+| **Wiggle** | Stalk completes at range | `wiggle` **(gap -- see [§2a](#2a-wiggle--a-bodystate-not-yet-in-the-pipelines-table))** | 0.5-0.9s | Rear-of-silhouette lateral oscillation, count scales with playfulness (personality `energy` axis, `Creature/PersonalitySystem.swift:91`) |
 | **Launch** | Wiggle completes | `pounce` (pipeline: dynamic -- eases to 1.10/0.92/+0.15/0/+0.5/1.0 "forward launch lean") | 220-300ms (stage-scaled, [§3](#3-per-stage-catch-rates--pounce-profiles)) | `positionY` parabola through [the pipeline's §4](/SYSTEMS/body-pose-pipeline.md#4-positiony-application--isairborne-terrain-clamp-suspension) `isAirborne` path, apex capped per stage |
 | **Land** | Launch's positionY returns to 0 | `land` (pipeline: 0.62/1.30/-0.4/0/-0.3/1.0, held 2 frames per `PhysicsLayer.JumpState.landingCompressionFrames`) | 2 frames (~33ms) | Front-paw pin (`pawStates` all `"ground"` except forepaws briefly `"tap"`), then branches to **Catch** or **Whiff** |
 | **Catch** | Land + roll succeeds | `stand` (front paws pin) | 0.3-0.6s hold | Tail lashes twice (`"lash"`/existing tail vocabulary); triumphant beat, then resumes normal stack |
 | **Whiff** | Land + roll fails | See [§2b](#2b-the-whiff-outcome-table) | Variable | One of three named misses, always ending in the shared displacement-groom handoff |
 
-## 2a. `wiggle` -- a `bodyState` not yet in the pipeline's table
+## 2a. `wiggle` — a `bodyState` not yet in the pipeline's table
 
 Grepped occurrences: `Surprise/CatSurprises.swift:180`, `Surprise/VisualSurprises.swift:42`
 (`$0.body = "wiggle"`). **Update (post-flesh-out-keystone-revise):**
@@ -344,7 +344,7 @@ files, no cross-edits), flagged for Samantha to route:
 
 # 10. Open Questions for Samantha
 
-- **`wiggle`'s rear/front silhouette split** ([§2a](#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table))
+- **`wiggle`'s rear/front silhouette split** ([§2a](#2a-wiggle--a-bodystate-not-yet-in-the-pipelines-table))
   doesn't fit the pipeline's single-`bodyNode` transform model cleanly --
   needs a build-time call on whether a shear approximation is good enough
   or a real anchor split is worth it.
@@ -355,7 +355,7 @@ files, no cross-edits), flagged for Samantha to route:
   at the time. A later flesh-out-keystone-revise wave closed this gap:
   the table now covers the full 111-string inventory, `tense` aliases to
   `crouch`, and `wiggle` is carved out as this concept's own render
-  authority (see [§2a](#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table)'s
+  authority (see [§2a](#2a-wiggle--a-bodystate-not-yet-in-the-pipelines-table)'s
   updated text). `locked_up` remains out of scope for either doc -- it's
   an eye-state controller's contract, not a `bodyState`.
 - **Critter and Sage pounce apexes** (3pt, 4pt above) are this concept's

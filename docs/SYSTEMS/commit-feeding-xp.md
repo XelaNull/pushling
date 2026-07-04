@@ -119,7 +119,7 @@ and `VoiceSystem`/`VoiceIntegration` both carry a "dream mumble" audio
 generation path (sleep-talk at 0.4x volume) that is likewise not called from
 the commit-arrival path. Preserved here as intent-canon and flagged as a
 defined-but-unwired gap, consistent with
-[the teach system](/SYSTEMS/teach-system.md#dream-integration-designed-not-wired)'s
+[the teach system](/SYSTEMS/teach-system.md#dream-integration--designed-not-wired)'s
 "mastery-weighted trick replay" gap of the same shape.
 
 # Commit Type Classification — 17 Types, Priority-Ordered

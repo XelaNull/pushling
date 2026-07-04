@@ -150,6 +150,57 @@ All 5 axes and their constants verified against
 description exactly (including "even 'always' habits skip 5-10% of the
 time").
 
+# Suggest — Shipped Heuristic vs. Designed Observation Engine
+
+`suggest` (`handleNurtureSuggest`, `Pushling/Sources/Pushling/IPC/CreationHandlers.swift:525-548`)
+is a **shallow state checklist**, not the pattern-learning engine the design
+called for. It walks a fixed list of static thresholds against current
+state and returns whichever match, in a flat `{action, type}` shape (a
+free-text sentence, not a structured suggestion object):
+
+| Condition Checked | Suggestion Returned |
+|---|---|
+| `satisfaction < 30` | "Commit some code! The creature is hungry." (feeding) |
+| `energy < 20` | "Let the creature rest — use 'perform nap'." (rest) |
+| `curiosity > 70` | "Teach a new trick — the creature is eager to learn." (teach) |
+| `creatureName == "Pushling"` (never renamed) | "Give the creature a name..." (identity) |
+| no habits set | "Set a habit — e.g. stretch after every commit." (habit) |
+| no preferences set | "Set a preference — does the creature love rain?" (preference) |
+| *(always appended)* | "Express joy or love to build the bond." (expression) |
+
+None of this reads `object_interactions`, location-dwell time, or
+time-of-day activity — it's a point-in-time state check, not a rolling
+observation window.
+
+**Unbuilt design intent** (`docs/archive/plan/phase-7-creation-systems/PHASE-7.md`
+P7-T3-10): the original design was a genuine pattern-observation engine.
+The daemon would track a rolling **7-day window** of autonomous behavior —
+object-interaction counts ("23 autonomous interactions with mushrooms this
+week"), location dwell percentage ("40% of idle time near the campfire"),
+time-of-day activity clustering, and emotional correlations ("satisfaction
+spikes after rain") — and return **3-5 confidence-ranked suggestions**
+(minimum confidence 0.5, cached and refreshed every 24h rather than
+computed per call) in a structured shape:
+
+```json
+{
+  "suggestions": [
+    {
+      "type": "preference",
+      "suggestion": {"subject": "mushrooms", "valence": 0.7},
+      "reason": "interacted with mushrooms 23 times this week (3x average)",
+      "confidence": 0.85
+    }
+  ]
+}
+```
+
+The stated goal — "Claude can codify what the creature is already doing
+naturally" — describes this observation engine, not the shipped
+checklist; the shipped version can only ever suggest actions Claude
+hasn't yet taken, never patterns the creature has organically formed on
+its own.
+
 # Schema
 
 `habits`, `preferences`, `quirks`, `routines`
@@ -189,3 +240,5 @@ daemon's real vocabulary), not `"after_commit"` — see the drift note above.
 [8] `Pushling/Sources/Pushling/Nurture/OrganicVariationEngine.swift` (5 variation axes)
 [9] `Pushling/Sources/Pushling/State/Schema.swift` (habits/preferences/quirks/routines tables)
 [10] `PUSHLING_VISION.md` — The Nurture System
+[11] `Pushling/Sources/Pushling/IPC/CreationHandlers.swift:525-548` (`handleNurtureSuggest` — shipped checklist)
+[12] `docs/archive/plan/phase-7-creation-systems/PHASE-7.md` — P7-T3-10 (designed observation engine)

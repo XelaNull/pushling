@@ -22,6 +22,7 @@ of it are documented separately (see cross-links below).
 | Touch controller | Broadcom BCM5976TC1KUB60G (same family as iPhone/iPad) |
 | Multi-touch | Hardware supports 10-point; the strip's width limits practical simultaneous use to 2-3 |
 | Force / pressure | **None** — purely capacitive, binary touch detection |
+| Haptic feedback | **None on the Touch Bar itself** — see caveat below |
 | Processor generation | T1 chip (2016-17) / T2 (2018-20) / Apple Silicon (2020+) |
 | Display interface | MIPI DSI, single-lane, command mode — receives raw BGR24 pixels |
 | OLED response time | ~0.03ms (nanosecond-class switching) |
@@ -49,6 +50,17 @@ the daemon).
   the OLED panel standalone using an RP2040 microcontroller, with the
   findings published open-source — confirming the panel has no hidden
   rendering restrictions beyond what the MIPI DSI interface itself imposes.
+- **The Touch Bar has no haptic hardware of its own.** Tactile "feedback"
+  associated with the Touch Bar (e.g. HapticKey-style click confirmation) is
+  achieved only by triggering the **trackpad's** Taptic Engine via the
+  private `MultitouchSupport.framework`, which exposes 8 haptic types
+  (`back`, `click`, `weak`, `medium`, `weakMedium`, `strong`, `reserved1`,
+  `reserved2`). Any future pet-touch haptic feedback would ride the
+  trackpad, not the strip itself — see
+  [the private-API mechanism](/REFERENCE/touch-bar-private-api.md#trackpad-haptics-not-touch-bar-haptics)
+  for how that framework is invoked. (A prior-art comparison elsewhere in
+  the bundle lists "Haptic feedback: Yes (private API)" for Pushling without
+  this distinction — treat that as needing the same correction.)
 
 # Sensor Availability
 
@@ -68,5 +80,5 @@ designed-but-unbuilt capabilities are not pruned.
 
 # Citations
 
-[1] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §2 (Hardware Specifications), §10.3 (Sensor Input), §10.4 (OLED Tricks)
+[1] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §2 (Hardware Specifications), §3.1 (MTMR Hidden Features), §6.5 (Haptic Feedback), §10.3 (Sensor Input), §10.4 (OLED Tricks)
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarController.swift` (scene dimensions, `preferredFramesPerSecond`)

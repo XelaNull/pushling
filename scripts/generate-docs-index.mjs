@@ -236,6 +236,126 @@ function checkCrossLinks(concepts) {
   return failures;
 }
 
+// ---------- anchor checking (github-slugger algorithm) ----------
+
+/**
+ * Reproduces github-slugger's heading-to-anchor algorithm for our
+ * controlled markdown subset: lowercase, then strip anything that
+ * isn't alphanumeric/space/hyphen (markdown formatting chars like
+ * `**`, backticks, `()`, `&`, `+`, an em-dash all fall out here —
+ * critically, NO collapsing is applied afterward, so a stripped
+ * symbol that sat between two spaces leaves a double hyphen behind,
+ * e.g. "A — B" -> "a--b"), then spaces -> hyphens.
+ */
+function slugify(text) {
+  // Mirror github-slugger: lowercase, drop punctuation but KEEP underscores
+  // (`# pushling_sense` -> `pushling_sense`); spaces -> hyphens; consecutive
+  // hyphens NOT collapsed (a stripped `—` between spaces leaves `--`).
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9_ -]/g, '')
+    .replace(/ /g, '-');
+}
+
+/**
+ * ATX headings only (`#` through `######`), skipping fenced code
+ * blocks — a `#` inside a ``` or ~~~ fence is a shell/Python comment,
+ * not a heading.
+ */
+function extractHeadings(body) {
+  const headings = [];
+  let inFence = false;
+  let fenceMarker = null;
+  for (const line of body.split('\n')) {
+    const fence = line.match(/^(```|~~~)/);
+    if (fence) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fence[1];
+      } else if (line.trim().startsWith(fenceMarker)) {
+        inFence = false;
+        fenceMarker = null;
+      }
+      continue;
+    }
+    if (inFence) continue;
+    const m = line.match(/^#{1,6}\s+(.+?)\s*$/);
+    if (m) headings.push(m[1]);
+  }
+  return headings;
+}
+
+/**
+ * All anchor slugs a document's headings resolve to, duplicate-suffixed
+ * the github way: 1st occurrence of a slug keeps the bare slug, 2nd
+ * gets `-1`, 3rd gets `-2`, and so on.
+ */
+function anchorSlugsForBody(body) {
+  const occurrences = new Map();
+  const slugs = new Set();
+  for (const heading of extractHeadings(body)) {
+    const base = slugify(heading);
+    let slug = base;
+    if (occurrences.has(base)) {
+      const n = occurrences.get(base) + 1;
+      occurrences.set(base, n);
+      slug = `${base}-${n}`;
+    } else {
+      occurrences.set(base, 0);
+    }
+    slugs.add(slug);
+  }
+  return slugs;
+}
+
+/**
+ * Every markdown link in the body that carries a `#fragment` — same-
+ * file (`#foo`) or cross-file bundle links (`/X.md#foo`). Unlike
+ * findBundleLinks, a bare `#foo` (no leading `/…md`) is included here
+ * since same-file anchors are exactly what this check exists for.
+ * Anything else (external URLs, plain file links with no fragment) is
+ * skipped — nothing to validate.
+ */
+function findLinksWithFragments(body) {
+  const links = [];
+  const re = /\[[^\]]*\]\(([^)]+)\)/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const target = m[1].trim();
+    const hashIdx = target.indexOf('#');
+    if (hashIdx === -1) continue;
+    const filePart = target.slice(0, hashIdx);
+    const fragment = target.slice(hashIdx + 1);
+    if (fragment === '') continue;
+    if (filePart !== '' && !(filePart.startsWith('/') && filePart.endsWith('.md'))) continue;
+    links.push({ raw: target, filePart, fragment });
+  }
+  return links;
+}
+
+function checkAnchors(concepts) {
+  const failures = [];
+  const anchorCache = new Map(); // resolved file path -> Set<slug>
+
+  function slugsForFile(resolvedPath) {
+    if (anchorCache.has(resolvedPath)) return anchorCache.get(resolvedPath);
+    const slugs = anchorSlugsForBody(readFileSync(resolvedPath, 'utf8'));
+    anchorCache.set(resolvedPath, slugs);
+    return slugs;
+  }
+
+  for (const c of concepts) {
+    for (const { raw, filePart, fragment } of findLinksWithFragments(c.body)) {
+      const resolved = filePart === '' ? c.file : join(DOCS_ROOT, filePart);
+      if (!existsSync(resolved)) continue; // already reported by checkCrossLinks
+      if (!slugsForFile(resolved).has(fragment)) {
+        failures.push({ file: c.file, reason: `dangling anchor: ${raw}` });
+      }
+    }
+  }
+  return failures;
+}
+
 // ---------- rendering ----------
 
 function renderSectionIndex(section, concepts) {
@@ -314,6 +434,7 @@ function main() {
 
   const allConcepts = [...rootConcepts, ...SECTIONS.flatMap((s) => sectionData[s].concepts)];
   allFailures.push(...checkCrossLinks(allConcepts));
+  allFailures.push(...checkAnchors(allConcepts));
 
   if (checkMode) {
     // Orphan check — every valid concept must be registered (as a link

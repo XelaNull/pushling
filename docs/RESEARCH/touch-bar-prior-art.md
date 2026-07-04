@@ -56,8 +56,10 @@ scrubbers only, no custom rendering. Assessed as not useful for gaming.
 | MCP integration ease | Easy | Medium | Medium | Hard |
 | Setup complexity | Low | Low | Medium | High |
 | Push-based updates | No | Yes | Yes | Direct rendering |
-| Haptic feedback | Yes (global) | Unknown | Unknown | Yes (private API) |
+| Haptic feedback | Yes (global)¹ | Unknown | Unknown | Yes (private API)¹ |
 | Cost | Free | $12-24 | Free | Free (Xcode) |
+
+¹ **The Touch Bar has no haptic hardware of its own.** "Haptic feedback" here means triggering the *trackpad's* Taptic Engine via the private `MultitouchSupport.framework` (as HapticKey does) — a tap on the Touch Bar produces a pulse under the user's other hand on the trackpad, not under the finger on the bar. See [touch-bar-hardware.md](/REFERENCE/touch-bar-hardware.md) for the hardware fact and [touch-bar-private-api.md](/REFERENCE/touch-bar-private-api.md#trackpad-haptics-not-touch-bar-haptics) for the mechanism.
 
 # Existing Projects Catalog
 

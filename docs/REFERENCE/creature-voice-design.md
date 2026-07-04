@@ -35,6 +35,18 @@ The creature's voice must read as a being that is:
 
 # Why Voice Progression Is the Entire Feature
 
+The organizing principle behind every design choice in this concept: the
+original design doc states that "every design choice flows backward" from
+the moment the creature speaks its first real word after weeks of babble
+— the voice is the soul made audible, where the visuals are what the
+creature *is* and the voice is who it *becomes*, and the developer
+"becomes the parent listening for their child's first word." The
+substance of that principle is already load-bearing below (the five
+reasons immediately following) and in [speech
+milestones](/REFERENCE/speech-milestones.md)'s lean-in engagement
+rationale; this paragraph names the principle itself, which neither
+concept states explicitly.
+
 `docs/archive/TTS-RESEARCH.md` §1 frames the stage-gated voice quality not as
 a technical limitation to apologize for, but as the feature's emotional
 engine, for five reasons: (1) **narratively coherent** — of course a baby
@@ -350,7 +362,7 @@ system-voice dependency. Preserved as historical rationale only.
 
 # Citations
 
-[1] `docs/archive/CREATURE-VOICE-DESIGN.md` §1, §2, §4, §8, §9, §11
+[1] `docs/archive/CREATURE-VOICE-DESIGN.md` §1, §2, §4, §8, §9, §11 (opening dialogue, line 15; closing dialogue, lines 1058-1074)
 [2] `docs/archive/TTS-RESEARCH.md` §1, §17
 [3] `Pushling/Sources/Pushling/Voice/VoicePersonality.swift`
 [4] `Pushling/Sources/Pushling/Behavior/BehaviorSelector.swift` (`PersonalityAxis`)

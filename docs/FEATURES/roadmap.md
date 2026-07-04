@@ -59,6 +59,12 @@ place, to distinguish it from a pure blank-slate idea.
   distinct from the absence-scaled wake behaviors and late-night lantern
   that *are* shipped for the same Core Loop table (see
   [the behavior stack](/SYSTEMS/behavior-stack.md#absence-scaled-wake-behaviors)).
+  📐 The designed access route, never implemented: read keyboard idle time
+  via IOKit HID as a permission-light proxy for keystroke activity — this
+  gives a "typing vs. not typing" signal without accessibility-permission
+  keylogging, sufficient to drive "creature walks in sync with typing" (the
+  same mechanism [surprise-catalog #18 "Typing rhythm
+  mirror"](/REFERENCE/surprise-catalog.md) would need).
 - **Build status awareness** — watch the build directory; celebrate green,
   worry at red.
 - **Debugging pattern detection** — rapid commit-revert cycles trigger
@@ -122,6 +128,42 @@ section's original draft — most of it is not merely a target: `bin/pushling`
 already implements nearly all of it. Only its packaging/distribution
 (published tap, npm global install) remains unbuilt.
 
+📐 **Target export-format contract (P8-T3-02b) — narrower than the shipped
+export.** The shipped `pushling export`/`import` (see [build, run, and
+deploy](/OPERATIONS/build-run-deploy.md)) covers only the `creature` table
+row plus the last 500 `journal` entries — taught behaviors, nurture data
+(habits/preferences/quirks/routines), and world objects are silently lost
+on a migration between machines. The original design specified a fuller,
+versioned portable-creature format:
+
+```json
+{
+  "format_version": 1,
+  "exported_at": "ISO-8601",
+  "creature": {},
+  "personality": {},
+  "journal": [],
+  "taught_behaviors": [],
+  "habits": [], "preferences": [], "quirks": [], "routines": [],
+  "world_objects": [],
+  "milestones": [],
+  "touch_stats": {},
+  "game_scores": [],
+  "speech_cache": [],
+  "repos": []
+}
+```
+
+Import validation was designed to check `format_version` compatibility,
+sanity-check the creature name/stage, offer a replace-vs-merge strategy
+(replace = full overwrite with confirmation; merge = keep the higher
+value per field), and tag every imported journal entry `"imported":
+true`. Deliberately excluded from export: file paths (not portable across
+machines), the voice cache (regenerable), and heartbeat/temp data. This is
+the target contract for "full creature portability" — the shipped
+narrower export is a genuine, real, working subset of it, not a
+divergent design.
+
 # Citations
 
 [1] `PUSHLING_VISION.md` — Future Feature Roadmap; Installation
@@ -129,3 +171,5 @@ already implements nearly all of it. Only its packaging/distribution
 [3] `install.sh`, `build.sh`, `run.sh`, `reload.sh` (actual scripts vs. the aspirational `brew`/`npm` commands)
 [4] [the surprise catalog](/REFERENCE/surprise-catalog.md) (mutation-badge data already backing the Tier 2 achievement-gallery idea)
 [5] [journal & dreams](/REFERENCE/journal-and-dreams.md) (existing dream mechanics adjacent to the Tier 2 offline-dream-sequence idea)
+[6] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §6.6 Keyboard Integration (typing-rhythm IOKit HID access route)
+[7] `docs/archive/plan/phase-8-polish/PHASE-8.md` — P8-T3-02b Creature Export/Import Format Definition; [build, run, and deploy](/OPERATIONS/build-run-deploy.md) (shipped export's narrower coverage)

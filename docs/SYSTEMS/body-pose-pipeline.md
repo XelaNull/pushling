@@ -281,7 +281,7 @@ every `bodyState` string that exists in the codebase today:
 | `spooky_pose` | `arch` | Surprise keyframe | Classic arched-back Halloween-cat silhouette |
 | `squeeze` | `curl` | Surprise keyframe | Compact tight-space posture |
 | `stagger` / `wobble` | `shiver` | Surprise keyframe | Nearest jitter/unsteady oscillation family |
-| `wiggle` | *(no alias — dynamic state, not aliased here)* | Surprise keyframe (`Surprise/CatSurprises.swift:180`, `Surprise/VisualSurprises.swift:42`) | **Not** the `shiver` family despite the visual-verb overlap: [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table) owns `wiggle` as its own oscillation formula (rear-half lateral shimmer, front-anchored) — this pipeline catalogs the string's existence but defers its render definition to that concept, the same deferral pattern used for [Posture Vocabulary](#what-this-concept-does-not-cover) below |
+| `wiggle` | *(no alias — dynamic state, not aliased here)* | Surprise keyframe (`Surprise/CatSurprises.swift:180`, `Surprise/VisualSurprises.swift:42`) | **Not** the `shiver` family despite the visual-verb overlap: [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle--a-bodystate-not-yet-in-the-pipelines-table) owns `wiggle` as its own oscillation formula (rear-half lateral shimmer, front-anchored) — this pipeline catalogs the string's existence but defers its render definition to that concept, the same deferral pattern used for [Posture Vocabulary](#what-this-concept-does-not-cover) below |
 | `stand_hind_legs` | `alert` | Surprise keyframe | Approximation only — lifted/attentive read; no dedicated bipedal tuple exists |
 | `swagger` | `arch` | Surprise keyframe (`EasterEggSurprises`' leet-speak egg) | Confident-display family, same as `flex` |
 | `tense` | `crouch` | Surprise keyframe | Tight, guarded compression |
@@ -598,7 +598,7 @@ exist per stage.
   [emotional body language](/SYSTEMS/emotional-body-language.md).
 - The `wiggle` `bodyState`'s render formula — a dynamic rear-shimmer
   oscillation this table catalogs but does not tuple, owned by
-  [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle-a-bodystate-not-yet-in-the-pipelines-table)
+  [hunt & pounce's Wiggle phase](/SYSTEMS/hunt-and-pounce.md#2a-wiggle--a-bodystate-not-yet-in-the-pipelines-table)
   (see the alias note in [§2b](#2b-the-remaining-89-strings--alias-map--fallback-rule)).
 
 # Citations

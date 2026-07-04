@@ -74,7 +74,7 @@ Favorite to ride.** `ObjectWearSystem.applyInteractionWear` accumulates
 `ObjectWearSystem.swift:104-120`), stages at `pristine → worn → weathered →
 battered`, and the soft-delete "legacy shelf" (`is_active = 0, removed_at`
 in `WorldManager+Objects.swift`, documented in
-[world-objects-system](/SYSTEMS/world-objects-system.md#wear-repair--the-legacy-shelf))
+[world-objects-system](/SYSTEMS/world-objects-system.md#wear-attachment--the-legacy-shelf))
 is where a fully-worn Favorite would land for its farewell beat — no new
 persistence lifecycle needed.
 

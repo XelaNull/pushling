@@ -386,6 +386,40 @@ the two built triggers) — none require new rendering machinery, only the
 trigger-detection call sites themselves. Whether to wire or descope these
 5 is a phase-3-backlog decision, not resolved here.
 
+# Teaching History for SessionStart — unbuilt (P7-T3-14)
+
+📐 **A compressed nurture-state block injected at SessionStart.**
+`session-start.sh` mentions `pushling_teach`/`pushling_nurture` only as
+tool-availability lines ("You can now teach your body new tricks... and
+shape your own habits and preferences") and
+[the awakening pipeline](/SYSTEMS/awakening-pipeline.md)'s per-stage
+injection tables carry the same tool-unlock framing at Beast+ — neither
+injects any actual nurture *state*. `docs/archive/plan/phase-7-creation-systems/PHASE-7.md`
+P7-T3-14 designed a richer wake-up brief: a compressed summary of what the
+creature has already learned, so Claude picks up mid-relationship instead
+of blind. The design's contents, capped at roughly 200 characters per
+section:
+
+- Active habit count, plus any notable or recently-fired ones by name
+- The strongest preference valences (what the creature loves/hates most)
+- The most distinctive quirks
+- Which routine slots are customized (vs. still default)
+- Decay warnings for habits approaching their floor — e.g. `"habit at
+  0.22 — reinforce or forgotten"` (see
+  [the decay tiers](/SYSTEMS/nurture-system.md#strength-reinforcement-and-mastery-based-decay)
+  for the strength/floor mechanics this warning would read from)
+- Any pending `suggest` recommendations (see [the Suggest
+  sub-action](/SYSTEMS/nurture-system.md#suggest--shipped-heuristic-vs-designed-observation-engine)
+  for what a "pending suggestion" would actually be sourced from once that
+  engine exists)
+
+No trace of this injection block exists in `session-start.sh` or
+`awakening-pipeline.md` — an implementer picking this up should build it
+as a new per-stage-aware block appended after (or interleaved with) the
+existing `pushling_teach`/`pushling_nurture` tool-unlock text, reading from
+the same `HabitEngine`/`PreferenceEngine`/`QuirkEngine`/`RoutineEngine`
+state [the nurture system](/SYSTEMS/nurture-system.md) already tracks.
+
 # Visual Sense — Full Screenshot Design Intent (P4-T1-06)
 
 📐 **`pushling_sense(aspect: "visual")` — natural-language scene description +
@@ -441,3 +475,4 @@ for the shipped-today behavior this design intent would replace.
 [8] `Pushling/Sources/Pushling/Input/Games/MiniGameManager.swift` (no idle-teaser/discovery logic)
 [9] [camera control](/SYSTEMS/camera-and-parallax.md), [touch milestones](/SYSTEMS/touch-milestones.md), [invitation system](/SYSTEMS/invitation-system.md), [mini-games](/SYSTEMS/mini-games.md), [Touch Bar menu patterns](/RESEARCH/touch-bar-menu-patterns.md), [commit-feeding-xp](/SYSTEMS/commit-feeding-xp.md), [journal-and-dreams](/REFERENCE/journal-and-dreams.md), [the gesture-response map](/REFERENCE/gesture-response-map.md), [the touch input pipeline](/SYSTEMS/touch-input-pipeline.md)
 [10] `docs/archive/plan/phase-4-embodiment/PHASE-4.md` — P4-T1-06 pushling_sense "visual"; `Pushling/Sources/Pushling/IPC/SenseHandlers.swift` (`"visual"` case, grep-verified not-implemented ack) and `Pushling/Sources/Pushling/IPC/CommandRouter.swift` (the separate `screenshot` command)
+[11] `docs/archive/plan/phase-7-creation-systems/PHASE-7.md` — P7-T3-14 Teaching History for SessionStart; `hooks/session-start.sh` and [awakening pipeline](/SYSTEMS/awakening-pipeline.md) (grep-verified tool-availability-only framing, no state block)

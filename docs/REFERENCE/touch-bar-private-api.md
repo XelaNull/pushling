@@ -78,6 +78,20 @@ presentation and presenting the other — the app always owns *a* Touch Bar,
 it just changes which content is showing. `presentAsSystemModal` is called
 with `placement: 1` (replace the system function-bar region) each time.
 
+# Trackpad Haptics, Not Touch Bar Haptics
+
+The Touch Bar itself has no haptic actuator — see
+[touch-bar-hardware.md](/REFERENCE/touch-bar-hardware.md) for the hardware
+fact. Tools like HapticKey (cited in
+[touch-bar-prior-art.md](/RESEARCH/touch-bar-prior-art.md)) achieve
+Touch-Bar-adjacent "click" feedback by driving the **trackpad's** Taptic
+Engine through the private `MultitouchSupport.framework`, exposing 8 haptic
+types (`back`, `click`, `weak`, `medium`, `weakMedium`, `strong`,
+`reserved1`, `reserved2`) behind a global toggle with no per-button
+configuration. Pushling does not currently link or call
+`MultitouchSupport.framework` — this is documented as the mechanism a
+future pet-touch haptic feature would need, not a wired capability.
+
 # Touch Delivery: The Corrected Caveat
 
 Prior research assumed `touchesMoved` on a custom view gives sub-pixel,
@@ -116,4 +130,4 @@ touch-delivery claim itself.
 [1] `Pushling/Sources/Pushling/TouchBar/DFRPrivateAPI.swift`
 [2] `Pushling/Sources/Pushling/TouchBar/TouchBarController.swift`
 [3] `Pushling/Sources/Pushling/TouchBar/TouchBarView.swift`
-[4] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §3.3 (Native NSTouchBar API), §6.2-6.3 (Input Latency, Positional Touch)
+[4] `docs/archive/TOUCHBAR-TECHNIQUES.md` — §3.1 (MTMR Hidden Features), §3.3 (Native NSTouchBar API), §6.2-6.3 (Input Latency, Positional Touch), §6.5 (Haptic Feedback)

@@ -82,7 +82,7 @@ describes, verified still present and wired to the wake animation. A related,
 separately-designed mechanic — a commit arriving *while the creature is
 asleep* triggering this same dream bubble with the commit message's first
 word — is not wired to the commit-arrival path; see
-[commit feeding & XP](/SYSTEMS/commit-feeding-xp.md#commit-while-asleep-designed-not-wired)
+[commit feeding & XP](/SYSTEMS/commit-feeding-xp.md#commit-while-asleep--designed-not-wired)
 for the full gap detail.
 
 ## 2. Autonomous Nightly DreamEngine (undocumented in the vision doc — new)
@@ -125,7 +125,7 @@ implements the *selection* logic (weighting Signature-tier behaviors 3x
 over Mastered), but a repo-wide search found no call site for it — the
 live `DreamEngine` produces text and personality drift only, it never
 selects or replays a taught behavior. See
-[the teach system](/SYSTEMS/teach-system.md#dream-integration-designed-not-wired)
+[the teach system](/SYSTEMS/teach-system.md#dream-integration--designed-not-wired)
 for the full detail; noted here because it directly concerns what "dreams"
 functionally do today. Preserved as intent-canon, flagged as a
 defined-but-unwired gap for the Orchestrator.

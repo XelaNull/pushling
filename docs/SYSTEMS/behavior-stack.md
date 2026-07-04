@@ -1,9 +1,9 @@
 ---
 type: System
 title: 4-Layer Behavior Stack
-description: The Physics > Reflexes > AI-Directed > Autonomous priority stack that resolves into one creature pose every frame, and the blend controller that smooths every transition between them. Also documents where Posture Vocabulary and the Idle Micro-Behavior Scheduler sit relative to this priority resolution, and generalizes the reflex-injection ("checkpoint/resume") mechanism reused by surprises, glances, and sky reactions.
+description: The Physics > Reflexes > AI-Directed > Autonomous priority stack that resolves into one creature pose every frame, and the blend controller that smooths every transition between them. Also documents where Posture Vocabulary and the Idle Micro-Behavior Scheduler sit relative to this priority resolution, generalizes the reflex-injection ("checkpoint/resume") mechanism reused by surprises, glances, and sky reactions, and documents the shipped `BehaviorSelector` weight formula — a registry distinct from the AI-Directed manual-perform `CatBehavior` one, with a code-verified defect (`tongue_blep`'s mouth doesn't exist pre-Beast at either registry's own minimum stage).
 status: Live
-tags: [behavior, animation, blend, physics, reflexes, ai-directed, posture, idle-scheduler, reflex-injection]
+tags: [behavior, animation, blend, physics, reflexes, ai-directed, posture, idle-scheduler, reflex-injection, behavior-selector]
 timestamp: 2026-07-03T00:00:00Z
 ---
 
@@ -138,6 +138,94 @@ Always computing, even while a higher layer is fully in control — this is
 what lets the "AI releases control" fadeout hand off smoothly instead of
 needing to spin the Autonomous layer up cold.
 
+### The Shipped Weight-Based Selection Formula (code-verified, previously undocumented)
+
+`BehaviorSelector` (one instance per `BehaviorStack`, constructed at
+`BehaviorStack.swift:111`) is a second, independent registry from the
+`CatBehavior` one the [12 Cat Behaviors](#the-12-cat-behaviors) table below
+documents — same 12 names (plus a 13th, Sage-only `meditation`, see
+[idle & rest's stage-gating table](/SYSTEMS/idle-life-and-rest.md#21-stage-gating)
+for the behavior itself), but a different struct with different numbers,
+and it is what `AutonomousLayer.updateIdle` actually calls
+(`behaviorSelector.selectBehavior(stage:personality:emotions:)`,
+`AutonomousLayer.swift:415`) every idle→behavior transition. Its own
+weighted-random pick is documented in the file's own header comment
+(`BehaviorSelector.swift:9-16`) and implemented in `calculateWeight()`
+(`BehaviorSelector.swift:406-429`):
+
+```
+weight = baseWeight
+       × personalityAffinity   (0.5–2.0, category → one PersonalityAxis, lerped)
+       × emotionalBoost        (1.0–1.5, category → one EmotionalSnapshot axis)
+       × recencyPenalty        (0.3 / 0.6 / 1.0, by time since last performed)
+       × noveltyBonus          (1.5× flat while performanceCount < 3)
+```
+
+floored at `max(weight, 0.01)` so no eligible behavior ever hits exactly
+zero (`BehaviorSelector.swift:428`). Eligibility itself is gated ahead of
+weighting by `stageMin`, per-behavior `cooldown` (personality-modulated, see
+below), an optional `EmotionalCondition`, and a **global 30s cooldown**
+(`globalCooldown`, `BehaviorSelector.swift:130`) between any two autonomous
+behaviors regardless of which ones — `selectBehavior` returns `nil` (falls
+back to `.walking`) if that floor hasn't elapsed, before it even builds the
+eligible pool.
+
+**`personalityAffinity`** (`affinityMap`, `BehaviorSelector.swift:277-308`)
+maps each of the 6 `BehaviorCategory` values to one personality axis and a
+`[low, high]` multiplier range, lerped by that axis's current 0–1 value:
+
+| Category | Axis | Low (axis→0) | High (axis→1) |
+|---|---|---|---|
+| `playful` | energy | 0.5 | 2.0 |
+| `calm` | energy | 2.0 | 0.5 |
+| `social` | verbosity | 0.7 | 1.5 |
+| `investigative` | focus | 0.7 | 1.5 |
+| `mischievous` | discipline | 1.8 | 0.5 |
+| `ritualistic` | discipline | 0.7 | 1.5 |
+
+**`emotionalBoost`** (`BehaviorSelector.swift:432-456`) scales per-category
+against one `EmotionalSnapshot` axis: `playful`→energy, `calm`→contentment,
+`social`→satisfaction, `investigative`→curiosity, and `ritualistic`→
+contentment again but capped at **1.3×** (`× 0.3`, not the `× 0.5` every
+other category uses — a real asymmetry in the formula, not a typo to
+normalize away). `mischievous` is the one non-linear case: it boosts only
+when high energy *and* low satisfaction align jointly
+(`energyFactor × satFactor`, both 0–1), so a mischievous behavior needs both
+conditions at once to approach its own 1.5× ceiling — a satisfied creature
+gets little mischievous boost even at max energy.
+
+**`recencyPenalty`** (`BehaviorSelector.swift:459-471`): 0.3× if performed
+under 1 hour ago, 0.6× under 2 hours, 1.0× (no penalty) beyond that or if
+never performed. **`noveltyBonus`**: a flat 1.5× multiplier while
+`performanceCount` (lifetime, not per-session) is under 3.
+
+**Cooldowns are also personality-modulated**, separately from the weight
+formula: `cooldownModifier()` (`BehaviorSelector.swift:474-477`) computes
+`0.6 + (1.0 - personality.energy) × 0.8`, so a hyper creature
+(`energy` → 1.0) waits only 0.6× a behavior's listed cooldown while a calm
+one (`energy` → 0.0) waits 1.4×.
+
+This registry's own `baseWeight`/`cooldown`/`category`/`emotionalCondition`
+values (`BehaviorSelector.swift:135-272`) are genuinely different numbers
+from the `CatBehavior.weight`/`priority` values in the table below — they
+are not two views of one dataset, they are two datasets that happen to
+share names, because they feed two different call paths entirely.
+[Hunt & pounce](/SYSTEMS/hunt-and-pounce.md#1-the-fragments-code-verified-ground-truth)
+independently documents this exact split for one behavior
+(`predator_crouch`); the general shape it found there — one
+`BehaviorSelector` entry driving `AutonomousLayer`'s own idle→behavior
+transition, and one separate `CatBehavior` entry reachable only through the
+AI-Directed manual-perform path — is universal across all 12, not specific
+to that behavior. The AI-Directed path is `ActionHandlers.swift:377-393`:
+an MCP `pushling_perform` command action-string first checked against
+`CatBehaviors.named(action)`, and if found, dispatched straight to
+`catBehavior.perform(creature)` — a direct `CreatureNode` mutation that
+never touches `BehaviorSelector`, `BehaviorStack`, or the Autonomous layer's
+own state machine at all. A behavior can therefore be selected
+autonomously, performed on command, or both in the same session, through
+two call paths that don't share weighting, cooldown tracking, or even a
+struct definition.
+
 ### The Idle Micro-Behavior Scheduler (designed, not built)
 
 [Idle & rest](/SYSTEMS/idle-life-and-rest.md#1-idle-life-layer)'s scheduler
@@ -172,12 +260,19 @@ returning a `LayerOutput` from Layer 4, same as today.
 
 ## The 12 Cat Behaviors
 
-`CatBehaviors.swift` + `CatBehaviorsExtended.swift` register **12 cat-specific
-choreographies**, `.behavior(name:)` states the Autonomous layer's
-`BehaviorSelector` can pick weighted-randomly, each an independent state
-machine composing `CreatureNode`'s body-part controllers. All 12 exist and
-are wired (`GameCoordinator` holds the registry) — code-verified against the
-vision doc's 12-item catalog, but **not name-for-name**: 10 of the 12
+`CatBehaviors.swift` + `CatBehaviorsExtended.swift` register **12
+cat-specific choreographies**, each an independent state machine composing
+`CreatureNode`'s body-part controllers directly. The `weight`/`priority`
+columns below belong to this registry's own `CatBehavior` struct, which
+powers only the **AI-Directed manual-perform path** (an MCP
+`pushling_perform` command dispatched through `catBehavior.perform(creature)`
+— see [the shipped weight-based selection
+formula](#the-shipped-weight-based-selection-formula-code-verified-previously-undocumented)
+above for the citation). What the Autonomous layer's own `BehaviorSelector`
+picks weighted-randomly for `.behavior(name:)` states is a *separate*
+registry with its own weights, documented in that same section — the two
+share behavior names, not numbers. All 12 exist and are wired — code-verified
+against the vision doc's 12-item catalog, but **not name-for-name**: 10 of the 12
 match the vision list exactly (slow-blink, kneading, headbutt, predator
 crouch, loaf, grooming, zoomies, chattering, if-I-fits-I-sits, knocking
 things off); the vision doc's remaining two entries are **"tail twitch"**
@@ -205,14 +300,53 @@ just not as members of this 12-item registry:
 | 11 | `tail_chase` | Critter | 4–6s | 480s | 0.2 | 3 | Notices own tail, chases in circles, catches it, pretends nothing happened |
 | 12 | `tongue_blep` | Drop | 15–30s | 600s | 0.15 | 1 (lowest) | Tongue sticks out 1px, stays out, creature doesn't notice (also [Surprise #42](/REFERENCE/surprise-catalog.md)) |
 
-`zoomies` carries the highest priority (6) of any autonomous behavior —
-matching its vision-doc framing as an override-everything cat moment;
-`tongue_blep` the lowest, letting anything else preempt it. `loaf` and
-`if_i_fits_i_sits` are the two longest-running (up to 60s and 20s
-respectively) and both carry a 600s cooldown to match, so the creature isn't
-stuck loafing or wedged for a large fraction of an active session.
+`zoomies` carries the highest `priority` value (6) of any behavior in this
+table, `tongue_blep` the lowest (1) — but this `priority` field is
+**decorative, not arbitrating**: grepping every call site of
+`CatBehavior.priority` outside its own definition
+(`CatBehaviors.swift`/`CatBehaviorsExtended.swift`) turns up none — no
+override-preemption, no sort, no comparison reads it anywhere in the
+codebase. Read it as author intent ("zoomies should feel like it overrides
+everything") rather than as a live mechanism that actually lets zoomies
+preempt anything or lets tongue_blep be preempted; the real
+override-preemption in this stack is [the four-layer priority
+resolution](#the-four-layers) above, which this field sits entirely outside
+of. `loaf` and `if_i_fits_i_sits` are the two longest-running (up to 60s and
+20s respectively) and both carry a 600s cooldown to match, so the creature
+isn't stuck loafing or wedged for a large fraction of an active session.
 `knocking_things_off` is the only one of the 12 gated to Beast+ rather than
 Critter+ or Drop+ — code-verified, not vision-doc-specified.
+
+### Known Defect — `tongue_blep`'s Mouth Doesn't Exist Yet at Its Own Minimum Stage
+
+Both registries gate `tongue_blep` at `stageMin`/`minimumStage: .drop`
+(`BehaviorSelector.swift:230-236`, `CatBehaviorsExtended.swift:249-255`),
+but `StageRenderer` builds `mouth: nil` for Egg, Drop, *and* Critter
+(`StageRenderer.swift:112`, `:175`, `:253`; the Critter builder even
+comments it explicitly: `// No mouth or whiskers at Critter stage — they
+debut at Beast`, `:227-228`) — the first real mouth node isn't constructed
+until `buildBeast()`'s own `makeMouth(...)` call
+(`StageRenderer.swift:312-314`). `CreatureNode` only constructs a
+`mouthController` `if config.hasMouth, let mouth = nodes.mouth`
+(`CreatureNode.swift:584-591`), so at Drop and Critter that controller is
+`nil` too. The result is a silent no-op on **both** call paths the section
+above documents, for the entirety of the behavior's 15-30s duration, at
+**two** stages rather than the one the archived research note flagged:
+autonomous selection sets `output.mouthState = "blep"`
+(`BehaviorChoreography.swift:249-250`, `applyTongueBlep`) into a
+`LayerOutput` no downstream mouth node exists to render, and the
+AI-Directed path's `creature.mouthController?.setState("blep", ...)`
+(`CatBehaviorsExtended.swift:260`) evaluates against a `nil` optional and
+does nothing. A Drop or Critter creature performing `tongue_blep` — however
+it got selected — looks and behaves exactly as if nothing happened; there is
+no visible symptom to notice without reading the code, only the absence of
+one. Also cross-referenced from [predator behavior in hunt &
+pounce](/SYSTEMS/hunt-and-pounce.md#1-the-fragments-code-verified-ground-truth)
+and [Surprise #42](/REFERENCE/surprise-catalog.md), both of which describe
+this behavior's *intended* effect without flagging that it's currently
+invisible pre-Beast. The fix is a one-line bump of both registries'
+`stageMin`/`minimumStage` from `.drop` to `.beast` — not attempted here, as
+this is a documentation pass, not a code change.
 
 ## Absence-Scaled Wake Behaviors
 
@@ -413,3 +547,7 @@ always continues even here), and `reset(stage:position:facing:)`.
 [10] `Pushling/Sources/Pushling/Creature/AbsenceAnimations.swift` (`AbsenceCategory`, `AbsenceWakeAnimation`, `LateNightLantern`)
 [11] `PUSHLING_VISION.md` — Control Architecture: The 4-Layer Behavior Stack; The Blend Controller; Touch-AI Interaction Priority; Cat behaviors baked into Layer 1 (lines 158–171); Core Loop (lines 393–404)
 [12] `Pushling/Sources/Pushling/Surprise/SurpriseAnimationPlayer.swift` (the reflex-injection bridge every surprise, and the generalized reaction pattern in this doc, both ride)
+[13] `Pushling/Sources/Pushling/Behavior/BehaviorSelector.swift` (the `BehaviorDefinition` registry, weight formula, and `affinityMap` — a second registry distinct from citation [9]'s `CatBehavior`)
+[14] `Pushling/Sources/Pushling/IPC/ActionHandlers.swift` (the AI-Directed `pushling_perform` dispatch into `CatBehaviors.named(action)?.perform(creature)`, lines 377-393)
+[15] `Pushling/Sources/Pushling/Creature/StageRenderer.swift` (per-stage `mouth` node construction — `nil` through Egg/Drop/Critter, first built at Beast)
+[16] `Pushling/Sources/Pushling/Creature/CreatureNode.swift` (`mouthController` construction, gated on `config.hasMouth` and a non-nil `nodes.mouth`)

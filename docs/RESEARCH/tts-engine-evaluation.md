@@ -226,6 +226,21 @@ change rather than keeping multiple tiers resident).
 | espeak-ng | GPL-3.0 | Yes* | *Via sherpa-onnx (Apache 2.0 wrapper) — sherpa-onnx uses espeak-ng as a separate text-processing component, not linked in a way that would require the whole project to be GPL |
 | `AVSpeechSynthesizer` | Apple proprietary | Yes (in macOS apps) | None |
 
+**GPL-3.0 consideration if espeak-ng is ever integrated directly** (bypassing
+sherpa-onnx's wrapper — e.g. to reach the native pitch/formant/word-gap
+controls flagged as unused above): the source research recorded a
+three-way linking decision tree that the shipped sherpa-onnx path made
+moot but that reopens the moment anyone links espeak-ng directly.
+**Static linking** the espeak-ng library into the app binary would put the
+whole app under GPL-3.0. **Dynamic linking** as a separate `.dylib` may
+preserve more flexibility (the classic LGPL-style "mere aggregation"
+argument, though espeak-ng is GPL not LGPL, so this is weaker ground, not
+a settled exemption). **Running the espeak-ng CLI as a subprocess**
+requires no linking at all and is the cleanest path if native-control
+access is ever wanted without the sherpa-onnx wrapper. None of this
+applies to Pushling today — flagged only so a future direct-espeak-ng
+change doesn't re-derive the legal question from scratch.
+
 # Key Repository Links
 
 - sherpa-onnx: https://github.com/k2-fsa/sherpa-onnx
@@ -238,5 +253,5 @@ change rather than keeping multiple tiers resident).
 
 # Citations
 
-[1] `docs/archive/TTS-RESEARCH.md` (source document, compiled 2026-03-14)
+[1] `docs/archive/TTS-RESEARCH.md` (source document, compiled 2026-03-14) — §9 Option 8, "GPL-3.0 License Consideration" subsection (lines 570-576) for the linking decision tree
 [2] [voice-tts-stack](/SYSTEMS/voice-tts-stack.md) — the shipped architecture this research led to

@@ -70,7 +70,7 @@ Only meaningful on the creature — `guard case .creature = event.target else { 
 | Target | Response |
 |---|---|
 | Creature | Stage-specific secret, logged only (no visible animation code beyond the `NSLog`): `egg` -> `"pulse"`, `drop` -> `"belly_expose"`, `critter` -> `"zoomies"`, `beast` -> `"map_reveal"`, `sage` -> `"prophecy"`, `apex` -> `"reality_glitch"`. |
-| World | `cameraController?.recenter()` — see [camera control](/SYSTEMS/camera-and-parallax.md#design-canon-pan-zoom) (currently a no-op in the shipped fixed-viewport build, since `recenter()` itself isn't gated, but the pan/zoom it resets are pinned to 0/1.0 anyway). |
+| World | `cameraController?.recenter()` — see [camera control](/SYSTEMS/camera-and-parallax.md#design-canon-pan--zoom) (currently a no-op in the shipped fixed-viewport build, since `recenter()` itself isn't gated, but the pan/zoom it resets are pinned to 0/1.0 anyway). |
 | Object, commit text | No-op. |
 
 # Long Press

@@ -93,7 +93,7 @@ fires:
    (`CreatureNode.setupRarityEffects`).
 
 **Personality formulas actually used at this step** (distinct from the
-formulas in [GitHistoryScanner](#the-designed-but-unwired-flow-gitHistoryScanner),
+formulas in [GitHistoryScanner](#the-designed-but-unwired-flow-githistoryscanner),
 below — the two compute the same four axes differently):
 
 | Axis | Formula (from the 5-commit sample) |
