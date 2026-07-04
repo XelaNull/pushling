@@ -73,7 +73,7 @@ enum SkeletonGeometry {
         stageHeight * beltYFraction
     }
 
-    // MARK: - Leg Height (WO-19 sub-part 3)
+    // MARK: - Leg Height (WO-19 sub-part 3, REVISE — body-overlap fix)
 
     /// The paw's existing rest Y as a fraction of stage height — mirrors
     /// `ShapeFactory.pawRestPositions`'s `groundY = -h * 0.4` exactly
@@ -83,36 +83,77 @@ enum SkeletonGeometry {
     /// number that could drift out of sync with where the paw really is.
     static let groundYFraction: CGFloat = -0.40
 
-    /// The leg's length: the vertical distance from the shoulder/hip pivot
-    /// (`beltY`, the higher/less-negative point) down to the paw's rest Y
-    /// (`groundYFraction`, the lower/more-negative point) —
-    /// `legHeight = beltY - groundY` (belt minus ground, so the result is
-    /// positive; `ShapeFactory.makePaw`'s `legHeight` parameter draws the
-    /// leg polygon rising from the paw's local origin toward positive Y,
-    /// so it must be positive to point the right way).
+    /// **Diagnosis (Mack/human parade catch):** the ORIGINAL `legHeight`
+    /// (`beltY - groundY` = 15% of stage height) put the leg's top exactly
+    /// at the shoulder/hip PIVOT — but the pivot is not where the body's
+    /// visual silhouette actually ends. Numerically sampling
+    /// `CatShapes.catBody`'s belly-curve Bezier (200 steps per segment,
+    /// not `CGPath.boundingBox`, which only bounds by CONTROL points and
+    /// over-estimates how low the curve actually reaches) gives the TRUE
+    /// rendered bottom edge, expressed as a fraction of stage height (this
+    /// varies per stage because `bellyDrop` — CatShapes.catBody's belly-
+    /// bulge parameter — differs: 0.12/0.12/0.10/0.08 for Critter/Beast/
+    /// Sage/Apex, and does not reduce to one clean stage-independent
+    /// formula the way `beltY`/`groundY` do):
     ///
-    /// `= stageHeight * (beltYFraction - groundYFraction)`
-    /// `= stageHeight * (-0.25 - (-0.40))`
-    /// `= stageHeight * 0.15`
+    /// | Stage | body-bottom Y | vs. old leg-top (`beltY`) | gap |
+    /// |---|---|---|---|
+    /// | Critter | -3.65 (-0.2284h) | -4.00 | 0.35pt short |
+    /// | Beast   | -4.19 (-0.2094h) | -5.00 | 0.81pt short |
+    /// | Sage    | -4.48 (-0.1867h) | -6.00 | 1.52pt short |
+    /// | Apex    | -5.13 (-0.1831h) | -7.00 | 1.87pt short |
     ///
-    /// The 15% figure is the midpoint of `creature-visual-design.md`'s
-    /// Chibi Proportion guideline ("legs 10-20% of total height" —
-    /// explicitly marked design-intent, not directly verifiable against
-    /// current code) — a ship-and-tune starting constant, not a ratified
-    /// number; flagging the citation here so WO-12 (leg/paw geometry
-    /// restyling) inherits it rather than re-deriving from scratch.
+    /// At every stage the old leg-top landed BELOW (more negative than,
+    /// i.e. short of) the body's real bottom edge — a real, growing gap,
+    /// not a rendering illusion — confirming the human's "legs not
+    /// connected" read exactly.
+    private static let bodyBottomYFraction: [GrowthStage: CGFloat] = [
+        .critter: -0.2284,
+        .beast:   -0.2094,
+        .sage:    -0.1867,
+        .apex:    -0.1831,
+    ]
+
+    /// The body's true rendered bottom edge (see the sampled-values table
+    /// above) — exposed publicly, not just an internal `legHeight` detail,
+    /// so WO-12 (or a test proving the overlap invariant) can read it
+    /// directly instead of re-deriving/duplicating the sampled fractions.
+    static func bodyBottomY(for stage: GrowthStage) -> CGFloat {
+        guard let stageHeight = StageConfiguration.all[stage]?.size.height,
+              let bottomFraction = bodyBottomYFraction[stage] else { return 0 }
+        return stageHeight * bottomFraction
+    }
+
+    /// How far the leg's top must reach PAST the body's bottom edge, up
+    /// INTO the body mass, to read as connected rather than merely
+    /// touching (a leg terminating exactly at the silhouette edge still
+    /// reads as detached at 2x Retina). A ship-and-tune starting constant
+    /// — flagging here, not inline in the formula, so WO-12 can retune it
+    /// without re-deriving the body-bottom sampling above.
+    static let bodyOverlapConstant: CGFloat = 1.5
+
+    /// The leg's length: from the paw's existing rest Y (`groundYFraction`,
+    /// UNCHANGED — the human confirmed paws already read correctly, don't
+    /// move them) up to the body's real bottom edge PLUS the overlap
+    /// constant — no longer tied to `beltY` at all (the shoulder/hip pivot
+    /// stays exactly where sub-part 1 put it; only the RENDERED leg now
+    /// extends past it into the body — see `SkeletonRigLegGeometryTests`
+    /// for the "overlaps, doesn't just bridge to the pivot" proof).
     ///
-    /// Because this uses the EXACT SAME `beltY`/`groundYFraction` constants
-    /// (and the same nominal `StageConfiguration.size.height`, not the
-    /// trait-scaled runtime height — see `beltY`'s own doc comment for why
-    /// that's a safe simplification) that sub-part 1's `addBodyParts`
-    /// already used to place the shoulder/hip joints and re-base each paw
-    /// under them, the leg drawn at this height is GUARANTEED (not just
-    /// expected) to bridge exactly from the paw to the pivot's own local
-    /// origin — see `SkeletonRigLegGeometryTests` for the proof.
+    /// `legHeight = (bodyBottomY + bodyOverlapConstant) - groundY`
+    ///
+    /// The 15% Chibi Proportion citation (`creature-visual-design.md`,
+    /// design-intent) that sized the ORIGINAL `legHeight` no longer
+    /// literally applies — the new lengths land around 26-28% of stage
+    /// height (Critter 4.25/16=26.6%, Beast 5.31/20=26.6%, Sage
+    /// 6.62/24=27.6%, Apex 7.57/28=27.0%), past that guideline's 10-20%
+    /// range. Flagging this tension explicitly for WO-12 rather than
+    /// silently exceeding a cited design number: "reads as connected" won
+    /// out over the abstract percentage this pass.
     static func legHeight(for stage: GrowthStage) -> CGFloat {
         guard let stageHeight = StageConfiguration.all[stage]?.size.height else { return 0 }
-        return stageHeight * (beltYFraction - groundYFraction)
+        let groundY = stageHeight * groundYFraction
+        return (bodyBottomY(for: stage) + bodyOverlapConstant) - groundY
     }
 
     // MARK: - Generic Re-Base Helper

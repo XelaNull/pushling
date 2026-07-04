@@ -22,8 +22,14 @@ enum BodyPoseTable {
         "curl":          BodyPoseTuple(yScale: 0.60, xScale: 1.15, yOffset: -0.8,  zRotation: 0.0,  headOffset: -0.45, pawAlpha: 0.35),
         "sleep_curl":    BodyPoseTuple(yScale: 0.60, xScale: 1.15, yOffset: -0.8,  zRotation: 0.0,  headOffset: -0.45, pawAlpha: 0.20),
         "roll_side":     BodyPoseTuple(yScale: 0.65, xScale: 1.30, yOffset: -0.5,  zRotation: 1.40, headOffset:  0.0,  pawAlpha: 0.55),
-        "stretch":       BodyPoseTuple(yScale: 1.22, xScale: 0.82, yOffset:  0.3,  zRotation: 0.0,  headOffset:  0.6,  pawAlpha: 1.0),
-        "arch":          BodyPoseTuple(yScale: 1.18, xScale: 0.83, yOffset:  0.35, zRotation: 0.0,  headOffset: -0.3,  pawAlpha: 1.0),
+        // WO-19 sub-part 3 REVISE (Fix 2) — deviation-from-identity retuned
+        // down ~40-50% (stretch) / ~43-45% (arch): the original amplitudes
+        // read as distortion ("funhouse mirror"), not an animal stretching.
+        // 📐 A real cat stretch is a SHAPE change (chest drop + rear up),
+        // not uniform scale — that's WO-24's multi-phase choreography, NOT
+        // this pass; here we only tame the amplitude.
+        "stretch":       BodyPoseTuple(yScale: 1.12, xScale: 0.90, yOffset:  0.2,  zRotation: 0.0,  headOffset:  0.6,  pawAlpha: 1.0),
+        "arch":          BodyPoseTuple(yScale: 1.10, xScale: 0.90, yOffset:  0.20, zRotation: 0.0,  headOffset: -0.3,  pawAlpha: 1.0),
         "alert":         BodyPoseTuple(yScale: 1.05, xScale: 0.95, yOffset:  0.2,  zRotation: 0.0,  headOffset:  0.25, pawAlpha: 1.0),
         "land":          BodyPoseTuple(yScale: 0.62, xScale: 1.30, yOffset: -0.4,  zRotation: 0.0,  headOffset: -0.3,  pawAlpha: 1.0),
 

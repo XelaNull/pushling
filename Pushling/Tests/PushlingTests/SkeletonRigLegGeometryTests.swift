@@ -2,9 +2,15 @@
 // `ShapeFactory.makePaw`'s leg branch (`:303-315`) was always dead — every
 // StageRenderer call site fed `legHeight: 0` (the default). This sub-part
 // feeds `SkeletonGeometry.legHeight(for:)` instead; these tests prove the
-// leg geometry actually appears, is absent where it shouldn't be, and
-// bridges exactly from paw to pivot (no float, no overshoot) rather than
-// trusting the derivation by inspection alone.
+// leg geometry actually appears and is absent where it shouldn't be.
+//
+// REVISE (parade catch): the original `legHeight` bridged exactly to the
+// shoulder/hip PIVOT, but the pivot isn't the body's visual edge — the
+// human saw a real gap ("legs not connected to body"). `legHeight` now
+// targets the body's true rendered bottom edge (numerically sampled, not
+// `CGPath.boundingBox`) plus a 1.5pt overlap constant, so the leg
+// deliberately extends PAST the pivot into the body mass. The bridge test
+// below now asserts that OVERLAP relationship, not an exact touch.
 
 import XCTest
 import SpriteKit
@@ -43,42 +49,61 @@ final class SkeletonRigLegGeometryTests: XCTestCase {
 
     // MARK: - Per-Stage legHeight Values
 
-    func testLegHeightMatchesTheDispatchedPerStageValues() {
-        XCTAssertEqual(SkeletonGeometry.legHeight(for: .critter), 2.4, accuracy: 0.0001)
-        XCTAssertEqual(SkeletonGeometry.legHeight(for: .beast), 3.0, accuracy: 0.0001)
-        XCTAssertEqual(SkeletonGeometry.legHeight(for: .sage), 3.6, accuracy: 0.0001)
-        XCTAssertEqual(SkeletonGeometry.legHeight(for: .apex), 4.2, accuracy: 0.0001)
+    func testLegHeightMatchesTheNewBodyOverlapDerivedValues() {
+        // Recomputed from the sampled body-bottom fractions + the 1.5pt
+        // overlap constant — see SkeletonGeometry.legHeight's own doc
+        // comment for the derivation. Materially longer than the original
+        // beltY-bridging values (2.4/3.0/3.6/4.2) — that's the fix.
+        XCTAssertEqual(SkeletonGeometry.legHeight(for: .critter), 4.2456, accuracy: 0.001)
+        XCTAssertEqual(SkeletonGeometry.legHeight(for: .beast), 5.312, accuracy: 0.001)
+        XCTAssertEqual(SkeletonGeometry.legHeight(for: .sage), 6.6192, accuracy: 0.001)
+        XCTAssertEqual(SkeletonGeometry.legHeight(for: .apex), 7.5732, accuracy: 0.001)
     }
 
-    // MARK: - Bridges Exactly, No Float / No Overshoot
+    // MARK: - Overlaps the Body, No Float / No Overshoot Past It
 
-    /// The sanity check the dispatch explicitly asked for: a leg anchored
-    /// at the paw with its body-end `legHeight` above must land EXACTLY at
-    /// the shoulder/hip pivot's own local origin — not floating short of
-    /// it, not overshooting past it. Proven by construction (both
-    /// sub-part 1's re-basing and this sub-part's `legHeight` derive from
-    /// the SAME `beltY`/`groundYFraction` constants), verified here against
-    /// the live node tree rather than trusted by algebra alone.
-    func testLegBridgesExactlyFromPawToPivotWithNoFloatOrOvershoot() {
+    /// The REVISE sanity check: a leg anchored at the paw (`groundY`,
+    /// UNCHANGED — paws already read correctly) with its body-end
+    /// `legHeight` above must land `bodyOverlapConstant` (1.5pt) PAST the
+    /// body's real bottom edge — not floating short of it (the original
+    /// bug), not so far past it that it overshoots through the body
+    /// unrecognizably. Verified against the live node tree's actual
+    /// absolute position (paw's position summed up its full parent chain),
+    /// not trusted by algebra alone.
+    func testLegOverlapsBodyBottomByExactlyTheOverlapConstant() {
         for stage in [GrowthStage.critter, .beast, .sage, .apex] {
             let creature = CreatureNode()
             creature.configureForStage(stage)
 
-            // Every paw is a direct child of its shoulder/hip pivot
-            // (sub-part 1) — its own `.position.y` IS the paw's offset
-            // from the pivot's local origin, no chain-walking needed.
             for pawName in ["paw_fl", "paw_fr", "paw_bl", "paw_br"] {
                 guard let paw = creature.childNode(withName: "//\(pawName)") else {
                     XCTFail("\(pawName) not found at stage \(stage)")
                     continue
                 }
-                let expectedPawY = -SkeletonGeometry.legHeight(for: stage)
-                XCTAssertEqual(paw.position.y, expectedPawY, accuracy: 0.001,
-                               "\(pawName) at stage \(stage): paw's offset from its pivot must " +
-                               "equal -legHeight exactly, so the leg (drawn 0...legHeight in the " +
-                               "paw's own local space) lands precisely at the pivot's origin")
+                let pawAbsoluteY = Self.absoluteY(of: paw, upTo: creature)
+                let legTopAbsoluteY = pawAbsoluteY + SkeletonGeometry.legHeight(for: stage)
+                let expectedLegTop = SkeletonGeometry.bodyBottomY(for: stage)
+                    + SkeletonGeometry.bodyOverlapConstant
+
+                XCTAssertEqual(legTopAbsoluteY, expectedLegTop, accuracy: 0.001,
+                               "\(pawName) at stage \(stage): leg's top must land exactly " +
+                               "bodyOverlapConstant past the body's true bottom edge")
             }
         }
+    }
+
+    /// Manually sums `.position.y` up the parent chain — mirrors
+    /// `SkeletonRigGate1RestIdentityTests`'s identical helper (declared
+    /// `private` there, file-scoped, so re-declared here rather than
+    /// exposed cross-file for one small helper).
+    private static func absoluteY(of node: SKNode, upTo root: SKNode) -> CGFloat {
+        var y: CGFloat = 0
+        var current: SKNode? = node
+        while let n = current, n !== root {
+            y += n.position.y
+            current = n.parent
+        }
+        return y
     }
 
     // MARK: - Front vs. Back Leg Shape

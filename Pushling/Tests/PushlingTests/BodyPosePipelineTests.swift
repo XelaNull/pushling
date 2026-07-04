@@ -29,6 +29,33 @@ final class BodyPoseTableTests: XCTestCase {
         XCTAssertEqual(tuple.headOffset, 0.5)
     }
 
+    /// WO-19 sub-part 3 REVISE (Fix 2): stretch/arch's deviation-from-
+    /// identity retuned down — the original amplitudes read as a
+    /// "funhouse mirror" distortion, not an animal stretching. Guards
+    /// against silently drifting back toward the old (too-large) values.
+    func testStretchAndArchAmplitudesAreRetunedDownFromTheOriginalFunhouseValues() {
+        let stretch = BodyPoseTable.targetTuple(for: "stretch")
+        XCTAssertEqual(stretch.yScale, 1.12)
+        XCTAssertEqual(stretch.xScale, 0.90)
+        XCTAssertEqual(stretch.yOffset, 0.2)
+        // Original (too-large) values this replaces — asserted as NOT
+        // equal so a careless revert is caught immediately.
+        XCTAssertNotEqual(stretch.yScale, 1.22)
+        XCTAssertNotEqual(stretch.xScale, 0.82)
+
+        let arch = BodyPoseTable.targetTuple(for: "arch")
+        XCTAssertEqual(arch.yScale, 1.10)
+        XCTAssertEqual(arch.xScale, 0.90)
+        XCTAssertEqual(arch.yOffset, 0.20)
+        XCTAssertNotEqual(arch.yScale, 1.18)
+        XCTAssertNotEqual(arch.xScale, 0.83)
+
+        // headOffset/zRotation/pawAlpha are explicitly UNCHANGED — this
+        // fix only tames scale/offset amplitude, not the whole tuple.
+        XCTAssertEqual(stretch.headOffset, 0.6)
+        XCTAssertEqual(arch.headOffset, -0.3)
+    }
+
     // MARK: - Alias Map (§2b)
 
     func testAliasRoutesToNearestCoreTuple() {
@@ -168,7 +195,12 @@ final class BodyPoseComposeTests: XCTestCase {
     func testFinalYScaleIsHardClampedTo0_6And1_3() {
         let (highYScale, _) = CreatureNode.composedBodyScale(
             breathScale: 1.03, dropHopSquash: 1.0,
-            poseYScale: 1.22, poseXScale: 0.82, velocityY: 1000  // stretch (a huge jump) stacked on `stretch` pose
+            // A high-deviation hypothetical (no longer tied to the live
+            // `stretch` tuple, retuned down in WO-19 sub-part 3 REVISE —
+            // this test proves the hard clamp holds at ANY deviation, not
+            // just whatever BodyPoseTable currently authors) stacked on a
+            // huge jump's velocity stretch.
+            poseYScale: 1.22, poseXScale: 0.82, velocityY: 1000
         )
         XCTAssertLessThanOrEqual(highYScale, 1.3)
 
