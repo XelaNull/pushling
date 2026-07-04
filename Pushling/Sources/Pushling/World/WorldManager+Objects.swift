@@ -121,7 +121,10 @@ extension WorldManager {
                                             carryable: carryable)
 
         var dbId = 0
-        if let db = database {
+        // Persistence suppressed in workbench mode — the visual/in-memory
+        // object above is still created, only the DB write is gated (the
+        // workbench must never write to the live creature's state.db).
+        if let db = database, !WorkbenchMode.isActive {
             do {
                 try db.execute(
                     """
@@ -189,7 +192,15 @@ extension WorldManager {
             let _ = objectRenderer.removeObject(id: nearest.id)
         }
 
-        // Mark inactive in DB
+        // Mark inactive in DB — suppressed in workbench mode. The visual
+        // removal above already happened; only the DB write is gated (the
+        // workbench must never write to the live creature's state.db).
+        guard !WorkbenchMode.isActive else {
+            NSLog("[Pushling/World] Removed object '%@' (workbench — DB write suppressed)",
+                  objName)
+            return true
+        }
+
         let formatter = ISO8601DateFormatter()
         let nowStr = formatter.string(from: Date())
         do {
@@ -268,8 +279,11 @@ extension WorldManager {
             type: type, name: name, nearX: cameraWorldX
         )
 
-        // Persist to world table
-        if let db = database {
+        // Persist to world table — suppressed in workbench mode (the
+        // companion above is still spawned visually, only the DB write
+        // is gated; the workbench must never write to the live creature's
+        // state.db).
+        if let db = database, !WorkbenchMode.isActive {
             let formatter = ISO8601DateFormatter()
             let nowStr = formatter.string(from: Date())
             do {
@@ -301,8 +315,10 @@ extension WorldManager {
 
         companionSystem.despawn()
 
-        // Clear from DB
-        if let db = database {
+        // Clear from DB — suppressed in workbench mode (the despawn above
+        // already happened visually, only the DB write is gated; the
+        // workbench must never write to the live creature's state.db).
+        if let db = database, !WorkbenchMode.isActive {
             do {
                 try db.execute(
                     """

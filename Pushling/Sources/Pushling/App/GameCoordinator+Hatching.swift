@@ -10,12 +10,21 @@ extension GameCoordinator {
 
     /// Check hatching state and start ceremony if needed.
     /// Called from GameCoordinator.init() during the wiring phase.
+    /// Gated: startHatchingCeremony() ends in saveHatchedCreature(), a
+    /// write. In practice this only matters on a never-hatched DB (fresh
+    /// install) — the workbench sharing an already-hatched daemon's
+    /// state.db takes the else-branch regardless — but gate it anyway for
+    /// the edge case.
     func wireHatching() {
-        if !isHatched {
-            startHatchingCeremony()
-        } else {
+        if isHatched {
             NSLog("[Pushling/Coordinator] Creature already hatched — "
                   + "stage: %@", "\(creatureStage)")
+        } else if persistenceEnabled {
+            startHatchingCeremony()
+        } else {
+            NSLog("[Pushling/Coordinator] Workbench mode — creature not "
+                  + "yet hatched and persistence is disabled, skipping "
+                  + "the hatching ceremony (nothing to animate against)")
         }
     }
 

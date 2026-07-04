@@ -68,8 +68,14 @@ extension GameCoordinator {
               _skillStats.wisdom, _skillStats.snark, _skillStats.speed)
     }
 
-    /// Persist skill stats to SQLite asynchronously.
+    /// Persist skill stats to SQLite asynchronously. Gated: this is the
+    /// single write chokepoint for all three call sites below —
+    /// applySkillStatDecayIfNeeded() (fires at init, independent of
+    /// feedProcessor), initializeSkillStatsFromEgg() (hatch), and
+    /// handleCommitForSkillStats() (commit pipeline) — one guard covers
+    /// all of them.
     func persistSkillStats() {
+        guard persistenceEnabled else { return }
         let stats = _skillStats
         let db = stateCoordinator.database
         db.performWriteAsync({

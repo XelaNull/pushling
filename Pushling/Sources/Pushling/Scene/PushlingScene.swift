@@ -42,6 +42,12 @@ final class PushlingScene: SKScene {
     /// Stored per-frame in applyBehaviorOutput, applied in updateWorld.
     private var creaturePositionZ: CGFloat = 0.0
 
+    /// The behavior stack's resolved vertical displacement for this frame
+    /// (jump/float/backflip apex, etc.). Stored per-frame in
+    /// applyBehaviorOutput, composed on top of the terrain ground Y in
+    /// updateWorld — see body-pose-pipeline.md §4.
+    private var lastResolvedPositionY: CGFloat = 3.0
+
     /// When true, depth-based creature counter-scaling is disabled.
     /// Set by the CinematicSequencer so the creature can fill the frame
     /// during dramatic zooms (e.g., evolution ceremony at 2.5x).
@@ -278,6 +284,39 @@ final class PushlingScene: SKScene {
         }
     }
 
+    // MARK: - Compose-Not-Clobber Y Math (body-pose-pipeline.md §4)
+
+    /// Pure compose-not-clobber math for the creature's vertical position.
+    /// `resolvedPositionY` (jump/float/backflip apex, etc.) rides on top of
+    /// `groundY` (the terrain-derived resting height) instead of being
+    /// discarded — `updateWorld` calls this rather than inlining the math,
+    /// so it stays covered by a deterministic unit test without needing a
+    /// live scene/daemon. `isAirborne` is derived by comparing against the
+    /// stage's own grounded default rather than a new explicit boolean
+    /// field — see body-pose-pipeline.md §4.
+    static func composedCreatureY(
+        groundY: CGFloat,
+        resolvedPositionY: CGFloat,
+        groundedDefaultY: CGFloat,
+        stageHeight: CGFloat,
+        sceneHeight: CGFloat
+    ) -> (y: CGFloat, isAirborne: Bool) {
+        let airborneOffset = resolvedPositionY - groundedDefaultY
+        let liftedY = groundY + max(0, airborneOffset)
+        let isAirborne = airborneOffset > 0.01
+
+        // Clamp Y so the creature stays fully visible within the scene.
+        // While airborne, suspend the terrain-comfort clamp — only the
+        // true screen edge applies — so a jump/float can rise above the
+        // terrain line instead of being pinned back down to it.
+        let minY = stageHeight / 2 + 1.0
+        let maxY = isAirborne
+            ? sceneHeight - 1.0
+            : sceneHeight - stageHeight / 2 - 1.0
+        let clampedY = min(max(liftedY, minY), maxY)
+        return (y: clampedY, isAirborne: isAirborne)
+    }
+
     // MARK: - Subsystem Updates
 
     /// Behavior stack update — runs all 4 layers, resolves output, blends.
@@ -332,10 +371,20 @@ final class PushlingScene: SKScene {
             )
             let config = StageConfiguration.all[creature.currentStage]!
             let creatureY = terrainY + config.size.height / 2
-            // Clamp Y so creature stays fully visible within the 30pt scene
-            let minY = config.size.height / 2 + 1.0
-            let maxY = SceneConstants.sceneHeight - config.size.height / 2 - 1.0
-            let clampedY = min(max(creatureY, minY), maxY)
+
+            // Compose (not clobber): the behavior stack's resolved positionY
+            // (jump/float/backflip apex) rides on top of the terrain-derived
+            // ground Y instead of being discarded every frame — see
+            // body-pose-pipeline.md §4. Math lives in the pure static helper
+            // below (testable seam; no behavior change from inlining it here).
+            let groundedDefaultY = ResolvedCreatureState.defaultState(stage: creature.currentStage).positionY
+            let (clampedY, _) = PushlingScene.composedCreatureY(
+                groundY: creatureY,
+                resolvedPositionY: lastResolvedPositionY,
+                groundedDefaultY: groundedDefaultY,
+                stageHeight: config.size.height,
+                sceneHeight: SceneConstants.sceneHeight
+            )
             creature.position = CGPoint(
                 x: creatureWorldX,
                 y: clampedY
@@ -547,6 +596,9 @@ final class PushlingScene: SKScene {
             self?.gameCoordinator?.speechCoordinator.showDreamBubble()
         }
         reactions.onJournalEntry = { [weak self] type, data in
+            // Suppressed in workbench mode — the workbench must never write
+            // to the live creature's state.db (see WorkbenchMode.swift).
+            guard !WorkbenchMode.isActive else { return }
             guard let gc = self?.gameCoordinator else { return }
             let summary = (data["summary"] as? String) ?? "\(type)"
             gc.stateCoordinator.database.performWriteAsync({
@@ -814,6 +866,7 @@ final class PushlingScene: SKScene {
         // Update tracked world position, depth, and creature facing
         creatureWorldX = state.positionX
         creaturePositionZ = 0.0  // FIXED-VIEWPORT: depth disabled for Day 1 proof-of-life
+        lastResolvedPositionY = state.positionY
         creature.setFacing(state.facing)
 
         // Sleep state (modifies CreatureNode's internal breathing)

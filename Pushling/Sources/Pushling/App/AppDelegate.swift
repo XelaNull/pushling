@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var gameCoordinator: GameCoordinator?
     private var hotReloadMonitor: HotReloadMonitor?
     private var debugOverlayEnabled = false
+    private var workbenchWindowController: WorkbenchWindowController?
 
     /// Debug action handler — created lazily when the debug menu is opened.
     var debugActions: DebugActions?
@@ -24,6 +25,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("[Pushling] Starting up...")
+
+        // Workbench mode is a separate, minimal launch path — an animation
+        // debugger window, not the daemon. It skips the Touch Bar, socket
+        // server, hook installer, and hot-reload monitor entirely (see
+        // setupWorkbench) so it can coexist with a running daemon.
+        if WorkbenchMode.isActive {
+            setupWorkbench()
+            return
+        }
 
         // 1. State: SQLite database, heartbeat, crash recovery, backups
         let coordinator = StateCoordinator()
@@ -223,6 +233,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupTouchBar() {
         touchBarController = TouchBarController()
         touchBarController?.present()
+    }
+
+    // MARK: - Workbench (see WorkbenchMode.swift, WorkbenchWindowController.swift)
+
+    /// Opens the desktop animation-debugger window instead of the Touch Bar
+    /// path. Shares the live daemon's SQLite state.db (so the workbench
+    /// reflects the real creature, not a fresh one — a documented risk in
+    /// the depth-vision roadmap's P2 section) but deliberately does NOT
+    /// start a SocketServer, HookInstaller, or HotReloadMonitor, since any
+    /// of those would interfere with a daemon already running alongside it.
+    /// Runs with persistenceEnabled: false throughout (StateCoordinator +
+    /// GameCoordinator) — the workbench reads the real creature's state
+    /// and animates it, but never writes to the shared DB, heartbeat file,
+    /// or backup timeline. See GameCoordinator.persistenceEnabled.
+    private func setupWorkbench() {
+        let coordinator = StateCoordinator()
+        do {
+            try coordinator.start(persistenceEnabled: false)
+            NSLog("[Pushling/Workbench] State coordinator started (read/animate-only)")
+        } catch {
+            NSLog("[Pushling/Workbench] WARNING: State coordinator failed to start: \(error)")
+        }
+        self.stateCoordinator = coordinator
+
+        let workbench = WorkbenchWindowController(stateCoordinator: coordinator)
+        workbench.present()
+        self.workbenchWindowController = workbench
+        self.gameCoordinator = workbench.gameCoordinator
+
+        NSLog("[Pushling/Workbench] Window active — magnification %.1fx",
+              WorkbenchMode.magnification)
     }
 
     // MARK: - Actions

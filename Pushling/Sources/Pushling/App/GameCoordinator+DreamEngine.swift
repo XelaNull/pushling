@@ -17,9 +17,16 @@ extension GameCoordinator {
         }
 
         let engine = DreamEngine()
-        engine.db = stateCoordinator.database
+        // Withhold the DB reference in workbench mode — DreamEngine.
+        // persistDreamResult (journal insert + personality-drift save) and
+        // AutonomousLayer's dreamDB-gated persistence both guard on
+        // `guard let db = db else { return }`, so leaving these nil
+        // cleanly no-ops dream persistence with no edits inside Behavior/.
+        if persistenceEnabled {
+            engine.db = stateCoordinator.database
+            autonomous.dreamDB = stateCoordinator.database
+        }
         autonomous.dreamEngine = engine
-        autonomous.dreamDB = stateCoordinator.database
 
         // Prime the initial time period so dreams don't trigger mid-day on launch
         autonomous.currentTimePeriod = scene.worldManager.currentTimePeriod

@@ -134,8 +134,13 @@ extension GameCoordinator {
                         .setWear(objectID: objectID, value: newWear)
                 }
 
-                // Remove consumed objects from scene and DB
-                if consumed {
+                // Remove consumed objects from scene and DB — gated: this
+                // is the one DB write in this closure (marks the object
+                // row inactive). In workbench mode a "consumed" object
+                // stays visually present rather than vanish, since we
+                // can't touch WorldManager.database (Scene-owned setup)
+                // to intercept it any other way.
+                if consumed && self.persistenceEnabled {
                     self.scene.worldManager
                         .removeObjectByRendererID(objectID)
                 }
@@ -202,24 +207,27 @@ extension GameCoordinator {
             currentTime: currentTime
         )
 
-        // 4. Persist updated performance count + mastery to DB
-        let db = stateCoordinator.database
-        let formatter = ISO8601DateFormatter()
-        let now = formatter.string(from: Date())
+        // 4. Persist updated performance count + mastery to DB — gated;
+        // the autonomous layer can complete a taught behavior at any time,
+        // independent of feedProcessor.
         let mastery = masteryTracker.masteryLevel(for: name)
-
-        db.performWriteAsync({
-            try db.execute(
-                """
-                UPDATE taught_behaviors
-                SET performance_count = performance_count + 1,
-                    mastery_level = ?,
-                    last_performed_at = ?
-                WHERE name = ?
-                """,
-                arguments: [mastery.rawValue, now, name]
-            )
-        })
+        if persistenceEnabled {
+            let db = stateCoordinator.database
+            let formatter = ISO8601DateFormatter()
+            let now = formatter.string(from: Date())
+            db.performWriteAsync({
+                try db.execute(
+                    """
+                    UPDATE taught_behaviors
+                    SET performance_count = performance_count + 1,
+                        mastery_level = ?,
+                        last_performed_at = ?
+                    WHERE name = ?
+                    """,
+                    arguments: [mastery.rawValue, now, name]
+                )
+            })
+        }
 
         if leveledUp {
             NSLog("[Pushling/Teach] '%@' leveled up to %@!",
@@ -231,6 +239,15 @@ extension GameCoordinator {
     private func handleBreedingResult(_ result: BreedingResult) {
         let definition = result.hybridDefinition
         Self._taughtDefinitions[result.name] = definition
+
+        // Persist the new hybrid — gated; breeding is autonomous-layer
+        // driven, independent of feedProcessor. The in-memory registration
+        // above still happens so the hybrid is playable this session.
+        guard persistenceEnabled else {
+            NSLog("[Pushling/Teach] Hybrid bred (workbench, not saved): '%@'",
+                  result.name)
+            return
+        }
 
         let db = stateCoordinator.database
         let formatter = ISO8601DateFormatter()

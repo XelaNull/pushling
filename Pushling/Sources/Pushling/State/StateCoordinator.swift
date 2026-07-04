@@ -30,6 +30,14 @@ final class StateCoordinator {
     /// Whether a crash was detected on this launch.
     private(set) var crashRecovery: CrashRecoveryInfo?
 
+    /// Whether this instance is allowed to write shared runtime state
+    /// (heartbeat file, backups, crash-recovery journal entries). Set via
+    /// `start(persistenceEnabled:)`. Defaults to true for the daemon path;
+    /// workbench mode (see AppDelegate.setupWorkbench) passes false so it
+    /// can share the daemon's state.db read/animate-only, without clobbering
+    /// the heartbeat file or triggering a second backup timeline.
+    private(set) var persistenceEnabled: Bool = true
+
     // MARK: - Lifecycle
 
     /// Initializes and starts all state subsystems.
@@ -42,9 +50,16 @@ final class StateCoordinator {
     /// 5. Run backup if needed
     ///
     /// - Parameter databasePath: Override database path (for testing).
+    /// - Parameter persistenceEnabled: When false, skips the heartbeat
+    ///   writer, backup checks, and crash-recovery journal write — the
+    ///   database is still opened normally and can be queried, but this
+    ///   instance never touches the shared heartbeat file or backup
+    ///   timeline. Defaults to true (daemon path unchanged).
     /// - Throws: `DatabaseError` if database cannot be opened or migrated.
-    func start(databasePath: String? = nil) throws {
-        NSLog("[Pushling/State] Starting state subsystem...")
+    func start(databasePath: String? = nil, persistenceEnabled: Bool = true) throws {
+        self.persistenceEnabled = persistenceEnabled
+        NSLog("[Pushling/State] Starting state subsystem... (persistence: %@)",
+              persistenceEnabled ? "enabled" : "disabled")
 
         // 1. Create heartbeat manager (DB reference added after open)
         heartbeat = HeartbeatManager()
@@ -63,18 +78,22 @@ final class StateCoordinator {
         try database.open(at: databasePath)
 
         // 4. If crash was detected, log to journal now that DB is open
-        if recovery.crashDetected {
+        if recovery.crashDetected && persistenceEnabled {
             logCrashRecoveryToJournal(recovery: recovery)
         }
 
         // 5. Start heartbeat writer
         // Re-create with DB reference now that it's open
         heartbeat = HeartbeatManager(databaseManager: database)
-        heartbeat.start()
+        if persistenceEnabled {
+            heartbeat.start()
+        }
 
         // 6. Create backup manager and check if backup is needed
         backup = BackupManager(databaseManager: database)
-        backup.backupOnLaunchIfNeeded()
+        if persistenceEnabled {
+            backup.backupOnLaunchIfNeeded()
+        }
 
         NSLog("[Pushling/State] State subsystem ready")
     }
@@ -84,10 +103,17 @@ final class StateCoordinator {
     func shutdown() {
         NSLog("[Pushling/State] Shutting down state subsystem...")
 
-        // Stop heartbeat (writes clean shutdown marker)
-        heartbeat?.stop()
+        // Stop heartbeat (writes clean shutdown marker) — only if this
+        // instance was ever allowed to start one; a persistence-disabled
+        // instance (workbench) must not overwrite the daemon's heartbeat
+        // file with its own PID's shutdown marker.
+        if persistenceEnabled {
+            heartbeat?.stop()
+        }
 
-        // Close database (checkpoints WAL)
+        // Close database (checkpoints WAL — a normal, safe operation on
+        // this process's own connection; does not touch other connections'
+        // already-committed data).
         database.close()
 
         NSLog("[Pushling/State] State subsystem shut down")
@@ -98,6 +124,7 @@ final class StateCoordinator {
     /// Call from the SpriteKit scene's update() method.
     /// Checks if a daily backup is needed (dispatches to background).
     func frameUpdate() {
+        guard persistenceEnabled else { return }
         backup?.backupIfNeeded()
     }
 

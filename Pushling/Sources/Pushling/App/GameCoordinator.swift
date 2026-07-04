@@ -90,6 +90,19 @@ final class GameCoordinator {
     var habitPeriodicAccumulator: TimeInterval = 0
     static let habitPeriodicInterval: TimeInterval = 30.0
 
+    // MARK: - Persistence Gate
+
+    /// Whether this GameCoordinator instance is allowed to write to the
+    /// shared state.db. Mirrors `stateCoordinator.persistenceEnabled` —
+    /// false for workbench mode (see AppDelegate.setupWorkbench), true for
+    /// the daemon. Internal (not private) — the GameCoordinator+*.swift
+    /// extensions (Hatching, TaughtBehaviors, SkillStats, DreamEngine) all
+    /// check this too. Every DB-writing function/callback below checks this
+    /// (or is reached only through a path that does) so a workbench
+    /// running beside the live daemon reads the real creature and
+    /// animates it, but never mutates shared runtime state.
+    var persistenceEnabled: Bool { stateCoordinator.persistenceEnabled }
+
     // MARK: - Initialization
 
     init(scene: PushlingScene,
@@ -142,7 +155,16 @@ final class GameCoordinator {
         // --- G. Input/Touch ---
         self.touchTracker = TouchTracker()
         self.gestureRecognizer = GestureRecognizer()
-        self.creatureTouchHandler = CreatureTouchHandler(db: db)
+        // Withhold the DB reference in workbench mode — MilestoneTracker,
+        // PetStreak, and MiniGameManager all guard on `db == nil` before
+        // any read/write (see their `guard let db = db else { return }`),
+        // so passing nil here cleanly no-ops their persistence with no
+        // edits needed inside Input/. Reads `stateCoordinator` (the init
+        // parameter, not `self.persistenceEnabled`) — self isn't fully
+        // initialized yet at this point in init().
+        self.creatureTouchHandler = CreatureTouchHandler(
+            db: stateCoordinator.persistenceEnabled ? db : nil
+        )
 
         // --- J. Taught Behaviors ---
         self.taughtBehaviorEngine = TaughtBehaviorEngine()
@@ -195,8 +217,18 @@ final class GameCoordinator {
         // Restore fog of war explored ranges from DB (before first frame)
         restoreFogOfWar()
 
-        // Start subsystems
-        feedProcessor.start()
+        // Start subsystems — withheld in workbench mode: this is the
+        // master gate for the entire commit-eating pipeline (XP award,
+        // eggAccumulator, checkEvolution, mutation badges, skill-stat
+        // commit handling all live inside feedProcessor.onCommitReceived
+        // and never fire if the processor never starts watching the feed
+        // dir). See GameCoordinator.persistenceEnabled.
+        if persistenceEnabled {
+            feedProcessor.start()
+        } else {
+            NSLog("[Pushling/Coordinator] Workbench mode — feed processor "
+                  + "not started (no commit pipeline, no shared-state writes)")
+        }
 
         // Load skill stats and apply offline decay (after feedProcessor is started
         // so callback chaining onto onCommitReceived/onSessionEvent works correctly)
@@ -211,7 +243,10 @@ final class GameCoordinator {
         // Check if egg should hatch based on accumulated XP across restarts.
         // Each commit awards ~3-5 XP. At 15+ XP, enough commits have been
         // absorbed (across restarts) to justify hatching.
-        if creatureStage == .egg && totalXP >= 15 {
+        // Gated in workbench mode — hatchEggIntoDrop() persists (stage,
+        // personality, visual traits) and this check fires independently
+        // of feedProcessor (it runs once at init, from loaded XP).
+        if persistenceEnabled && creatureStage == .egg && totalXP >= 15 {
             NSLog("[Pushling/Coordinator] Egg has %d XP — hatching on startup",
                   totalXP)
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -277,8 +312,13 @@ final class GameCoordinator {
         // 9. Update creature touch handler with current creature state
         syncTouchHandlerState()
 
-        // 10. Nurture subsystem updates (habits, decay, routines)
-        updateNurtureSubsystems(deltaTime: deltaTime)
+        // 10. Nurture subsystem updates (habits, decay, routines) — gated:
+        // executeHabitBehavior() and runNurtureDecayIfNeeded() both persist
+        // to the shared habits/preferences/quirks tables (GameCoordinator+
+        // Loading.swift). Skipped entirely in workbench mode.
+        if persistenceEnabled {
+            updateNurtureSubsystems(deltaTime: deltaTime)
+        }
 
         // 11. Dream engine: sync current time period to autonomous layer
         updateDreamTimePeriod()
@@ -298,6 +338,17 @@ final class GameCoordinator {
     func shutdown() {
         feedProcessor.stop()
         voiceIntegration.shutdown()
+
+        // Everything below this point writes to the shared state.db —
+        // single gate rather than four separate ones, so a workbench
+        // shutdown can never partially persist. flushState() is included:
+        // it calls milestoneTracker.flushToDatabase(), a write.
+        guard persistenceEnabled else {
+            NSLog("[Pushling/Coordinator] Workbench mode — shut down "
+                  + "without persisting (state.db untouched)")
+            return
+        }
+
         creatureTouchHandler.flushState()
 
         // Persist emotional state
@@ -340,9 +391,10 @@ final class GameCoordinator {
         // Update world visual complexity for the real stage (Gap 6)
         scene.worldManager.onStageChanged(creatureStage)
 
-        // Emotional persistence callback
+        // Emotional persistence callback — gated: EmotionalState calls this
+        // periodically on its own schedule, independent of feedProcessor.
         emotionalState.onPersist = { [weak self] snapshot in
-            guard let self = self else { return }
+            guard let self = self, self.persistenceEnabled else { return }
             EmotionalState.save(self.emotionalState,
                                  to: self.stateCoordinator.database)
         }

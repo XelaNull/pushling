@@ -4,14 +4,19 @@
 import AppKit
 
 // Prevent multiple instances — only one Pushling should run at a time.
-let runningApps = NSRunningApplication.runningApplications(
-    withBundleIdentifier: "com.pushling.app"
-)
-let otherInstances = runningApps.filter { $0 != NSRunningApplication.current }
-if !otherInstances.isEmpty {
-    NSLog("[Pushling] Another instance is already running (PID %d). Exiting.",
-          otherInstances.first?.processIdentifier ?? 0)
-    exit(0)
+// Exception: --workbench is a debug/animation-iteration window meant to
+// run ALONGSIDE the live daemon under the same bundle ID, so it skips
+// this guard entirely (see WorkbenchMode.swift / AppDelegate.setupWorkbench).
+if !WorkbenchMode.isActive {
+    let runningApps = NSRunningApplication.runningApplications(
+        withBundleIdentifier: "com.pushling.app"
+    )
+    let otherInstances = runningApps.filter { $0 != NSRunningApplication.current }
+    if !otherInstances.isEmpty {
+        NSLog("[Pushling] Another instance is already running (PID %d). Exiting.",
+              otherInstances.first?.processIdentifier ?? 0)
+        exit(0)
+    }
 }
 
 // Mark as accessory (LSUIElement) — no dock icon, no app switcher entry.
