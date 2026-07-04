@@ -45,6 +45,7 @@ final class CommandRouter {
                      "stretch", "play_dead", "conduct", "glitch", "transcend", "sequence",
                      // WO-19 sub-part 2 REVISE (Fix 3) — perform-triggerable
                      // postures (PerformActionMapping.swift's matching rows).
+                     // Also mirrored in mcp/src/tools/perform-behaviors.ts (WO-23).
                      "loaf", "sphinx", "sprawl", "curl", "groom", "knead"],
         "world": ["weather", "event", "place", "create", "remove", "modify",
                    "time_override", "sound", "companion"],

@@ -10,121 +10,17 @@
 
 import type { DaemonClient, PendingEvent } from "../ipc.js";
 import type { StateReader } from "../state.js";
+import {
+  VALID_BEHAVIORS,
+  behaviorsAvailableAt,
+  stageIdx,
+} from "./perform-behaviors.js";
 
 interface SequenceStep {
   tool: string;
   params: Record<string, unknown>;
   delay_ms?: number;
   await_previous?: boolean;
-}
-
-const VALID_BEHAVIORS: Record<
-  string,
-  { stage_min: string; variants: string[]; duration_ms: number }
-> = {
-  wave: {
-    stage_min: "drop",
-    variants: ["big", "small", "both_paws"],
-    duration_ms: 1500,
-  },
-  spin: {
-    stage_min: "drop",
-    variants: ["left", "right", "fast"],
-    duration_ms: 1200,
-  },
-  bow: {
-    stage_min: "critter",
-    variants: ["deep", "quick", "theatrical"],
-    duration_ms: 2000,
-  },
-  dance: {
-    stage_min: "critter",
-    variants: ["waltz", "jig", "moonwalk"],
-    duration_ms: 4000,
-  },
-  peek: {
-    stage_min: "critter",
-    variants: ["left", "right", "above"],
-    duration_ms: 1500,
-  },
-  meditate: {
-    stage_min: "beast",
-    variants: ["brief", "deep", "transcendent"],
-    duration_ms: 5000,
-  },
-  flex: {
-    stage_min: "beast",
-    variants: ["casual", "dramatic"],
-    duration_ms: 2500,
-  },
-  backflip: {
-    stage_min: "beast",
-    variants: ["single", "double"],
-    duration_ms: 1800,
-  },
-  dig: {
-    stage_min: "critter",
-    variants: ["shallow", "deep", "frantic"],
-    duration_ms: 3000,
-  },
-  examine: {
-    stage_min: "drop",
-    variants: ["sniff", "paw", "stare"],
-    duration_ms: 2000,
-  },
-  nap: {
-    stage_min: "spore",
-    variants: ["light", "deep", "dream"],
-    duration_ms: 8000,
-  },
-  celebrate: {
-    stage_min: "drop",
-    variants: ["small", "big", "legendary"],
-    duration_ms: 3000,
-  },
-  shiver: {
-    stage_min: "spore",
-    variants: ["cold", "nervous", "excited"],
-    duration_ms: 1500,
-  },
-  stretch: {
-    stage_min: "critter",
-    variants: ["morning", "lazy", "dramatic"],
-    duration_ms: 2500,
-  },
-  play_dead: {
-    stage_min: "beast",
-    variants: ["dramatic", "convincing"],
-    duration_ms: 4000,
-  },
-  conduct: {
-    stage_min: "sage",
-    variants: ["gentle", "vigorous", "crescendo"],
-    duration_ms: 5000,
-  },
-  glitch: {
-    stage_min: "apex",
-    variants: ["minor", "major", "existential"],
-    duration_ms: 3000,
-  },
-  transcend: {
-    stage_min: "apex",
-    variants: ["brief", "full"],
-    duration_ms: 6000,
-  },
-};
-
-const STAGE_ORDER = ["spore", "drop", "critter", "beast", "sage", "apex"];
-
-function stageIdx(stage: string): number {
-  return STAGE_ORDER.indexOf(stage);
-}
-
-function behaviorsAvailableAt(stage: string): string[] {
-  const si = stageIdx(stage);
-  return Object.entries(VALID_BEHAVIORS)
-    .filter(([, def]) => stageIdx(def.stage_min) <= si)
-    .map(([name]) => name);
 }
 
 export const performSchema = {

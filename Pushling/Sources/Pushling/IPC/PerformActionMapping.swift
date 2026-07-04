@@ -182,6 +182,9 @@ enum PerformActionMapping {
             return (out, 6.0)
 
         // WO-19 sub-part 2 REVISE (Fix 3) — perform-triggerable postures.
+        // MIRRORED in mcp/src/tools/perform-behaviors.ts's VALID_BEHAVIORS
+        // (WO-23) — keep the loaf/sphinx/sprawl/curl/groom/knead name list in
+        // sync across both services; the daemon is the source of truth.
         // These don't need WO-20's autonomous SELECTION to be proven live;
         // a persistent AI-Directed-layer trigger is enough (the same path
         // `meditate` already uses to hold `sit` for 5s). No stage `guard`
