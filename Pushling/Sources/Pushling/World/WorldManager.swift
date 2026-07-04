@@ -88,6 +88,11 @@ final class WorldManager {
     /// Owns RainRenderer, SnowRenderer, StormSystem, FogRenderer internally.
     let weatherSystem = WeatherSystem()
 
+    /// Drifting cloud layer between the far and mid parallax layers (P3-T2-09).
+    /// Manages its own parallax offset (0.25x scroll) independent of
+    /// ParallaxSystem's layers — see docs/SYSTEMS/sky-celestial.md "Clouds".
+    let cloudSystem = CloudSystem()
+
     // MARK: - Sound Subsystem
 
     /// Programmatic ambient sound synthesis (chime, purr, meow, wind, etc.).
@@ -251,6 +256,22 @@ final class WorldManager {
             self?.terrainHeightAt(worldX: worldX) ?? 4.0
         }
 
+        // 17b. Restore persisted weather state (must run before the state
+        //      machine's normal per-frame cadence begins) — see
+        //      WorldManager+Weather.swift. Seed lastSyncedWeather from the
+        //      restored state so the first periodic tick doesn't mistake
+        //      "just restored" for "just changed" and stomp the DB's
+        //      weather_changed_at with "now".
+        restoreWeatherFromDB()
+        lastSyncedWeather = weatherSystem.currentState
+
+        // 17c. Setup cloud layer — distinct sub-layer at zPosition -75,
+        //      same z-band as the "deep" parallax layer, scene-level since
+        //      it manages its own 0.25x parallax offset internally.
+        cloudSystem.addToScene(parent: scene)
+        cloudSystem.updateWeather(weatherSystem.currentState)
+        cloudSystem.updateTimePeriod(skySystem.currentPeriod)
+
         // 18. Setup ambient sound system
         soundSystem.setup()
 
@@ -313,6 +334,14 @@ final class WorldManager {
         // WeatherSystem handles rain/snow/storm/fog renderer updates internally
         weatherSystem.update(deltaTime: deltaTime)
 
+        // Update cloud layer drift/bob and weather/time-of-day appearance
+        // (both updateWeather/updateTimePeriod early-return when unchanged,
+        // so calling every frame is frame-budget-trivial — see
+        // docs/SYSTEMS/sky-celestial.md "Clouds")
+        cloudSystem.update(deltaTime: deltaTime, cameraWorldX: trackedX)
+        cloudSystem.updateWeather(weatherSystem.currentState)
+        cloudSystem.updateTimePeriod(skySystem.currentPeriod)
+
         // Update visual event animations
         visualEvents.update(deltaTime: deltaTime)
 
@@ -340,6 +369,12 @@ final class WorldManager {
             let currentPeriod = skySystem.currentPeriod
             if currentWeather != lastSyncedWeather
                 || currentPeriod != lastSyncedTimePeriod {
+                // Persist weather (not time period) changes so a daemon
+                // restart can restore the correct remaining duration —
+                // see WorldManager+Weather.swift.
+                if currentWeather != lastSyncedWeather {
+                    persistWeatherChange(currentWeather)
+                }
                 lastSyncedWeather = currentWeather
                 lastSyncedTimePeriod = currentPeriod
                 syncWeatherSounds()
@@ -455,10 +490,11 @@ final class WorldManager {
         // Weather: rain container(1) + snow container(1) + storm container(1) + fog container(1) = 4
         let skyNodes = 3
         let weatherNodes = 4
+        let cloudNodes = cloudSystem.totalNodeCount  // 24-40 (6-8 clouds x 3-5 ellipses)
         return parallaxNodes + terrainNodes + landmarkNodes + tintNode
             + reflectionNodes + ghostNodes + hungerNode + eventNodes
             + inscriptionNodes + fogNodes + objectNodes + companionNodes
-            + skyNodes + weatherNodes
+            + skyNodes + weatherNodes + cloudNodes
     }
 
     // MARK: - Weather Queries

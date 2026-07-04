@@ -69,6 +69,11 @@ final class PushlingScene: SKScene {
     /// Session lifecycle reaction coordinator.
     private(set) var sessionReactions: SessionLifecycleReactions?
 
+    /// Creature weather reactions (WO-14) — Reflex-priority body-part
+    /// choreography for rain/storm/snow/fog. Held strongly here because
+    /// `WeatherReactionDelegate`/`FogRenderer.reactionDelegate` are `weak`.
+    private(set) var weatherReactions: CatWeatherReactions?
+
     /// Idle timeout update throttle — check every 0.5s, not every frame.
     private var idleTimeoutAccumulator: TimeInterval = 0
     private static let idleTimeoutInterval: TimeInterval = 0.5
@@ -609,6 +614,17 @@ final class PushlingScene: SKScene {
             })
         }
         self.sessionReactions = reactions
+
+        // WO-14: Wire creature weather reactions — Reflex-priority body-part
+        // choreography (ears/eyes/tail/paws) for rain/storm/snow/fog, per
+        // docs/SYSTEMS/weather.md "Creature Reactions" (:132-153). The
+        // `reactionDelegate` slot is singular per-renderer and weakly held,
+        // so CatWeatherReactions is retained on `self.weatherReactions`.
+        let weatherReactions = CatWeatherReactions(creature: creature)
+        worldManager.weatherSystem.reactionDelegate = weatherReactions
+        worldManager.weatherSystem.stormSystem.reactionDelegate = weatherReactions
+        worldManager.weatherSystem.fogRenderer.reactionDelegate = weatherReactions
+        self.weatherReactions = weatherReactions
 
         NSLog("[Pushling/Scene] Creature node active — %d nodes | Behavior stack ready"
               + " | Diamond indicator ready",
