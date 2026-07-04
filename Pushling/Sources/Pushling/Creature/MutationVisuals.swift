@@ -290,9 +290,13 @@ final class MutationVisualsManager {
     }
 
     private func updatePolyglotHue(deltaTime: TimeInterval) {
+        // Recursive descendant lookup ("//body") — WO-19's pelvis-chain rig
+        // reparents `body` under `pelvis`/`creature`, no longer a direct
+        // child, so a shallow lookup here would silently go permanently
+        // nil (no crash, just a dead effect).
         guard effectNodes[.polyglot] != nil,
               let creature = creature,
-              let bodyNode = creature.childNode(withName: "body") as? SKShapeNode else {
+              let bodyNode = creature.childNode(withName: "//body") as? SKShapeNode else {
             return
         }
         // Subtle per-frame hue rotation on the creature body color (+-10 degrees)
@@ -306,9 +310,16 @@ final class MutationVisualsManager {
     }
 
     private func updateBilingualTail(deltaTime: TimeInterval) {
+        // Recursive descendant lookup ("//tail_seg_0") — currently a no-op
+        // either way (SegmentedTailController, the only producer of
+        // "tail_seg_N" nodes, has zero instantiation sites project-wide),
+        // but once it IS wired (WO-19 sub-part 2) its segments live several
+        // levels under `tailBase`/`pelvis`, not as a direct `creature`
+        // child — fixing the lookup shape now avoids a second silent-nil
+        // regression when that wiring lands.
         guard effectNodes[.bilingual] != nil,
               let creature = creature,
-              let baseSeg = creature.childNode(withName: "tail_seg_0") as? SKShapeNode else {
+              let baseSeg = creature.childNode(withName: "//tail_seg_0") as? SKShapeNode else {
             return
         }
         // Alternating two-tone effect: oscillate all tail segment stroke colors

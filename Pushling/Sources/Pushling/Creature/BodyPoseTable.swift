@@ -26,6 +26,28 @@ enum BodyPoseTable {
         "arch":          BodyPoseTuple(yScale: 1.18, xScale: 0.83, yOffset:  0.35, zRotation: 0.0,  headOffset: -0.3,  pawAlpha: 1.0),
         "alert":         BodyPoseTuple(yScale: 1.05, xScale: 0.95, yOffset:  0.2,  zRotation: 0.0,  headOffset:  0.25, pawAlpha: 1.0),
         "land":          BodyPoseTuple(yScale: 0.62, xScale: 1.30, yOffset: -0.4,  zRotation: 0.0,  headOffset: -0.3,  pawAlpha: 1.0),
+
+        // WO-19 sub-part 2 additions — pulled VERBATIM from
+        // idle-life-and-rest.md §2's Resting Posture Ladder table (not
+        // re-derived): sphinx keeps pawAlpha near 1.0 ("the one rung that
+        // keeps paws visible under the chest"); sprawl's `path-swap: yes`
+        // note is DEFERRED — 📐 shipped as a scale-only approximation,
+        // same precedent as curl/roll_side/sleep_curl (body-pose-pipeline.md's
+        // own "designed, not built" path-swap carve-out). sprawl's
+        // `pawStates["bl"]="kicked"` companion literal is a PawController
+        // addition, not a table row — see PawController.swift.
+        "sphinx":        BodyPoseTuple(yScale: 0.78, xScale: 1.05, yOffset: -0.25, zRotation: 0.0,  headOffset:  0.1,  pawAlpha: 1.0),
+        "sprawl":        BodyPoseTuple(yScale: 0.60, xScale: 1.30, yOffset: -0.7,  zRotation: 0.0,  headOffset: -0.2,  pawAlpha: 0.6),
+
+        // WO-19 sub-part 2 additions — groom/knead promoted from §2b alias
+        // rows to first-class named tuples (charter tier-1: distinct
+        // addressable poses, not routed through the alias map anymore).
+        // Values are UNCHANGED from their prior alias targets
+        // (lean_forward / loaf respectively) — not new design numbers,
+        // just a first-class name for what was already the "nearest
+        // existing tuple by visual intent" call from §2b.
+        "groom":         BodyPoseTuple(yScale: 0.95, xScale: 1.05, yOffset:  0.0,  zRotation: 0.0,  headOffset:  0.5,  pawAlpha: 1.0),
+        "knead":         BodyPoseTuple(yScale: 0.82, xScale: 1.10, yOffset: -0.35, zRotation: 0.0,  headOffset: -0.15, pawAlpha: 0.3),
     ]
 
     // MARK: - 10 Dynamic-State Baselines (§2)
@@ -97,7 +119,6 @@ enum BodyPoseTable {
         "ghost_echo": "stand",
         "glitch_static": "glitch",
         "glow": "stand",
-        "groom": "lean_forward",
         "handstand": "flip",
         "handstand_prep": "crouch",
         "head_in_box": "curl",
@@ -108,7 +129,6 @@ enum BodyPoseTable {
         "huddle": "curl",
         "jolt_forward": "flinch",
         "jump_down": "land",
-        "knead": "loaf",
         "lean_back": "arch",
         "loaf_prep": "loaf",
         "look_around": "alert",
@@ -157,10 +177,11 @@ enum BodyPoseTable {
 
     // MARK: - Resolution
 
-    /// Resolves any bodyState string to one of the 22 core strings above,
-    /// applying the Sage+ gate on `glitch` (§2's dynamic-states note —
-    /// defense in depth; `PerformActionMapping` already gates the source)
-    /// and falling back to `stand` for anything unrecognized.
+    /// Resolves any bodyState string to one of the core strings above,
+    /// applying defense-in-depth stage gates (§2's dynamic-states note on
+    /// `glitch`; idle-life-and-rest.md §2.1's Resting Posture Ladder rung
+    /// availability for `sphinx`/`sprawl` — WO-19 sub-part 2) and falling
+    /// back to `stand` for anything unrecognized or gated below its stage.
     static func resolve(_ raw: String, stage: GrowthStage) -> String {
         let candidate: String
         if staticTuples[raw] != nil || dynamicBaselineTuples[raw] != nil {
@@ -172,6 +193,19 @@ enum BodyPoseTable {
         }
 
         if candidate == "glitch", stage < .sage {
+            return "stand"
+        }
+        // idle-life-and-rest.md §2.1: Sphinx appears ONLY in Beast's full
+        // 5-rung ladder (Critter/Sage/Apex all withhold it; Drop's 2-rung
+        // ladder never lists it either). NOT a simple ">=" gate.
+        if candidate == "sphinx", stage != .beast {
+            return "stand"
+        }
+        // idle-life-and-rest.md §2.1: Sprawl is available at Drop (relaxed
+        // puddle-spread) AND Beast (full ladder) — withheld at Critter
+        // (tightest silhouette), Sage, and Apex (Curl-only via
+        // levitation-sleep reinterpretation).
+        if candidate == "sprawl", stage != .drop, stage != .beast {
             return "stand"
         }
         return candidate

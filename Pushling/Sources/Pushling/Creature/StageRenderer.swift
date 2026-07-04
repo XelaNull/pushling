@@ -22,6 +22,18 @@ enum StageRenderer {
         let whiskerLeft: SKNode?
         let whiskerRight: SKNode?
         let tail: SKShapeNode?
+        /// Segmented-tail chain (WO-19 sub-part 2) — `segments[0]` is the
+        /// base, already correctly nested `segments[i]` = child of
+        /// `segments[i-1]` (`ShapeFactory.makeTailSegments`). Built at the
+        /// SAME authored position/length/thickness as `tail` above (so
+        /// `CreatureNode.addBodyParts` can keep using `tail.position` as
+        /// the placement oracle for `tailBaseNode`) — `tail` itself is
+        /// still constructed but never added to the node tree once a
+        /// segment set exists; `SegmentedTailController` renders instead
+        /// of the single rigid `TailController` target.
+        let tailSegments: [SKShapeNode]?
+        let tailSegmentLengths: [CGFloat]?
+        let tailCurveFactor: CGFloat?
         let pawFL: SKShapeNode?
         let pawFR: SKShapeNode?
         let pawBL: SKShapeNode?
@@ -112,6 +124,7 @@ enum StageRenderer {
             mouth: nil, mouthShape: nil,
             whiskerLeft: nil, whiskerRight: nil,
             tail: nil,
+            tailSegments: nil, tailSegmentLengths: nil, tailCurveFactor: nil,
             pawFL: nil, pawFR: nil, pawBL: nil, pawBR: nil,
             aura: nil, particles: particles
         )
@@ -175,6 +188,7 @@ enum StageRenderer {
             mouth: nil, mouthShape: nil,
             whiskerLeft: nil, whiskerRight: nil,
             tail: nil,
+            tailSegments: nil, tailSegmentLengths: nil, tailCurveFactor: nil,
             pawFL: nil, pawFR: nil, pawBL: nil, pawBR: nil,
             aura: nil, particles: particles
         )
@@ -231,15 +245,35 @@ enum StageRenderer {
                              position: CGPoint(x: -w * 0.4, y: -h * 0.1),
                              name: "tail", stage: .critter)
 
+        // Segmented chain (WO-19 sub-part 2) — SAME length/thickness/
+        // position as `tail` above, 3 segments per
+        // `makeTailSegments`'s own doc comment ("3 for Critter, 4 for
+        // Beast+"). Renders instead of `tail`, which is still built only
+        // as CreatureNode.addBodyParts's placement oracle.
+        let tailSegs = makeTailSegments(
+            totalLength: 5, baseThickness: 1.5,
+            position: CGPoint(x: -w * 0.4, y: -h * 0.1),
+            segmentCount: 3, stage: .critter
+        )
+
+        // WO-19 sub-part 3 — legs now exist (ShapeFactory.makePaw's leg
+        // branch, previously always dead since legHeight defaulted to 0
+        // at every call site). `legAngle: 0` is a vertical rest pose —
+        // WO-20 owns the angular gait swing, not this pass.
+        let critterLegHeight = SkeletonGeometry.legHeight(for: .critter)
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 2, position: pawPositions.fl,
-                            name: "paw_fl")
+                            name: "paw_fl",
+                            legHeight: critterLegHeight, legAngle: 0)
         let pawFR = makePaw(size: 2, position: pawPositions.fr,
-                            name: "paw_fr")
+                            name: "paw_fr",
+                            legHeight: critterLegHeight, legAngle: 0)
         let pawBL = makePaw(size: 2, position: pawPositions.bl,
-                            name: "paw_bl")
+                            name: "paw_bl",
+                            legHeight: critterLegHeight, legAngle: 0, isFront: false)
         let pawBR = makePaw(size: 2, position: pawPositions.br,
-                            name: "paw_br")
+                            name: "paw_br",
+                            legHeight: critterLegHeight, legAngle: 0, isFront: false)
 
         let particles = SKNode()
         particles.name = "particles"
@@ -253,6 +287,8 @@ enum StageRenderer {
             mouth: nil, mouthShape: nil,
             whiskerLeft: nil, whiskerRight: nil,
             tail: tail,
+            tailSegments: tailSegs.segments, tailSegmentLengths: tailSegs.lengths,
+            tailCurveFactor: tailSegs.curveFactor,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: nil, particles: particles
         )
@@ -326,15 +362,28 @@ enum StageRenderer {
                              position: CGPoint(x: -w * 0.45, y: -h * 0.05),
                              name: "tail", stage: .beast)
 
+        // Segmented chain (WO-19 sub-part 2) — same geometry as `tail`.
+        let tailSegs = makeTailSegments(
+            totalLength: 8, baseThickness: 2.0,
+            position: CGPoint(x: -w * 0.45, y: -h * 0.05),
+            segmentCount: 4, stage: .beast
+        )
+
+        // WO-19 sub-part 3 — legs (see Critter's identical comment above).
+        let beastLegHeight = SkeletonGeometry.legHeight(for: .beast)
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 2.5, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true)
+                            name: "paw_fl", showToes: true,
+                            legHeight: beastLegHeight, legAngle: 0)
         let pawFR = makePaw(size: 2.5, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true)
+                            name: "paw_fr", showToes: true,
+                            legHeight: beastLegHeight, legAngle: 0)
         let pawBL = makePaw(size: 2.5, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true)
+                            name: "paw_bl", showToes: true,
+                            legHeight: beastLegHeight, legAngle: 0, isFront: false)
         let pawBR = makePaw(size: 2.5, position: pawPositions.br,
-                            name: "paw_br", showToes: true)
+                            name: "paw_br", showToes: true,
+                            legHeight: beastLegHeight, legAngle: 0, isFront: false)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.7)
         aura.fillColor = PushlingPalette.bone
@@ -355,6 +404,8 @@ enum StageRenderer {
             mouth: mouthNode, mouthShape: mouthInner,
             whiskerLeft: whiskerL, whiskerRight: whiskerR,
             tail: tail,
+            tailSegments: tailSegs.segments, tailSegmentLengths: tailSegs.lengths,
+            tailCurveFactor: tailSegs.curveFactor,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: aura, particles: particles
         )
@@ -440,15 +491,28 @@ enum StageRenderer {
                              position: CGPoint(x: -w * 0.45, y: -h * 0.03),
                              name: "tail", stage: .sage)
 
+        // Segmented chain (WO-19 sub-part 2) — same geometry as `tail`.
+        let tailSegs = makeTailSegments(
+            totalLength: 10, baseThickness: 2.0,
+            position: CGPoint(x: -w * 0.45, y: -h * 0.03),
+            segmentCount: 4, stage: .sage
+        )
+
+        // WO-19 sub-part 3 — legs (see Critter's identical comment above).
+        let sageLegHeight = SkeletonGeometry.legHeight(for: .sage)
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true)
+                            name: "paw_fl", showToes: true,
+                            legHeight: sageLegHeight, legAngle: 0)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true)
+                            name: "paw_fr", showToes: true,
+                            legHeight: sageLegHeight, legAngle: 0)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true)
+                            name: "paw_bl", showToes: true,
+                            legHeight: sageLegHeight, legAngle: 0, isFront: false)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br", showToes: true)
+                            name: "paw_br", showToes: true,
+                            legHeight: sageLegHeight, legAngle: 0, isFront: false)
 
         let aura = SKShapeNode(circleOfRadius: w * 0.8)
         aura.fillColor = PushlingPalette.gilt
@@ -482,6 +546,8 @@ enum StageRenderer {
             mouth: mouthNode, mouthShape: mouthInner,
             whiskerLeft: whiskerL, whiskerRight: whiskerR,
             tail: tail,
+            tailSegments: tailSegs.segments, tailSegmentLengths: tailSegs.lengths,
+            tailCurveFactor: tailSegs.curveFactor,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: aura, particles: particles
         )
@@ -590,11 +656,22 @@ enum StageRenderer {
         beard.alpha = 0.8
         head.addChild(beard)
 
-        // Primary tail — TailController drives this one
+        // Primary tail — SegmentedTailController drives this one (WO-19
+        // sub-part 2; `tail` below is now only CreatureNode's placement
+        // oracle, no longer the rendered node).
         let tail = makeTail(length: 12, thickness: 2.0,
                              position: CGPoint(x: -w * 0.45, y: 0),
                              name: "tail", stage: .apex)
         tail.alpha = 0.85
+
+        // Segmented chain — same geometry as `tail`; alpha 0.85 preserved
+        // on every segment to keep Apex's semi-ethereal read.
+        let tailSegs = makeTailSegments(
+            totalLength: 12, baseThickness: 2.0,
+            position: CGPoint(x: -w * 0.45, y: 0),
+            segmentCount: 4, stage: .apex
+        )
+        tailSegs.segments.forEach { $0.alpha = 0.85 }
 
         // Additional tails fanned from the same attach point (repo count driven)
         let extraTailCount = min(9, max(1, repoCount)) - 1
@@ -611,15 +688,21 @@ enum StageRenderer {
             body.addChild(extraTail)
         }
 
+        // WO-19 sub-part 3 — legs (see Critter's identical comment above).
+        let apexLegHeight = SkeletonGeometry.legHeight(for: .apex)
         let pawPositions = pawRestPositions(bodyWidth: w, bodyHeight: h)
         let pawFL = makePaw(size: 3, position: pawPositions.fl,
-                            name: "paw_fl", showToes: true)
+                            name: "paw_fl", showToes: true,
+                            legHeight: apexLegHeight, legAngle: 0)
         let pawFR = makePaw(size: 3, position: pawPositions.fr,
-                            name: "paw_fr", showToes: true)
+                            name: "paw_fr", showToes: true,
+                            legHeight: apexLegHeight, legAngle: 0)
         let pawBL = makePaw(size: 3, position: pawPositions.bl,
-                            name: "paw_bl", showToes: true)
+                            name: "paw_bl", showToes: true,
+                            legHeight: apexLegHeight, legAngle: 0, isFront: false)
         let pawBR = makePaw(size: 3, position: pawPositions.br,
-                            name: "paw_br", showToes: true)
+                            name: "paw_br", showToes: true,
+                            legHeight: apexLegHeight, legAngle: 0, isFront: false)
 
         let aura = SKShapeNode(circleOfRadius: w * 1.0)
         aura.fillColor = PushlingPalette.bone
@@ -640,6 +723,8 @@ enum StageRenderer {
             mouth: mouthNode, mouthShape: mouthInner,
             whiskerLeft: whiskerL, whiskerRight: whiskerR,
             tail: tail,
+            tailSegments: tailSegs.segments, tailSegmentLengths: tailSegs.lengths,
+            tailCurveFactor: tailSegs.curveFactor,
             pawFL: pawFL, pawFR: pawFR, pawBL: pawBL, pawBR: pawBR,
             aura: aura, particles: particles
         )

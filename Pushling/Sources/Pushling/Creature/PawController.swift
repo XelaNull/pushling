@@ -24,7 +24,8 @@ final class PawController: BodyPartController {
     let validStates = [
         "ground", "walk", "run", "lift", "knead",
         "tuck", "dig", "swipe", "extend",
-        "tap", "push", "wave", "reach", "conduct"
+        "tap", "push", "wave", "reach", "conduct",
+        "kicked"
     ]
     private(set) var currentState = "ground"
 
@@ -116,6 +117,13 @@ final class PawController: BodyPartController {
         case "conduct":
             conductTimer = 0
             animateLift(duration: 0.1)  // Raise paw first
+        case "kicked":
+            // idle-life-and-rest.md §2's `sprawl` rung: one hind paw held
+            // offset from its resting point. Reuses the existing `lift`
+            // family (raised 3pt, held) rather than authoring a new
+            // static-hold animation — a static held pose, no per-frame
+            // update case needed below.
+            animateLift(duration: max(duration, 0.3))
         default:
             break
         }

@@ -180,6 +180,60 @@ enum PerformActionMapping {
             out.tailState = "flow"
             out.walkSpeed = 0
             return (out, 6.0)
+
+        // WO-19 sub-part 2 REVISE (Fix 3) — perform-triggerable postures.
+        // These don't need WO-20's autonomous SELECTION to be proven live;
+        // a persistent AI-Directed-layer trigger is enough (the same path
+        // `meditate` already uses to hold `sit` for 5s). No stage `guard`
+        // here for sphinx/sprawl — BodyPoseTable.resolve() already owns
+        // that gate (sphinx=.beast only, sprawl=.drop/.beast only) and
+        // falls back to `stand` cleanly on a wrong-stage request; adding a
+        // second gate here would duplicate, not reinforce, that ownership.
+        case "loaf":
+            var out = LayerOutput()
+            out.bodyState = "loaf"
+            out.tailState = "sway"
+            out.eyeLeftState = "half"
+            out.eyeRightState = "half"
+            out.walkSpeed = 0
+            return (out, 6.0)
+        case "sphinx":
+            var out = LayerOutput()
+            out.bodyState = "sphinx"
+            out.eyeLeftState = "half"
+            out.eyeRightState = "half"
+            out.tailState = "sway"
+            out.walkSpeed = 0
+            return (out, 6.0)
+        case "sprawl":
+            var out = LayerOutput()
+            out.bodyState = "sprawl"
+            out.pawStates = ["bl": "kicked"]
+            out.eyeLeftState = "half"
+            out.eyeRightState = "half"
+            out.walkSpeed = 0
+            return (out, 6.0)
+        case "curl":
+            var out = LayerOutput()
+            out.bodyState = "curl"
+            out.tailState = "curl"
+            out.eyeLeftState = "closed"
+            out.eyeRightState = "closed"
+            out.walkSpeed = 0
+            return (out, 6.0)
+        case "groom":
+            var out = LayerOutput()
+            out.bodyState = "groom"
+            out.pawStates = ["fl": "lift"]
+            out.mouthState = "lick"
+            return (out, 4.0)
+        case "knead":
+            var out = LayerOutput()
+            out.bodyState = "knead"
+            out.pawStates = ["fl": "knead", "fr": "knead"]
+            out.eyeLeftState = "half"
+            out.eyeRightState = "half"
+            return (out, 6.0)
         default:
             return nil
         }

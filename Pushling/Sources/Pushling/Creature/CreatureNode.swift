@@ -22,13 +22,53 @@ final class CreatureNode: SKNode {
     private var tailNode: SKShapeNode?
     private var particlesNode: SKNode?
 
+    // MARK: - Skeleton Rig Joints (WO-19 §1 — pelvis-chain foundation)
+
+    /// The compose-point root. Everything below reparents under this
+    /// instead of being a flat root sibling — see SkeletonGeometry.swift
+    /// and `addBodyParts`'s re-basing recipe. `updateBreathing()` writes
+    /// the bodyState pose tuple here (moved from `bodyNode` alone).
+    private var pelvisNode: SKNode?
+
+    /// Child of `pelvisNode`. Hosts `headNode` and the front-leg shoulder
+    /// pivots. Currently a pure positional joint (no rotation contribution
+    /// yet — that's WO-19 sub-part 2's `chestFollowFactor`, not built here).
+    private var spineChestNode: SKNode?
+
+    /// Front-leg pivot roots, children of `spineChestNode`. Inert in this
+    /// pass (WO-20 gait wires angular swing later) — placed at the belt
+    /// line (`SkeletonGeometry.beltY`) directly above each front paw's old
+    /// rest position.
+    private var shoulderLNode: SKNode?
+    private var shoulderRNode: SKNode?
+
+    /// Rear-leg pivot roots, children of `pelvisNode` directly (not
+    /// `spineChestNode`) — rear legs stay coupled to the same node the
+    /// tail attaches to, matching real quadruped anatomy. Also inert.
+    private var hipLNode: SKNode?
+    private var hipRNode: SKNode?
+
+    /// Tail attach point, child of `pelvisNode`. Hosts `tailNode` today;
+    /// the swap-in point for the dormant `SegmentedTailController` is
+    /// WO-19 sub-part 2, not this pass.
+    private var tailBaseNode: SKNode?
+
     // MARK: - Body Part Controllers
 
     private(set) var earLeftController: EarController?
     private(set) var earRightController: EarController?
     private(set) var eyeLeftController: EyeController?
     private(set) var eyeRightController: EyeController?
-    private(set) var tailController: TailController?
+    /// WO-19 sub-part 2 swap — `SegmentedTailController` replaces the
+    /// single-node `TailController` at the (now-existing) `tailBaseNode`
+    /// joint, per emotional-body-language.md's §SegmentedTailController
+    /// swap-point note. `TailController.swift` is now the dormant one
+    /// (zero instantiation sites), mirroring how `SegmentedTailController`
+    /// itself was dormant before this pass. Every external call site only
+    /// ever used `setState`/`update` (the shared `BodyPartController`
+    /// protocol surface) — confirmed by grep — so this type change has no
+    /// ripple beyond this file.
+    private(set) var tailController: SegmentedTailController?
     private(set) var mouthController: MouthController?
     private(set) var whiskerLeftController: WhiskerController?
     private(set) var whiskerRightController: WhiskerController?
@@ -359,34 +399,62 @@ final class CreatureNode: SKNode {
         let breathScale = 1.0 + amplitude * breathValue
 
         // === BODY POSE COMPOSE — the single compose point ===
-        // (body-pose-pipeline.md §5 + §6). Everything the behavior stack
-        // resolves for `bodyState` lands here, composed — not clobbering —
-        // with breathing/drop-hop. Nothing outside this function may write
-        // bodyNode's transform.
+        // (body-pose-pipeline.md §5 + §6, retargeted per WO-19 §1 from
+        // `bodyNode` alone to `pelvisNode` — the new rig root every part
+        // reparents under, so the whole assembled creature inherits this
+        // write instead of only the torso silhouette). Everything the
+        // behavior stack resolves for `bodyState` lands here, composed —
+        // not clobbering — with breathing/drop-hop. Nothing outside this
+        // function may write pelvisNode's transform.
         let pose = bodyPoseController?.currentPose ?? BodyPoseTuple.identity
         let (finalYScale, finalXScale) = CreatureNode.composedBodyScale(
             breathScale: breathScale, dropHopSquash: dropHopSquash,
             poseYScale: pose.yScale, poseXScale: pose.xScale,
             velocityY: physicsVelocityY
         )
-        bodyNode?.yScale = finalYScale
-        bodyNode?.xScale = finalXScale
+        pelvisNode?.yScale = finalYScale
+        pelvisNode?.xScale = finalXScale
 
         if currentStage == .drop {
             // Apply drop hop Y offset (absolute, not additive), composed
             // with the pose's own yOffset on top.
-            bodyNode?.position.y = dropHopOffset + pose.yOffset
+            pelvisNode?.position.y = dropHopOffset + pose.yOffset
         } else {
-            bodyNode?.position.y = pose.yOffset
+            pelvisNode?.position.y = pose.yOffset
         }
         if currentStage != .egg {
-            bodyNode?.zRotation = pose.zRotation
-        }
-        // At Egg, leave bodyNode.zRotation untouched here (matches the
-        // file's defensive `bodyNode?.` convention used everywhere else in
-        // this function) — it's egg-wobble's own write, applied outside
-        // this function; see that call site's guard for the dependency.
+            pelvisNode?.zRotation = pose.zRotation
 
+            // === PROPORTIONAL APPENDAGE-FOLLOW (WO-19 sub-part 2, REVISE) ===
+            // spineChestNode ALREADY inherits 100% of pelvis's zRotation
+            // via SpriteKit's parent-child propagation — chestFollowFactor
+            // is the TOTAL fraction of pose.zRotation the chest/head should
+            // carry (<= 1.0), so the write here is a COMPENSATION against
+            // that already-inherited 100%, not an addition on top of it
+            // (an earlier version added on top, over-rotating the head
+            // PAST the torso — e.g. roll_side composed to 130% — fixed
+            // here per Mack's catch). This is THE fix for the "torso
+            // balloons, head barely nudges" gap: the head's dominant
+            // motion comes from inheritance (spine/pelvis carries it) plus
+            // this small trailing compensation, and the flat `headOffset`
+            // delta below becomes a small residual accent on top, not the
+            // whole compensation.
+            spineChestNode?.zRotation = pose.zRotation * (SkeletonGeometry.chestFollowFactor - 1.0)
+        }
+        // At Egg, leave pelvisNode/spineChestNode zRotation untouched here
+        // (matches the file's defensive `?.` convention used everywhere
+        // else in this function) — `bodyPoseController` is nil at Egg
+        // (gated `stage >= .drop`) so this branch is presently unreachable
+        // there anyway; egg-wobble keeps writing `bodyNode.zRotation`
+        // directly (see that call site's own guard) since pelvisNode never
+        // moves at Egg regardless.
+
+        // Residual head accent — still additive (subtract-previous-add-new
+        // delta pattern, matching updateNoiseIdle's convention), but now
+        // riding ON TOP of spineChestNode's own chestCurve rotation above
+        // instead of being the head's ENTIRE compensation, since headNode
+        // is spineChestNode's child (WO-19 §1) and inherits that motion
+        // for free.
         headNode?.position.y += pose.headOffset - previousPoseHeadOffset
         previousPoseHeadOffset = pose.headOffset
 
@@ -580,17 +648,58 @@ final class CreatureNode: SKNode {
 
     // MARK: - Private Setup
 
+    /// Builds the pelvis-chain skeleton (WO-19 §1) and reparents every
+    /// stage-authored node under it, per the WO-19 plan's regression
+    /// census: `aura`/`particles` stay root-level siblings (by ruling —
+    /// confirmed independent of torso pose, never adjusted per-frame to
+    /// track `bodyNode`'s deformation); `body`/`coreGlow`/`head`/`tail`/
+    /// all 4 paws reparent under the new chain.
+    ///
+    /// Every reparented node is RE-BASED (Correction 1): `newLocalPosition
+    /// = oldAbsolutePosition - jointAbsolutePosition`, computed generically
+    /// via `SkeletonGeometry.rebase`, so each part's effective absolute
+    /// (world-at-rest) position is unchanged regardless of where the new
+    /// joint node sits — this is what makes the rest-identity gate provable
+    /// rather than assumed, and it works uniformly across all 6 stages
+    /// without touching a single number in StageRenderer.swift (every
+    /// formula below reads the node's OWN already-authored `.position`,
+    /// already trait-scaled, rather than duplicating stage constants here).
     private func addBodyParts(_ nodes: StageRenderer.StageNodes) {
         // Add in z-order (back to front)
         if let aura = nodes.aura { addChild(aura); auraNode = aura }
-        if let cg = nodes.coreGlow { addChild(cg); coreGlowNode = cg }
 
-        addChild(nodes.body)
+        // === Pelvis — the compose-point root (WO-19 §1) ===
+        // Sits at (0,0): the SAME local origin every stage already builds
+        // bodyNode at (no `buildXXX` function ever sets `body.position`)
+        // — not an arbitrary choice, it's where the single rigid torso
+        // node already lived.
+        let pelvisAbsolute = CGPoint.zero
+        let pelvis = SKNode()
+        pelvis.name = "pelvis"
+        pelvis.position = pelvisAbsolute
+        addChild(pelvis)
+        pelvisNode = pelvis
+
+        // Body — re-based under pelvis (nets to identity here, since
+        // pelvis coincides with the old root origin body was always built
+        // at — shown by the subtraction, not assumed).
+        let bodyOldAbsolute = nodes.body.position
+        nodes.body.position = SkeletonGeometry.rebase(bodyOldAbsolute, relativeTo: pelvisAbsolute)
+        pelvis.addChild(nodes.body)
         bodyNode = nodes.body
 
-        if let tail = nodes.tail { addChild(tail); tailNode = tail }
+        // Core glow — same treatment (WO-19 census: was a root sibling;
+        // reparenting means it now rides the torso's own pose instead of
+        // sitting at a fixed root offset while the torso squashes/curls).
+        if let cg = nodes.coreGlow {
+            let cgOldAbsolute = cg.position
+            cg.position = SkeletonGeometry.rebase(cgOldAbsolute, relativeTo: pelvisAbsolute)
+            pelvis.addChild(cg)
+            coreGlowNode = cg
+        }
 
-        // Collect additional tail nodes (Apex multi-tail, children of body)
+        // Collect additional tail nodes (Apex multi-tail) — these are
+        // children of BODY itself, untouched by body's own reparenting.
         additionalTailNodes.removeAll()
         for child in nodes.body.children {
             if let shape = child as? SKShapeNode,
@@ -599,15 +708,25 @@ final class CreatureNode: SKNode {
             }
         }
 
-        if let bl = nodes.pawBL { addChild(bl) }
-        if let br = nodes.pawBR { addChild(br) }
-        if let fl = nodes.pawFL { addChild(fl) }
-        if let fr = nodes.pawFR { addChild(fr) }
+        // === Spine Chest — child of pelvis (WO-19 §1) ===
+        // Placed halfway between pelvis and the stage's own authored head
+        // position (SkeletonGeometry.chestPivotFactor) — an intermediate
+        // joint, not a pass-through, per Correction 1.
+        let headOldAbsolute = nodes.head.position
+        let spineChestAbsolute = SkeletonGeometry.spineChestPosition(oldHeadPosition: headOldAbsolute)
+        let spineChest = SKNode()
+        spineChest.name = "spine_chest"
+        spineChest.position = SkeletonGeometry.rebase(spineChestAbsolute, relativeTo: pelvisAbsolute)
+        pelvis.addChild(spineChest)
+        spineChestNode = spineChest
 
-        addChild(nodes.head)
+        // Head — re-based under spineChest.
+        nodes.head.position = SkeletonGeometry.rebase(headOldAbsolute, relativeTo: spineChestAbsolute)
+        spineChest.addChild(nodes.head)
         headNode = nodes.head
 
-        // Collect beard strand nodes (Apex wise beard, children of head)
+        // Collect beard strand nodes (Apex wise beard) — children of HEAD
+        // itself, untouched by head's own reparenting.
         beardStrandNodes.removeAll()
         for child in nodes.head.children {
             if let beardGroup = child as? SKNode,
@@ -621,6 +740,85 @@ final class CreatureNode: SKNode {
             }
         }
 
+        // === Shoulders — front-leg pivots, children of spineChest ===
+        // Only built where a front paw exists (Egg/Drop have none).
+        // Inert this pass — WO-20 wires angular swing later.
+        let beltY = SkeletonGeometry.beltY(
+            stageHeight: StageConfiguration.all[currentStage]!.size.height
+        )
+        if let fl = nodes.pawFL {
+            let jointAbsolute = CGPoint(x: fl.position.x, y: beltY)
+            let shoulderL = SKNode()
+            shoulderL.name = "shoulder_l"
+            shoulderL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
+            spineChest.addChild(shoulderL)
+            shoulderLNode = shoulderL
+
+            fl.position = SkeletonGeometry.rebase(fl.position, relativeTo: jointAbsolute)
+            shoulderL.addChild(fl)
+        }
+        if let fr = nodes.pawFR {
+            let jointAbsolute = CGPoint(x: fr.position.x, y: beltY)
+            let shoulderR = SKNode()
+            shoulderR.name = "shoulder_r"
+            shoulderR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
+            spineChest.addChild(shoulderR)
+            shoulderRNode = shoulderR
+
+            fr.position = SkeletonGeometry.rebase(fr.position, relativeTo: jointAbsolute)
+            shoulderR.addChild(fr)
+        }
+
+        // === Hips — rear-leg pivots, children of PELVIS directly (not
+        // spineChest — rear legs stay coupled to the same node the tail
+        // attaches to, matching real quadruped anatomy). ===
+        if let bl = nodes.pawBL {
+            let jointAbsolute = CGPoint(x: bl.position.x, y: beltY)
+            let hipL = SKNode()
+            hipL.name = "hip_l"
+            hipL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
+            pelvis.addChild(hipL)
+            hipLNode = hipL
+
+            bl.position = SkeletonGeometry.rebase(bl.position, relativeTo: jointAbsolute)
+            hipL.addChild(bl)
+        }
+        if let br = nodes.pawBR {
+            let jointAbsolute = CGPoint(x: br.position.x, y: beltY)
+            let hipR = SKNode()
+            hipR.name = "hip_r"
+            hipR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
+            pelvis.addChild(hipR)
+            hipRNode = hipR
+
+            br.position = SkeletonGeometry.rebase(br.position, relativeTo: jointAbsolute)
+            hipR.addChild(br)
+        }
+
+        // === Tail Base — child of pelvis (WO-19 §1) ===
+        // Placed exactly at the tail's own old attach point (the tail
+        // doesn't move at rest; the joint is inserted AT it, not near it).
+        // `nodes.tail` (the single rigid shape) is used ONLY as the
+        // placement oracle here — WO-19 sub-part 2 renders the segmented
+        // chain (`nodes.tailSegments`) instead, wiring the dormant
+        // `SegmentedTailController` at this same joint per
+        // emotional-body-language.md's swap-point note. `nodes.tail`
+        // itself is never added to the tree.
+        if let tail = nodes.tail, let segments = nodes.tailSegments, !segments.isEmpty {
+            let tailOldAbsolute = tail.position
+            let tailBase = SKNode()
+            tailBase.name = "tail_base"
+            tailBase.position = SkeletonGeometry.rebase(tailOldAbsolute, relativeTo: pelvisAbsolute)
+            pelvis.addChild(tailBase)
+            tailBaseNode = tailBase
+
+            let base = segments[0]
+            base.position = SkeletonGeometry.rebase(tailOldAbsolute, relativeTo: tailOldAbsolute)
+            tailBase.addChild(base)
+            tailNode = base
+        }
+
+        // === Root-level siblings, unchanged by ruling ===
         addChild(nodes.particles)
         particlesNode = nodes.particles
     }
@@ -650,9 +848,27 @@ final class CreatureNode: SKNode {
             earRightController = EarController(earNode: earR, isLeft: false)
         }
 
-        // Tail
-        if config.hasTail, let tail = nodes.tail {
-            let tc = TailController(tailNode: tail)
+        // Tail — SegmentedTailController (WO-19 sub-part 2 swap; see this
+        // file's `tailController` doc comment). `addBodyParts` already
+        // reparented `segments[0]` under `tailBaseNode` — this only wires
+        // the behavior on top of that already-correct structure.
+        //
+        // Known approximation (Rook/Mack finding, shipped as-is this
+        // pass): the spring-physics chain tracks "world angle" assuming a
+        // non-rotating parent (its own header comment predates this rig).
+        // `tailBaseNode` now sits inside a `pelvisNode` that DOES rotate
+        // during roll_side/spin/flip, so the spring's internal angle
+        // bookkeeping doesn't compound with the live parent rotation — the
+        // tail still moves and still trails with follow-through, just not
+        // with perfectly composed world angles during a simultaneous
+        // body-roll. Not fixed this pass; revisit only if it visibly reads
+        // wrong in the parade re-run.
+        if config.hasTail, let segments = nodes.tailSegments,
+           let lengths = nodes.tailSegmentLengths,
+           let curveFactor = nodes.tailCurveFactor {
+            let tc = SegmentedTailController(segments: segments,
+                                              segmentLengths: lengths,
+                                              curveFactor: curveFactor)
             tc.personalityEnergy = personalityEnergy
             tc.personalitySnapshot = personalitySnapshot
             tc.setState("sway", duration: 0)
@@ -680,34 +896,37 @@ final class CreatureNode: SKNode {
             whiskerRightController = wrc
         }
 
-        // Paws
+        // Paws — `restingPoint` reads each node's OWN current `.position`,
+        // not a fresh `StageRenderer.pawRestPositions(...)` recomputation.
+        // WO-19 §1's `addBodyParts` already re-based that position relative
+        // to the paw's new shoulder/hip parent (runs before this function);
+        // recomputing the OLD root-relative absolute here would be stale
+        // and would silently reintroduce the exact "paw jumps to 2x its
+        // rest offset" bug `PawController.setState("ground", ...)` (called
+        // from `applyDefaultStates()` right after this) resets `.position`
+        // to `restingPoint` on every "ground" transition.
         if config.hasPaws {
-            let pw = StageRenderer.pawRestPositions(
-                bodyWidth: config.size.width,
-                bodyHeight: config.size.height
-            )
-
             if let fl = nodes.pawFL {
                 let c = PawController(pawNode: fl, position: .frontLeft,
-                                       restingPoint: pw.fl)
+                                       restingPoint: fl.position)
                 c.cyclePhaseOffset = 0  // FL + BR together
                 pawFLController = c
             }
             if let fr = nodes.pawFR {
                 let c = PawController(pawNode: fr, position: .frontRight,
-                                       restingPoint: pw.fr)
+                                       restingPoint: fr.position)
                 c.cyclePhaseOffset = .pi  // FR + BL together (offset)
                 pawFRController = c
             }
             if let bl = nodes.pawBL {
                 let c = PawController(pawNode: bl, position: .backLeft,
-                                       restingPoint: pw.bl)
+                                       restingPoint: bl.position)
                 c.cyclePhaseOffset = .pi  // Diagonal gait
                 pawBLController = c
             }
             if let br = nodes.pawBR {
                 let c = PawController(pawNode: br, position: .backRight,
-                                       restingPoint: pw.br)
+                                       restingPoint: br.position)
                 c.cyclePhaseOffset = 0
                 pawBRController = c
             }
@@ -744,6 +963,13 @@ final class CreatureNode: SKNode {
         auraNode = nil
         tailNode = nil
         particlesNode = nil
+        pelvisNode = nil
+        spineChestNode = nil
+        shoulderLNode = nil
+        shoulderRNode = nil
+        hipLNode = nil
+        hipRNode = nil
+        tailBaseNode = nil
     }
 
     private func applyDefaultStates() {
