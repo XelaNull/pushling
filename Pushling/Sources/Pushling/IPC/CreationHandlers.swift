@@ -30,8 +30,8 @@ extension CommandRouter {
             return recallQuery(db, sql:
                 """
                 SELECT sha, message, repo_name, files_changed,
-                       lines_added, lines_removed, timestamp
-                FROM commits ORDER BY timestamp DESC LIMIT ?
+                       lines_added, lines_removed, eaten_at
+                FROM commits ORDER BY eaten_at DESC LIMIT ?
                 """,
                 args: [count], label: "commits")
 
@@ -596,7 +596,23 @@ extension CommandRouter {
 extension CommandRouter {
 
     /// Convenience to log an action to the journal table.
+    ///
+    /// WO-7 incr 2-3 fix: was missing the `persistenceEnabled` guard every
+    /// other write path in this app already applies (matches
+    /// `StateCoordinator`'s own `guard persistenceEnabled else { return }`
+    /// convention, e.g. `StateCoordinator.swift:127`) — found because the
+    /// workbench's new trigger menu is the first caller to ever reach
+    /// `ActionHandlers.handlePerform` (which calls this) from a
+    /// `persistenceEnabled: false` context; every previous caller was the
+    /// real socket-driven daemon, where persistence is correctly always
+    /// on, so this gap was invisible until now. Without this guard, the
+    /// workbench's `perform` triggers would violate WorkbenchMode's
+    /// documented "every creature-state write path is suppressed"
+    /// contract (WorkbenchMode.swift) by inserting real journal rows into
+    /// the shared `state.db`.
     func journalLog(_ gc: GameCoordinator, type: String, summary: String) {
+        guard gc.stateCoordinator.persistenceEnabled else { return }
+
         let db = gc.stateCoordinator.database
         let formatter = ISO8601DateFormatter()
         let now = formatter.string(from: Date())

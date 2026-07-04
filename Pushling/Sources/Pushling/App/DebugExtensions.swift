@@ -24,6 +24,31 @@ extension AIDirectedLayer {
         NSLog("[Pushling/AI] Debug expression injected (%.1fs)",
               duration)
     }
+
+    /// Debug: inject a `bodyState` directly for a given duration — a
+    /// PERSISTENT AI-layer command (the anti-PARADE-HARNESS mechanism; see
+    /// body-pose-pipeline.md / the WO-19 REVISE that removed a raw
+    /// `bodyPoseController.setState()` poke, which `applyBehaviorOutput`
+    /// unconditionally re-drives every frame from the resolved layer
+    /// stack, so a poke that bypasses the layers renders for less than a
+    /// frame). Mirrors `debugSetExpression` exactly. Used by the workbench
+    /// trigger menu (WO-7 incr 2-3) for core bodyStates that have no
+    /// `perform`-action route (or, for `"loaf"`, whose action name IS
+    /// shadowed by `CatBehaviors.loaf` — see WorkbenchTriggerMenu.swift).
+    func debugSetBodyState(_ bodyState: String, duration: TimeInterval) {
+        var output = LayerOutput()
+        output.bodyState = bodyState
+        let command = AICommand(
+            id: "debug_body_\(UUID().uuidString.prefix(6))",
+            type: .perform,
+            output: output,
+            holdDuration: duration,
+            enqueuedAt: CACurrentMediaTime()
+        )
+        enqueue(command: command)
+        NSLog("[Pushling/AI] Debug bodyState injected: '%@' (%.1fs)",
+              bodyState, duration)
+    }
 }
 
 // MARK: - MutationSystem
