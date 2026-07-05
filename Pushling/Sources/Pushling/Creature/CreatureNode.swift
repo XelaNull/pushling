@@ -95,6 +95,17 @@ final class CreatureNode: SKNode {
     /// happen to map to the same clip must NOT restart it every frame.
     private var activeClipFrames: [String] = []
 
+    /// WO-44 Ph1 §2 — world-distance (points) accumulated while the
+    /// CURRENTLY active clip has been playing, fed by the SAME `walkSpeed`
+    /// signal `resolveActiveClip` already reads (points/second × dt).
+    /// Reset alongside `clipFrameTime` on any actual clip change (see
+    /// `updateSpriteClip`) — a fresh clip starts its gait phase at 0
+    /// distance, matching `clipFrameTime`'s own "restart, don't carry over"
+    /// contract. This is the signal `spriteFrameIndexByDistance` phases
+    /// against instead of wall-clock time, killing the foot-slide bug
+    /// (see that function's own doc comment for the mechanism).
+    private var clipDistanceTravelled: CGFloat = 0
+
     /// Fed per-frame by `PushlingScene.applyBehaviorOutput` from
     /// `ResolvedCreatureState.walkSpeed` — mirrors `physicsVelocityY`'s
     /// existing wiring exactly. Drives the WO-27 §3 walk-clip override:
@@ -610,6 +621,7 @@ final class CreatureNode: SKNode {
         guard let sprite = spriteBodyNode else { return }
 
         let bodyState = bodyPoseController?.currentState ?? "stand"
+        let isWalking = walkSpeed > Self.walkSpeedClipThreshold
         let resolvedClip = Self.resolveActiveClip(
             bodyState: bodyState, stage: currentStage, walkSpeed: walkSpeed
         )
@@ -618,17 +630,82 @@ final class CreatureNode: SKNode {
         if clip.frames != activeClipFrames {
             activeClipFrames = clip.frames
             clipFrameTime = 0
+            clipDistanceTravelled = 0
         } else {
             clipFrameTime += deltaTime
+            // WO-44 Ph1 §2 — accumulate world-distance alongside wall-clock
+            // time. `isWalking` is gated identically to `resolveActiveClip`'s
+            // own walk-clip branch (see that function), so this only ever
+            // accumulates while the Walk clip is the one actually playing —
+            // an idle/other clip's `clipDistanceTravelled` simply stays at
+            // the 0 the clip-change reset above already left it at.
+            if isWalking {
+                clipDistanceTravelled += walkSpeed * CGFloat(deltaTime)
+            }
         }
 
-        let index = Self.spriteFrameIndex(
-            clipTime: clipFrameTime, fps: clip.fps,
-            frameCount: clip.frames.count, loop: clip.loop
-        )
-        if let texture = SpriteFrameLoader.texture(named: clip.frames[index]) {
-            sprite.texture = texture
+        let index: Int
+        if isWalking, let strideLength = Self.bakedStrideLength(clip: clip, stage: currentStage) {
+            // WO-44 Ph1 §2 — distance-phased gait: frame advance rides on
+            // how far the creature has actually translated, not wall-clock
+            // time, so a planted foot stays planted regardless of walkSpeed
+            // (personality/AI-directed speed changes no longer slide the
+            // feet — see `spriteFrameIndexByDistance`'s own doc comment).
+            index = Self.spriteFrameIndexByDistance(
+                distanceTravelled: clipDistanceTravelled, strideLength: strideLength,
+                frameCount: clip.frames.count, loop: clip.loop
+            )
+        } else {
+            // Non-walk clips (Idle's single frame today) keep the original
+            // time-phased math — nothing to slide when there's no gait.
+            index = Self.spriteFrameIndex(
+                clipTime: clipFrameTime, fps: clip.fps,
+                frameCount: clip.frames.count, loop: clip.loop
+            )
         }
+
+        guard let texture = SpriteFrameLoader.texture(named: clip.frames[index]) else { return }
+        sprite.texture = texture
+
+        // === GROUND-CONTACT FOOT PLANTING (WO-44 Ph1 §1) ===
+        applySpriteGroundContact(clip: clip, frameIndex: index, texture: texture)
+    }
+
+    /// WO-44 Ph1 §1 — lands this frame's baked `groundContact` anchor pixel
+    /// exactly on the ground line `PushlingScene.updateWorld` already
+    /// resolves the creature's root Y to (`terrainY + stageHalfHeight`,
+    /// UNCHANGED by this WO — see that file), instead of leaving the
+    /// sprite's geometric CENTER sitting there. That center-based
+    /// assumption was tuned for the vector body's `StageConfiguration.size`
+    /// (Beast: 18x20pt); `SpriteBodyMode.spriteDisplaySize` renders the
+    /// SAME frame far larger (46pt tall) so the baked foot pixel — which
+    /// isn't at the frame's exact bottom edge, there's transparent margin
+    /// below it — floats several points off whatever ground line the old
+    /// center-based math implied. That's the "standing on water" bug.
+    ///
+    /// No-op (offset stays whatever it already was) whenever this frame's
+    /// anchor data is absent — fail-safe, not fail-loud, matching
+    /// `ClipAnchors`' own sparse-by-design contract. Writes ONLY
+    /// `sprite.position.y` (never `.x`, never `.position` wholesale) so
+    /// `addBodyParts`'s `rebasedBodyPosition.x` and `updateNoiseIdle`'s
+    /// existing additive delta on this SAME node (`bodyNode === spriteBodyNode`
+    /// here) keep composing on top exactly as before — this call always
+    /// runs BEFORE `updateNoiseIdle` in `update(deltaTime:)`'s per-frame
+    /// order, so the noise jitter still layers on top of the newly-grounded
+    /// base position rather than being clobbered by it.
+    private func applySpriteGroundContact(clip: ClipDefinition, frameIndex: Int, texture: SKTexture) {
+        guard let sprite = spriteBodyNode,
+              let config = StageConfiguration.all[currentStage],
+              let contactPixel = clip.anchors?[frameIndex]?.groundContact else {
+            return
+        }
+        let displaySize = SpriteBodyMode.spriteDisplaySize(fromConfigSize: config.size)
+        let contactLocalY = Self.anchorPixelToLocalY(
+            contactPixel.y, textureHeightPx: texture.size().height, displayHeight: displaySize.height
+        )
+        sprite.position.y = Self.spriteGroundOffsetY(
+            contactLocalY: contactLocalY, stageHalfHeight: config.size.height / 2
+        )
     }
 
     /// The sprite-body activation gate itself (REVISE fix 3, Mack's
@@ -670,6 +747,90 @@ final class CreatureNode: SKNode {
         } else {
             return min(Int(cyclePosition), frameCount - 1)
         }
+    }
+
+    /// WO-44 Ph1 §2 — the world-distance (points) one full playthrough of
+    /// `clip` is meant to represent, derived from the clip's own baked
+    /// timing (`frames.count / fps` = seconds per cycle) times the STAGE'S
+    /// reference walk speed (`GrowthStage.baseWalkSpeed`) — deliberately
+    /// NOT the live `walkSpeed` signal. Using the live speed here would
+    /// make `strideLength` itself scale with `walkSpeed`, so
+    /// `phase = distance/strideLength` would collapse back to pure
+    /// wall-clock time (distance and stride both scale by the same factor
+    /// and cancel) — exactly the bug this fix exists to kill. At the
+    /// reference speed the two methods agree exactly by construction (see
+    /// `GroundedGaitTests`), which is the sanity check that this constant
+    /// is a genuine generalization of the old time-phased math, not a
+    /// different animation.
+    ///
+    /// `nil` only when the clip has no fps or no frames (never true for a
+    /// real `ClipDefinition` today) — keeps the divide-by-zero impossible
+    /// by construction at the call site rather than by convention.
+    static func bakedStrideLength(clip: ClipDefinition, stage: GrowthStage) -> CGFloat? {
+        guard clip.fps > 0, !clip.frames.isEmpty else { return nil }
+        let cycleDuration = CGFloat(clip.frames.count) / CGFloat(clip.fps)
+        return stage.baseWalkSpeed * cycleDuration
+    }
+
+    /// Pure distance-phase frame math (WO-44 Ph1 §2's foot-slide fix) —
+    /// mirrors `spriteFrameIndex`'s time-phase math exactly, substituting
+    /// `distanceTravelled / strideLength` (the fraction of one full gait
+    /// cycle covered so far) for `clipTime * fps`. A stationary creature
+    /// (`distanceTravelled` frozen) freezes on its current frame instead of
+    /// continuing to cycle legs in place with no translation — that's the
+    /// actual change from `spriteFrameIndex` that kills the slide: leg-cycle
+    /// rate is now tied to how far the creature has moved, not to elapsed
+    /// time, so a foot planted in a frame stays planted on the ground as
+    /// the creature translates, regardless of how fast `walkSpeed` is.
+    static func spriteFrameIndexByDistance(distanceTravelled: CGFloat, strideLength: CGFloat,
+                                            frameCount: Int, loop: Bool) -> Int {
+        guard frameCount > 0, strideLength > 0 else { return 0 }
+        let cyclePosition = (distanceTravelled / strideLength) * CGFloat(frameCount)
+        if loop {
+            let wrapped = cyclePosition.truncatingRemainder(dividingBy: CGFloat(frameCount))
+            let normalized = wrapped < 0 ? wrapped + CGFloat(frameCount) : wrapped
+            return min(Int(normalized), frameCount - 1)
+        } else {
+            return min(max(Int(cyclePosition), 0), frameCount - 1)
+        }
+    }
+
+    /// WO-44 Ph1 §1 — converts a baked anchor's raw pixel Y (top-left
+    /// origin, target-pixel space, per `ClipTable`'s own header comment)
+    /// into the sprite's own LOCAL point-space Y (SpriteKit-style, origin
+    /// at the sprite's geometric center, y-up) — the space
+    /// `spriteBodyNode.position.y` lives in. `textureHeightPx` is the
+    /// texture's OWN native pixel size (`SKTexture.size().height`, e.g. 40
+    /// for Beast's committed PNGs — confirmed via `sips`, never hardcoded
+    /// here), `displayHeight` is `SpriteBodyMode.spriteDisplaySize`'s
+    /// forced on-screen height (46 for Beast) — NOT
+    /// `StageConfiguration.size.height` (20), which is a DIFFERENT,
+    /// smaller number `SpriteOverlayAnchors`' own conversion uses. That
+    /// mismatch is real and pre-existing (flagged, not fixed here — see
+    /// this WO's report) but must not be repeated for grounding math,
+    /// since accuracy here directly feeds the "<0.5pt" foot-on-surface
+    /// acceptance bar. X is deliberately not converted — WO-44 Ph1 only
+    /// grounds the foot vertically; horizontal foot-slide is the separate
+    /// distance-phase fix above, not a `position.x` nudge.
+    static func anchorPixelToLocalY(_ pixelY: CGFloat, textureHeightPx: CGFloat,
+                                     displayHeight: CGFloat) -> CGFloat {
+        guard textureHeightPx > 0 else { return 0 }
+        let pointsPerPixel = displayHeight / textureHeightPx
+        return displayHeight / 2 - pixelY * pointsPerPixel
+    }
+
+    /// WO-44 Ph1 §1 — the Y offset `spriteBodyNode.position.y` must carry
+    /// so the anchor's LOCAL Y (already converted by `anchorPixelToLocalY`)
+    /// lands exactly on the ground line `PushlingScene`'s root Y already
+    /// encodes (`terrainY + stageHalfHeight`, unchanged by this WO). In
+    /// this local space the sprite's own geometric center is Y=0 by
+    /// construction (`anchorPixelToLocalY` centers on `displayHeight/2`),
+    /// so "offset up by (spriteCenter − contactPixel)" reduces to
+    /// `-contactLocalY` — then `-stageHalfHeight` on top cancels the extra
+    /// half-height `PushlingScene` already added to the bare terrain line
+    /// (the root Y assumption this whole offset exists to correct for).
+    static func spriteGroundOffsetY(contactLocalY: CGFloat, stageHalfHeight: CGFloat) -> CGFloat {
+        -stageHalfHeight - contactLocalY
     }
 
     /// Pure compose math for §5's global velocity squash-stretch pass,
@@ -1332,6 +1493,7 @@ final class CreatureNode: SKNode {
         isSpriteBodyActive = false
         clipFrameTime = 0
         activeClipFrames = []
+        clipDistanceTravelled = 0
     }
 
     private func applyDefaultStates() {
