@@ -313,6 +313,77 @@ final class SpriteBodySwapTests: XCTestCase {
         XCTAssertEqual(CreatureNode.spriteFrameIndex(clipTime: 5.0, fps: 8, frameCount: 1, loop: false), 0)
     }
 
+    // MARK: - ALLOWLIST rewrite (post-deploy, "maybe extra ears" fix)
+
+    /// EAR DIAGNOSIS + the allowlist mechanism itself, in one test: `head`
+    /// still has real `ear_left`/`ear_right` `SKShapeNode`s attached
+    /// (StageRenderer.buildBeast never stopped building them — they're
+    /// vector anatomy left over from the pre-sprite render, not something
+    /// baked into model ①'s frame) — so the "maybe extra ears" a human
+    /// flagged were these, rendering on TOP of the baked sprite's own
+    /// (single, correct) baked-in ears whenever a denylist gap left them
+    /// unhidden. This test proves the allowlist rewrite closes every such
+    /// gap categorically: walk the ENTIRE creature subtree, and every
+    /// node that is neither the sprite body nor one of its ancestors must
+    /// be hidden — not just `head`'s children, not just the ones a
+    /// denylist happened to name.
+    func testFlagOnAtBeastAllowlistHidesEveryNodeExceptSpriteBodyAndItsAncestors() {
+        setenv("PUSHLING_SPRITE_BODY", "1", 1)
+
+        let creature = CreatureNode()
+        creature.configureForStage(.beast)
+
+        guard let bodyNode = creature.childNode(withName: "//body"),
+              let sprite = bodyNode as? SKSpriteNode else {
+            return XCTFail("body must be reachable and be the sprite in this mode")
+        }
+
+        // EAR DIAGNOSIS — vector ear nodes DO exist (real anatomy left
+        // over from the pre-bake vector build), and the allowlist must
+        // hide them like everything else.
+        for name in ["ear_left", "ear_right"] {
+            guard let ear = creature.childNode(withName: "//\(name)") else {
+                XCTFail("\(name) should still exist as a vector node (hidden), not removed")
+                continue
+            }
+            XCTAssertTrue(ear.isHidden, "\(name) must be hidden by the allowlist")
+        }
+
+        // The sprite's own ancestor chain (pelvis, spine_chest) — these
+        // must stay visible, or the sprite itself would never render.
+        var ancestors: Set<ObjectIdentifier> = []
+        var walk: SKNode? = sprite.parent
+        while let node = walk, node !== creature {
+            ancestors.insert(ObjectIdentifier(node))
+            walk = node.parent
+        }
+        XCTAssertFalse(ancestors.isEmpty, "sanity: the sprite must have at least one ancestor (pelvis)")
+
+        let spriteID = ObjectIdentifier(sprite)
+        var visibleLeafCount = 0
+        var hiddenCount = 0
+
+        func walkTree(_ node: SKNode) {
+            for child in node.children {
+                let id = ObjectIdentifier(child)
+                if id == spriteID || ancestors.contains(id) {
+                    XCTAssertFalse(child.isHidden,
+                        "'\(child.name ?? "?")' is the sprite or one of its ancestors — must stay visible")
+                    if id == spriteID { visibleLeafCount += 1 }
+                } else {
+                    XCTAssertTrue(child.isHidden,
+                        "'\(child.name ?? "?")' is not on the sprite-mode allowlist — must be hidden")
+                    hiddenCount += 1
+                }
+                walkTree(child)
+            }
+        }
+        walkTree(creature)
+
+        XCTAssertEqual(visibleLeafCount, 1, "exactly the sprite body must be the allowlisted leaf")
+        XCTAssertGreaterThan(hiddenCount, 0, "sanity: there must be OTHER creature nodes to hide")
+    }
+
     /// Lightweight integration check: ticking a sprite-mode creature with
     /// `walkSpeed` set doesn't crash, and the body stays an SKSpriteNode
     /// (the two things actually observable end-to-end under `swift test`,

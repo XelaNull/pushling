@@ -19,6 +19,7 @@
 // defaults to false regardless. Sub-part 2 is the wiring; this is the
 // scaffolding it will wire into.
 
+import CoreGraphics
 import Foundation
 
 enum SpriteBodyMode {
@@ -77,5 +78,49 @@ enum SpriteBodyMode {
         case .egg, .drop, .critter, .sage, .apex:
             return false
         }
+    }
+
+    /// FIX 2 (post-deploy, REVISED per the tight re-bake's measured bbox) —
+    /// the sprite path's on-screen DISPLAY height for the FULL 36x40
+    /// texture FRAME, deliberately NOT `StageConfiguration.size.height`
+    /// itself. `StageConfiguration.size` still drives vector-mode geometry
+    /// (paw rest positions, belt line, ear/eye offsets via `w`/`h`)
+    /// exactly as before — overriding it directly would ripple into
+    /// flag-off, which must stay byte-identical.
+    ///
+    /// This is NOT the cat's own on-screen height — the tight re-bake's
+    /// frames are ~86-94% cat by WIDTH but only ~40-60% cat by HEIGHT
+    /// (idle ~42%, walk ~60%, run ~40%): a realistic side-view cat is
+    /// wider than tall, so ~40% of every frame's vertical extent is
+    /// transparent margin (roughly 20% top + 20% bottom) that can't be
+    /// cropped without cutting off the nose or tail or distorting the
+    /// aspect ratio. Sizing the FRAME to the Touch Bar strip's 30pt
+    /// (`TouchTracker.sceneHeight`) would size the CAT to only
+    /// ~30 * 0.6 ≈ 18pt at best (worse for idle/run) — still the ~10pt-
+    /// ish "distant cat" look a human flagged, just less extreme.
+    /// Sizing the FRAME to `targetCatHeight / catFractionOfFrameHeight`
+    /// (28 / 0.6 ≈ 46.7, using the walk clip's larger fraction as the
+    /// representative baseline) instead lets the frame's transparent
+    /// margin overflow past the strip's edges — SpriteKit itself clips
+    /// nothing, but the Touch Bar host view's bounds do, so the overflow
+    /// is invisible — while the CAT itself (vertically centered in the
+    /// frame by the bake) reads ~26-28pt tall on the 30pt strip. One
+    /// display box per stage, not per-clip (matching the architecture
+    /// everywhere else this codebase sizes a sprite), so idle/run read
+    /// slightly smaller than walk at this same box size — an accepted
+    /// approximation, not a per-clip resize.
+    static let spriteDisplayHeight: CGFloat = 46.0
+
+    /// Scales `configSize` (a `StageConfiguration.size`) so its height
+    /// matches `spriteDisplayHeight` (the FRAME's on-screen height, per
+    /// the doc comment above — NOT the cat's own height), preserving
+    /// aspect ratio so the bake's proportions aren't stretched. Pure and
+    /// stage-agnostic — every sprite-eligible stage gets the same
+    /// fill-the-strip treatment once it has its own baked frames, not
+    /// just Beast.
+    static func spriteDisplaySize(fromConfigSize configSize: CGSize) -> CGSize {
+        guard configSize.height > 0 else { return configSize }
+        let scale = spriteDisplayHeight / configSize.height
+        return CGSize(width: configSize.width * scale, height: spriteDisplayHeight)
     }
 }
