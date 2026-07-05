@@ -172,9 +172,11 @@ final class PhysicsLayer: BehaviorLayer {
             output.walkSpeed = 0
         }
 
-        // Z boundary enforcement (0.0 = foreground, 0.8 = max background)
-        if currentZ < 0.0 || currentZ > 0.8 {
-            currentZ = clamp(currentZ, min: 0.0, max: 0.8)
+        // Z boundary enforcement (0.0 = foreground, maxWorldDepthZ = max background).
+        // WO-43: routed through WorldSurface.clampDepthZ (unified clamp
+        // logic) — the 0.8 ceiling itself is unchanged.
+        if currentZ < 0.0 || currentZ > WorldSurface.maxWorldDepthZ {
+            currentZ = WorldSurface.clampDepthZ(currentZ, max: WorldSurface.maxWorldDepthZ)
             output.positionZ = currentZ
         }
     }

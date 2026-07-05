@@ -313,7 +313,13 @@ enum SceneConstants {
     /// Total height of the Touch Bar scene in points.
     static let sceneHeight: CGFloat = 30.0
 
-    /// Ground level Y position (bottom padding).
+    /// Ground level Y position (bottom padding) — a flat "sea-level"
+    /// fallback for elements that don't follow live terrain height
+    /// (physics jump floor, blend-controller default position, thrown
+    /// toys, companions, hatch placement). Deliberately distinct from
+    /// `WorldSurface.groundBaselineY` (4.0, the real terrain baseline the
+    /// creature actually rests on) — reviewed under WO-43 and kept
+    /// separate rather than merged; see `WorldSurface`'s header comment.
     static let groundY: CGFloat = 3.0
 
     /// Margin from screen edges where creature turns around.

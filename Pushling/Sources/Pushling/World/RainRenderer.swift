@@ -71,8 +71,12 @@ final class RainRenderer {
     /// Splash visual size.
     private static let splashSize = CGSize(width: 1, height: 1)
 
-    /// Ground Y position (terrain baseline). Adjusted when terrain provides real height.
-    private static let groundY: CGFloat = 4.0
+    /// Ground Y position (terrain baseline) — fallback for when the
+    /// `terrainHeightAt` closure is unset. Sourced from
+    /// `WorldSurface.groundBaselineY` (WO-43) rather than its own literal;
+    /// WorldManager always wires the closure in practice, so this fallback
+    /// is dead in the live app but kept in sync as the source of truth.
+    private static let groundY: CGFloat = WorldSurface.groundBaselineY
 
     /// Splash particles per droplet impact.
     private static let splashesPerImpact = 3

@@ -15,6 +15,18 @@ final class PushlingScene: SKScene {
     let frameBudgetMonitor = FrameBudgetMonitor()
     private var lastUpdateTime: TimeInterval = 0
 
+    // MARK: - Degrade Rails (WO-43)
+
+    /// Observes Reduce-Motion / thermal pressure / Low Power Mode and
+    /// resolves them into a target frame rate for the render loop.
+    let degradeManager = DegradeManager()
+
+    /// Degrade-rail check throttle — the 3 OS reads are cheap but there's
+    /// no need to sample every frame (matches `idleTimeoutAccumulator`'s
+    /// pattern below).
+    private var degradeCheckAccumulator: TimeInterval = 0
+    private static let degradeCheckInterval: TimeInterval = 1.0
+
     // MARK: - World System
 
     /// The world rendering system — parallax, terrain, biomes, landmarks, tinting,
@@ -201,6 +213,20 @@ final class PushlingScene: SKScene {
             deltaTime = currentTime - lastUpdateTime
         }
         lastUpdateTime = currentTime
+
+        // Degrade rails (WO-43) — throttled OS-signal check, honored via
+        // the SKView's preferredFramesPerSecond. Runs unconditionally
+        // (even during hatching) so thermal/low-power throttling always
+        // applies. Pure cadence change — never touches creature position.
+        degradeCheckAccumulator += deltaTime
+        if degradeCheckAccumulator >= Self.degradeCheckInterval {
+            degradeCheckAccumulator = 0
+            degradeManager.refresh()
+            let target = degradeManager.targetFPS
+            if let skView = self.view, skView.preferredFramesPerSecond != target {
+                skView.preferredFramesPerSecond = target
+            }
+        }
 
         // Start frame timing
         frameBudgetMonitor.beginFrame()

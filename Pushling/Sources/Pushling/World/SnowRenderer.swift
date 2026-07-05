@@ -54,8 +54,12 @@ final class SnowRenderer {
     /// Snowflake visual size.
     private static let flakeSize = CGSize(width: 1, height: 1)
 
-    /// Ground Y position (terrain baseline).
-    private static let groundY: CGFloat = 4.0
+    /// Ground Y position (terrain baseline) — fallback for when the
+    /// `terrainHeightAt` closure is unset. Sourced from
+    /// `WorldSurface.groundBaselineY` (WO-43) rather than its own literal;
+    /// WorldManager always wires the closure in practice, so this fallback
+    /// is dead in the live app but kept in sync as the source of truth.
+    private static let groundY: CGFloat = WorldSurface.groundBaselineY
 
     /// Spawn rate: flakes per second at full intensity.
     private static let spawnRate: Double = 12  // Maintains 15-30 active at slow fall speed

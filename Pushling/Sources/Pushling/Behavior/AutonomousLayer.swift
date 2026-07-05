@@ -285,7 +285,9 @@ final class AutonomousLayer: BehaviorLayer {
         let zStep = depthStepForXStep(xStep: xStep, targetX: destinationX,
                                       targetZ: destinationZ)
         currentZ += zStep
-        currentZ = clamp(currentZ, min: 0.0,
+        // WO-43: routed through WorldSurface.clampDepthZ (unified clamp
+        // logic) — the per-stage ceiling itself is unchanged.
+        currentZ = WorldSurface.clampDepthZ(currentZ,
                          max: AutonomousLayer.maxDepthZ(for: stage))
 
         output.positionX = currentX

@@ -53,7 +53,7 @@ extension WorldManager {
     /// - Returns: The Y position of the terrain surface at that depth.
     func terrainHeightAtDepth(worldX: CGFloat, depth: CGFloat) -> CGFloat {
         guard let generator = terrainGenerator else {
-            return TerrainGenerator.baselineY
+            return WorldSurface.groundBaselineY
         }
 
         // Zone 1: Pure foreground (Z 0.0 - 0.05)
@@ -158,6 +158,6 @@ extension WorldManager {
         let h1 = CGFloat(noise1) / 255.0 * TerrainGenerator.maxHeight * amplitudeScale
 
         let interpolated = h0 * (1.0 - frac) + h1 * frac
-        return TerrainGenerator.baselineY + interpolated
+        return WorldSurface.groundBaselineY + interpolated
     }
 }

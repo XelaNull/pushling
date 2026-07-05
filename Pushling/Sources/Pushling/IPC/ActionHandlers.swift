@@ -46,7 +46,12 @@ extension CommandRouter {
             output.facing = clampedX > currentX ? .right : .left
             estimatedDuration = speed > 0 ? Double(distance / speed) : 1.0
             if let z = req.params["z"] as? CGFloat {
-                output.positionZ = clamp(z, min: 0.0, max: 1.0)
+                // WO-43: routed through WorldSurface.clampDepthZ (unified
+                // clamp logic) — the 1.0 ceiling itself is unchanged. Note
+                // this differs from PhysicsLayer/AutonomousLayer's 0.8
+                // world-depth ceiling; flagged, not silently reconciled
+                // (see WorldSurface's header comment).
+                output.positionZ = WorldSurface.clampDepthZ(z, max: 1.0)
             }
 
         case "walk":
@@ -64,7 +69,9 @@ extension CommandRouter {
             output.facing = facing
             estimatedDuration = duration
             if let z = req.params["z"] as? CGFloat {
-                output.positionZ = clamp(z, min: 0.0, max: 1.0)
+                // WO-43: routed through WorldSurface.clampDepthZ — see the
+                // "goto" case above for the ceiling-mismatch note.
+                output.positionZ = WorldSurface.clampDepthZ(z, max: 1.0)
             }
 
         case "stop":

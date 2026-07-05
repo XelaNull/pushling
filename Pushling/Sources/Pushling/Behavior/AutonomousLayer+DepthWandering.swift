@@ -19,7 +19,7 @@ extension AutonomousLayer {
         case .critter: return 0.35 // Mid-depth explorer
         case .beast:  return 0.6   // Confident wanderer
         case .sage:   return 0.7   // Wide range
-        case .apex:   return 0.8   // Full range
+        case .apex:   return WorldSurface.maxWorldDepthZ  // Full range (WO-43: unified with PhysicsLayer's ceiling)
         }
     }
 

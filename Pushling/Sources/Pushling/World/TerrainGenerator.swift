@@ -52,7 +52,9 @@ final class TerrainGenerator {
     static let chunkWorldWidth: CGFloat = CGFloat(samplesPerChunk) * pointsPerSample
 
     /// Baseline Y position (bottom of terrain hills).
-    static let baselineY: CGFloat = 4.0
+    /// Sourced from `WorldSurface.groundBaselineY` — the single canonical
+    /// terrain baseline (WO-43) — rather than its own literal.
+    static let baselineY: CGFloat = WorldSurface.groundBaselineY
 
     /// Maximum height above baseline.
     static let maxHeight: CGFloat = 8.0

@@ -250,10 +250,10 @@ final class WorldManager {
 
         // Wire terrain height callbacks so rain/snow splash at terrain surface
         weatherSystem.rainRenderer.terrainHeightAt = { [weak self] worldX in
-            self?.terrainHeightAt(worldX: worldX) ?? 4.0
+            self?.terrainHeightAt(worldX: worldX) ?? WorldSurface.groundBaselineY
         }
         weatherSystem.snowRenderer.terrainHeightAt = { [weak self] worldX in
-            self?.terrainHeightAt(worldX: worldX) ?? 4.0
+            self?.terrainHeightAt(worldX: worldX) ?? WorldSurface.groundBaselineY
         }
 
         // 17b. Restore persisted weather state (must run before the state
@@ -445,7 +445,7 @@ final class WorldManager {
     /// Returns the terrain height at a world-X position.
     /// Useful for placing the creature on the ground.
     func terrainHeightAt(worldX: CGFloat) -> CGFloat {
-        return terrainGenerator?.heightAt(worldX: worldX) ?? 4.0
+        return terrainGenerator?.heightAt(worldX: worldX) ?? WorldSurface.groundBaselineY
     }
 
     /// Returns the current biome at a world-X position.
