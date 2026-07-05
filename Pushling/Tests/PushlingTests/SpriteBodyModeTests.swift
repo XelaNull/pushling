@@ -29,4 +29,23 @@ final class SpriteBodyModeTests: XCTestCase {
         XCTAssertTrue(SpriteBodyMode.isEligible(stage: .sage))
         XCTAssertTrue(SpriteBodyMode.isEligible(stage: .apex))
     }
+
+    /// CHIMERA fix — model ①'s Beast bake has a non-separable particle-fur
+    /// tail baked into the body mesh (`bake-manifest.json`'s
+    /// `tail_separable: false`), so Beast is the one stage where the L2
+    /// `SegmentedTailController` overlay must be suppressed entirely
+    /// rather than left as a legitimate stand-in. Every other stage
+    /// defaults `false` (no baked model exists yet at any of them, so
+    /// there is nothing to be baked-in yet either) — this is data about
+    /// the CURRENT bake per stage, not a permanent per-stage ruling; see
+    /// the function's own doc comment for how a future separable-tail
+    /// bake would flip a stage back to `false`.
+    func testOnlyBeastHasATailBakedIntoItsCurrentSprite() {
+        XCTAssertTrue(SpriteBodyMode.tailIsBakedIntoSprite(stage: .beast))
+        XCTAssertFalse(SpriteBodyMode.tailIsBakedIntoSprite(stage: .egg))
+        XCTAssertFalse(SpriteBodyMode.tailIsBakedIntoSprite(stage: .drop))
+        XCTAssertFalse(SpriteBodyMode.tailIsBakedIntoSprite(stage: .critter))
+        XCTAssertFalse(SpriteBodyMode.tailIsBakedIntoSprite(stage: .sage))
+        XCTAssertFalse(SpriteBodyMode.tailIsBakedIntoSprite(stage: .apex))
+    }
 }

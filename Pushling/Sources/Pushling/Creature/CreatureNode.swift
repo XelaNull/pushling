@@ -290,8 +290,51 @@ final class CreatureNode: SKNode {
         // Set initial states
         applyDefaultStates()
 
+        // CHIMERA fix (post-deploy) — re-assert the face-part hide AFTER
+        // `applyDefaultStates()`, not just once inside `addBodyParts`.
+        // `applyDefaultStates()` sets the eyes to their default "open"/
+        // "half" state, and `EyeController.animateToOpenState` — pre-
+        // existing, shared blink logic with zero notion of sprite mode —
+        // unconditionally does `pupilNode?.isHidden = false` on every
+        // transition INTO "open". That legitimately runs AFTER this
+        // pass's first hide, so a single hide inside `addBodyParts` isn't
+        // durable against it. (This is harmless VISUALLY either way —
+        // the `eye_left`/`eye_right` CONTAINER stays hidden throughout,
+        // and SpriteKit never renders descendants of a hidden node
+        // regardless of their own flag — but a literal per-node
+        // `isHidden` check on `eye_left_pupil` right after
+        // `configureForStage` needs this second pass to read `true`.)
+        // Ongoing LIVE blinking after this point can still transiently
+        // flip `eye_*_pupil.isHidden` back to `false` again the same way
+        // — not fixed by this pass, and still harmless for the same
+        // ancestor-cascade reason; special-casing sprite mode inside the
+        // shared `EyeController` to prevent that was judged out of scope
+        // for this fix (it would touch blink behavior used by every
+        // stage, not just the one baked model this pass is about).
+        if isSpriteBodyActive, let head = headNode {
+            hideVectorFacePartsIfSpriteActive(head)
+        }
+
         NSLog("[Pushling/Creature] Configured for stage: %@, "
               + "node count: %d", "\(stage)", countNodes())
+    }
+
+    /// Hides every direct child of `head` AND every one of their own
+    /// children — see the two call sites (inside `addBodyParts`, and
+    /// again at the end of `configureForStage`) for why this needs to run
+    /// twice. Generic by design: doesn't hand-name a single face part, so
+    /// it automatically covers whatever `StageRenderer` attaches to
+    /// `head` at any stage (today: `head_shape`/`ear_left`/`ear_right`/
+    /// `eye_left`/`eye_right`/`nose`/`mouth`/`whisker_left`/
+    /// `whisker_right`; a future Apex bake's `wise_beard` would be
+    /// covered too, with no change needed here).
+    private func hideVectorFacePartsIfSpriteActive(_ head: SKNode) {
+        for child in head.children {
+            child.isHidden = true
+            for grandchild in child.children {
+                grandchild.isHidden = true
+            }
+        }
     }
 
     // MARK: - Per-Frame Update (Called from PushlingScene)
@@ -926,26 +969,41 @@ final class CreatureNode: SKNode {
         spineChest.addChild(nodes.head)
         headNode = nodes.head
 
-        // WO-27 sub-part 2 §4 — retire ears AND the head's own solid
-        // silhouette for sprite stages (the baked frame already draws
-        // both — REVISE fix 1, Mack's catch: `head_shape` was the one
-        // node in this retirement I'd missed, and it's the one that
-        // actually mattered most visually, a duplicate solid bone-colored
-        // circle rendering directly under the eye/mouth/whisker overlay).
-        // The underlying SKShapeNodes are already children of `head` by
-        // the time StageRenderer.build returns (StageRenderer.swift's own
-        // `head.addChild(earL/earR/headShape)`), so hiding them here —
-        // rather than not creating them, which would require touching
-        // StageRenderer.swift, out of this pass's scope — is the least
-        // invasive retirement. `earLeftController`/`earRightController`
-        // are correspondingly never created below (createControllers'
-        // own sprite gate); `head_shape` has no controller at all (it's
-        // pure background fill, not a part-controller target), so hiding
-        // it here is the only place this can happen.
+        // WO-27 sub-part 2 §4, CHIMERA fix (post-deploy) — retire EVERY
+        // vector face part for sprite stages, not just ears/head_shape.
+        // Model ①'s baked frame is a complete realistic render — it
+        // already draws its own eyes/pupils/nose/mouth/whiskers (and, per
+        // the tail fix below, its own tail) — so ANY vector face part
+        // left visible on top of it is a duplicate ("chimera": double
+        // face). Rather than naming each part individually (StageRenderer
+        // builds a different face-part set per stage — e.g. only Apex
+        // gets a `wise_beard` child — and hand-naming invites missing the
+        // next one), hide EVERY direct child of `head` generically: at
+        // Beast today that's `head_shape`/`ear_left`/`ear_right`/
+        // `eye_left`/`eye_right`/`nose`/`mouth`/`whisker_left`/
+        // `whisker_right`, and it automatically also catches a future
+        // stage's `wise_beard` or any other head part this file doesn't
+        // need to know the name of. Hiding a container (e.g. `eye_left`)
+        // already suppresses rendering of everything under it — SpriteKit
+        // never draws descendants of a hidden node — but each
+        // descendant's OWN `isHidden` flag is untouched by that render
+        // cascade, so a second pass explicitly hides every grandchild too
+        // (the eye's own iris/pupil/catch-lights, the whisker groups' own
+        // strand nodes, the mouth's own inner curve) — anything that
+        // checks a specific leaf node's flag directly, not just visible
+        // render output, needs this. `earLeftController`/
+        // `earRightController` are correspondingly never created below
+        // (createControllers' own pre-existing sprite gate); every other
+        // controller (eyes/mouth/whiskers) is left wired exactly as
+        // before — this is ADDITIVE hiding of the render nodes only, not
+        // a change to any controller's existence or behavior.
+        //
+        // NOTE this call alone is not the end of the story — see
+        // `configureForStage`'s own second call to
+        // `hideVectorFacePartsIfSpriteActive` after `applyDefaultStates()`
+        // for why one pass here isn't enough.
         if isSpriteBodyActive {
-            nodes.earLeft?.isHidden = true
-            nodes.earRight?.isHidden = true
-            nodes.head.childNode(withName: "head_shape")?.isHidden = true
+            hideVectorFacePartsIfSpriteActive(nodes.head)
         }
 
         // Collect beard strand nodes (Apex wise beard) — children of HEAD
@@ -1038,7 +1096,26 @@ final class CreatureNode: SKNode {
         // `SegmentedTailController` at this same joint per
         // emotional-body-language.md's swap-point note. `nodes.tail`
         // itself is never added to the tree.
-        if let tail = nodes.tail, let segments = nodes.tailSegments, !segments.isEmpty {
+        //
+        // CHIMERA fix (post-deploy) — when the sprite path is active AND
+        // `SpriteBodyMode.tailIsBakedIntoSprite(stage:)` says this stage's
+        // baked frame already draws its own tail (true for model ① at
+        // Beast: particle-fur tail, non-separable from the body mesh —
+        // `bake-manifest.json`'s `tail_separable: false`), the ENTIRE
+        // segmented-tail overlay is skipped — not built, not just hidden
+        // — matching the ears/paws precedent above (`nodes.pawFL` etc.
+        // are simply never reparented into the tree in sprite mode) and
+        // avoiding a per-frame `SegmentedTailController.update()` spring-
+        // physics cost for a chain that would never be visible anyway.
+        // `tailBaseNode`/`tailNode` stay `nil` in this case; no other
+        // call site reads either outside this function.
+        // `createControllers` mirrors this same condition so no
+        // `tailController` gets built against a chain that was never
+        // added to the tree.
+        let tailBakedIntoThisSprite = isSpriteBodyActive
+            && SpriteBodyMode.tailIsBakedIntoSprite(stage: currentStage)
+        if !tailBakedIntoThisSprite,
+           let tail = nodes.tail, let segments = nodes.tailSegments, !segments.isEmpty {
             let tailOldAbsolute = tail.position
             let tailBase = SKNode()
             tailBase.name = "tail_base"
@@ -1107,7 +1184,19 @@ final class CreatureNode: SKNode {
         // with perfectly composed world angles during a simultaneous
         // body-roll. Not fixed this pass; revisit only if it visibly reads
         // wrong in the parade re-run.
-        if config.hasTail, let segments = nodes.tailSegments,
+        //
+        // CHIMERA fix (post-deploy) — mirrors `addBodyParts`' own
+        // `tailBakedIntoThisSprite` gate: when this stage's baked sprite
+        // already draws its own tail, `addBodyParts` never reparents
+        // `segments[0]` under a `tailBaseNode` at all (`tailBaseNode`
+        // stays `nil`), so building a controller against it here would
+        // drive an orphaned node that was never added to the scene graph
+        // — wasted spring-physics work every frame for something that
+        // could never render either way.
+        let tailBakedIntoThisSprite = isSpriteBodyActive
+            && SpriteBodyMode.tailIsBakedIntoSprite(stage: stage)
+        if !tailBakedIntoThisSprite,
+           config.hasTail, let segments = nodes.tailSegments,
            let lengths = nodes.tailSegmentLengths,
            let curveFactor = nodes.tailCurveFactor {
             let tc = SegmentedTailController(segments: segments,

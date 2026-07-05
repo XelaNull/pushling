@@ -63,13 +63,45 @@ final class SpriteBodySwapTests: XCTestCase {
         }
         XCTAssertFalse(headShape.isHidden, "head_shape must not be hidden with the flag off")
 
+        // CHIMERA fix regression guard: every OTHER vector face part the
+        // sprite-mode fix now hides (eyes, nose, mouth, whiskers) must
+        // stay visible on the vector path too — this is purely additive
+        // hiding gated on `isSpriteBodyActive`, which is false throughout
+        // this whole test.
+        for name in ["eye_left", "eye_right", "nose", "mouth", "whisker_left", "whisker_right"] {
+            guard let node = creature.childNode(withName: "//\(name)") else {
+                XCTFail("\(name) must still be reachable with the flag off")
+                continue
+            }
+            XCTAssertFalse(node.isHidden, "\(name) must not be hidden with the flag off")
+        }
+        // Grandchildren too (the eye's own pupil, specifically named in
+        // the fix's own regression list) — confirms the fix's grandchild
+        // pass is ALSO correctly gated, not an unconditional hide.
+        for name in ["eye_left_pupil", "eye_right_pupil"] {
+            guard let node = creature.childNode(withName: "//\(name)") else {
+                XCTFail("\(name) must still be reachable with the flag off")
+                continue
+            }
+            XCTAssertFalse(node.isHidden, "\(name) must not be hidden with the flag off")
+        }
+
+        // Tail (L2 overlay) — Beast's baked-in-tail gate only applies when
+        // `isSpriteBodyActive`, which is false here, so the segmented
+        // chain must be built exactly as before.
+        XCTAssertNotNil(creature.childNode(withName: "//tail_base"),
+                        "tail_base must exist with the flag off")
+        XCTAssertNotNil(creature.childNode(withName: "//tail_seg_0"),
+                        "tail_seg_0 must exist with the flag off")
+        XCTAssertNotNil(creature.tailController, "tailController must be built with the flag off")
+
         XCTAssertNotNil(creature.pawFLController)
         XCTAssertNotNil(creature.earLeftController)
     }
 
     // MARK: - (b) Flag on + eligible + has data (Beast) — sprite swap
 
-    func testFlagOnAtBeastSwapsBodyToSpriteAndRetiresEarsAndPaws() {
+    func testFlagOnAtBeastRetiresEveryVectorFaceAndTailPartForOneCleanCat() {
         setenv("PUSHLING_SPRITE_BODY", "1", 1)
         XCTAssertTrue(SpriteBodyMode.isEnabled)
 
@@ -113,20 +145,71 @@ final class SpriteBodySwapTests: XCTestCase {
         }
         XCTAssertTrue(headShape.isHidden, "head_shape must be hidden in sprite mode")
 
-        // Kept as overlays: tail (L2), eyes/mouth/whiskers (L3).
-        XCTAssertNotNil(creature.childNode(withName: "//tail_seg_0"))
-        XCTAssertNotNil(creature.tailController)
+        // CHIMERA fix (post-deploy) — model ①'s baked frame is a COMPLETE
+        // realistic render: it already draws its own eyes/nose/mouth/
+        // whiskers AND its own tail, so every one of those vector parts
+        // (previously kept as "L3 overlays" for a face-neutral
+        // placeholder) must now ALSO be hidden, not just ears/head_shape.
+        for name in ["eye_left", "eye_right", "nose", "mouth", "whisker_left", "whisker_right"] {
+            guard let node = creature.childNode(withName: "//\(name)") else {
+                XCTFail("\(name) should still exist (hidden), not removed")
+                continue
+            }
+            XCTAssertTrue(node.isHidden, "\(name) must be hidden in sprite mode")
+        }
+        // Grandchildren too — hiding the `eye_left`/`eye_right` CONTAINER
+        // already suppresses rendering of everything under it, but the
+        // coordinator's own regression list names `pupils` specifically,
+        // so pin each leaf's OWN `isHidden` flag directly rather than
+        // relying on the render-cascade alone.
+        for name in ["eye_left_shape", "eye_left_iris", "eye_left_pupil",
+                     "eye_left_catchlight", "eye_left_catchlight2",
+                     "eye_right_shape", "eye_right_iris", "eye_right_pupil",
+                     "eye_right_catchlight", "eye_right_catchlight2",
+                     "mouth_inner", "whisker_left_0", "whisker_left_1", "whisker_left_2",
+                     "whisker_right_0", "whisker_right_1", "whisker_right_2"] {
+            guard let node = creature.childNode(withName: "//\(name)") else {
+                XCTFail("\(name) should still exist (hidden), not removed")
+                continue
+            }
+            XCTAssertTrue(node.isHidden, "\(name) must be hidden in sprite mode")
+        }
+
+        // Controllers are UNCHANGED by the chimera fix — this is additive
+        // hiding of render nodes only, not a behavior change. (Ears/paws
+        // controllers were already nil'd out by the ORIGINAL sub-part 2,
+        // asserted above; that's untouched too.)
         XCTAssertNotNil(creature.eyeLeftController)
         XCTAssertNotNil(creature.eyeRightController)
         XCTAssertNotNil(creature.mouthController)
         XCTAssertNotNil(creature.whiskerLeftController)
         XCTAssertNotNil(creature.whiskerRightController)
+
+        // Tail (L2) — model ①'s particle-fur tail is baked into the body
+        // mesh and non-separable (`bake-manifest.json`'s
+        // `tail_separable: false`), so `SpriteBodyMode.
+        // tailIsBakedIntoSprite(stage: .beast)` is true and the WHOLE
+        // segmented-tail overlay must be skipped, not merely hidden — no
+        // `tail_base`/`tail_seg_0` node at all, and no `tailController`
+        // spending per-frame spring-physics work on a chain that could
+        // never render either way.
+        XCTAssertNil(creature.childNode(withName: "//tail_base"),
+                     "tail_base must not be built when the tail is baked into the sprite")
+        XCTAssertNil(creature.childNode(withName: "//tail_seg_0"),
+                     "tail_seg_0 must not be built when the tail is baked into the sprite")
+        XCTAssertNil(creature.tailController,
+                    "tailController must not be built when the tail is baked into the sprite")
     }
 
-    /// The L2/L3 hardcoded anchor override (§4) — `head`/`tail_base`
-    /// must sit at `ClipTable.overlayAnchors(for: .beast)`'s values, not
-    /// the vector-authored position a plain flag-off build would use.
-    func testSpriteModeOverridesHeadAndTailAnchorsToTheHardcodedApproximation() {
+    /// The L3 hardcoded head-anchor override (§4) — `head` must sit at
+    /// `ClipTable.overlayAnchors(for: .beast)`'s `headOffset`, not the
+    /// vector-authored position a plain flag-off build would use. (The
+    /// matching `tail_base` override no longer applies at Beast post-
+    /// chimera-fix — `tailIsBakedIntoSprite` means `tail_base` isn't
+    /// built in sprite mode at all; see
+    /// `testFlagOnAtBeastRetiresEveryVectorFaceAndTailPartForOneCleanCat`'s
+    /// own tail assertions for that half.)
+    func testSpriteModeOverridesHeadAnchorToTheHardcodedApproximation() {
         setenv("PUSHLING_SPRITE_BODY", "1", 1)
 
         let spriteCreature = CreatureNode()
@@ -139,10 +222,8 @@ final class SpriteBodySwapTests: XCTestCase {
             return XCTFail("Beast must have overlay anchors defined")
         }
         guard let spriteHead = spriteCreature.childNode(withName: "//head"),
-              let spriteTailBase = spriteCreature.childNode(withName: "//tail_base"),
-              let vectorHead = vectorCreature.childNode(withName: "//head"),
-              let vectorTailBase = vectorCreature.childNode(withName: "//tail_base") else {
-            return XCTFail("head/tail_base must exist on both creatures")
+              let vectorHead = vectorCreature.childNode(withName: "//head") else {
+            return XCTFail("head must exist on both creatures")
         }
 
         // Sprite mode's absolute (pelvis-relative) position should equal
@@ -153,12 +234,6 @@ final class SpriteBodySwapTests: XCTestCase {
         XCTAssertEqual(spriteHeadAbsolute.x, anchors.headOffset.x, accuracy: 0.0001)
         XCTAssertEqual(spriteHeadAbsolute.y, anchors.headOffset.y, accuracy: 0.0001)
         XCTAssertNotEqual(vectorHeadAbsolute.x, anchors.headOffset.x)
-
-        let spriteTailAbsolute = spriteTailBase.parent!.convert(spriteTailBase.position, to: spriteCreature)
-        let vectorTailAbsolute = vectorTailBase.parent!.convert(vectorTailBase.position, to: vectorCreature)
-        XCTAssertEqual(spriteTailAbsolute.x, anchors.tailOffset.x, accuracy: 0.0001)
-        XCTAssertEqual(spriteTailAbsolute.y, anchors.tailOffset.y, accuracy: 0.0001)
-        XCTAssertNotEqual(vectorTailAbsolute.x, anchors.tailOffset.x)
     }
 
     // MARK: - (c) Flag on but no ClipTable data (Critter) — vector fallback

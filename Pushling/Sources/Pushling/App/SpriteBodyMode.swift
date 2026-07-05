@@ -49,4 +49,33 @@ enum SpriteBodyMode {
             return true
         }
     }
+
+    /// Whether this stage's CURRENT baked model already draws its own
+    /// tail in the sprite frame — i.e. the L2 `SegmentedTailController`
+    /// overlay would be a pure visual duplicate ("chimera": double tail),
+    /// not a legitimate part filling in for a face-neutral/limb-neutral
+    /// baked body. Model ①'s Beast bake is exactly this case: a complete
+    /// realistic render whose particle-fur tail is baked into the body
+    /// mesh and confirmed NON-separable at bake time
+    /// (`bake-manifest.json`'s `tail_separable: false` /
+    /// `has_particle_fur: true` — there was never a `*tail*` object to
+    /// hide out of the render in the first place).
+    ///
+    /// Deliberately per-STAGE, not per-model — this codebase bakes and
+    /// ships exactly one live model per stage at a time (mirrors
+    /// `isEligible(stage:)`'s own shape), so "the current Beast bake" and
+    /// "model ①" are the same thing today. If a FUTURE Beast (or Sage/
+    /// Apex) bake ships with a face-neutral/tail-neutral body and a
+    /// genuinely separable tail object, flip this stage's case back to
+    /// `false` to re-enable the L2 overlay — that's a data change here,
+    /// not a code change at either call site (`CreatureNode.addBodyParts`
+    /// / `createControllers`), which both just read this function.
+    static func tailIsBakedIntoSprite(stage: GrowthStage) -> Bool {
+        switch stage {
+        case .beast:
+            return true
+        case .egg, .drop, .critter, .sage, .apex:
+            return false
+        }
+    }
 }
