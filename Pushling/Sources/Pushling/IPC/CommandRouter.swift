@@ -51,7 +51,7 @@ final class CommandRouter {
                    "time_override", "sound", "companion"],
         "recall": ["recent", "commits", "touches", "conversations", "milestones",
                     "dreams", "relationship", "failed_speech"],
-        "teach": ["compose", "preview", "refine", "commit", "list", "remove"],
+        "teach": ["compose", "preview", "refine", "commit", "list", "remove", "reinforce"],
         "nurture": ["habit", "preference", "quirk", "routine", "identity",
                      "suggest", "list", "remove", "set", "reinforce"]
     ]

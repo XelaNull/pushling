@@ -163,6 +163,11 @@ extension CommandRouter {
             return handleTeachCommit(req, gc: gc)
         case "remove":
             return handleTeachRemove(req, gc: gc)
+        case "reinforce":
+            // WO-15: strengthens a taught behavior against decay — mirrors
+            // handleNurtureReinforce's model (NurtureHandlers.swift:510).
+            // Implementation lives in TeachReinforceHandlers.swift.
+            return handleTeachReinforce(req, gc: gc)
         default:
             return .failure(
                 error: "Unknown teach action '\(action)'.",
