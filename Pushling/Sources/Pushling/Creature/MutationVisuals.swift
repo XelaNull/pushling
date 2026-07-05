@@ -294,17 +294,31 @@ final class MutationVisualsManager {
         // reparents `body` under `pelvis`/`creature`, no longer a direct
         // child, so a shallow lookup here would silently go permanently
         // nil (no crash, just a dead effect).
+        //
+        // REVISE fix 2 (WO-27 sub-part 2, Mack's catch): cast to the SKNode
+        // base first, THEN branch on the concrete type — `body` is an
+        // SKSpriteNode in sprite mode (WO-27), and the old direct
+        // `as? SKShapeNode` cast silently failed and no-opped in that
+        // case (not a crash, but a silent-wrong: the effect just quietly
+        // stopped working with zero signal). Vector-fillColor hue-shift
+        // is also the WRONG mechanism for a baked sprite regardless —
+        // sprite-mode recolor is the L4 ID-mask tint, WO-28's job, not a
+        // vector hue rotation — so an SKSpriteNode body is a clean,
+        // intentional skip here, not a gap to fill.
         guard effectNodes[.polyglot] != nil,
               let creature = creature,
-              let bodyNode = creature.childNode(withName: "//body") as? SKShapeNode else {
+              let bodyNode = creature.childNode(withName: "//body") else {
             return
+        }
+        guard let shapeBody = bodyNode as? SKShapeNode else {
+            return  // SKSpriteNode (sprite mode) — see comment above.
         }
         // Subtle per-frame hue rotation on the creature body color (+-10 degrees)
         let hueOffset = CGFloat(sin(animationTime * 0.2)) * (10.0 / 360.0)
         var hue: CGFloat = 0, sat: CGFloat = 0, bri: CGFloat = 0, alpha: CGFloat = 0
         PushlingPalette.bone.getHue(&hue, saturation: &sat,
                                       brightness: &bri, alpha: &alpha)
-        bodyNode.fillColor = SKColor(hue: hue + hueOffset,
+        shapeBody.fillColor = SKColor(hue: hue + hueOffset,
                                       saturation: max(0.05, sat + 0.03),
                                       brightness: bri, alpha: alpha)
     }

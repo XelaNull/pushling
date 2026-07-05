@@ -27,9 +27,10 @@ import SpriteKit
 enum SpriteFrameLoader {
 
     /// frame name -> loaded texture. Cleared only by process restart —
-    /// frame counts are tiny (single-digit-KB PNGs at Touch Bar scale,
-    /// confirmed ~3.3KB each for WO-27 sub-part 1's Beast set) so there is
-    /// no eviction policy.
+    /// frame counts are tiny (native-resolution PNGs, ~1.2KB on disk /
+    /// ~5.6KB decoded per Beast frame — see ClipTable.swift's beastClips
+    /// doc comment for why native res, not the demo scaffolding's own
+    /// 8x-upscaled convention) so there is no eviction policy.
     private static var cache: [String: SKTexture] = [:]
 
     /// Loads (or returns the cached) textures for a clip's frame names, in

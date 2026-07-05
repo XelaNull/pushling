@@ -15,7 +15,13 @@ final class CreatureNode: SKNode {
 
     // MARK: - Body Part Nodes
 
-    private var bodyNode: SKShapeNode?
+    /// Retyped `SKShapeNode?` -> `SKNode?` for WO-27 sub-part 2: when the
+    /// sprite body path is active for this stage, this points at
+    /// `spriteBodyNode` (an `SKSpriteNode`) instead of the vector shape —
+    /// every existing use site in this file (noise idle's position jitter,
+    /// egg-wobble's zRotation, Apex's alpha oscillation) only ever touches
+    /// SKNode-base properties, so none of them needed to change.
+    private var bodyNode: SKNode?
     private var coreGlowNode: SKShapeNode?
     private var headNode: SKNode?
     private var auraNode: SKShapeNode?
@@ -52,6 +58,58 @@ final class CreatureNode: SKNode {
     /// the swap-in point for the dormant `SegmentedTailController` is
     /// WO-19 sub-part 2, not this pass.
     private var tailBaseNode: SKNode?
+
+    // MARK: - Sprite Body (WO-27 sub-part 2 — the render swap)
+
+    /// Non-nil ONLY when `SpriteBodyMode.isEnabled && isEligible(stage) &&
+    /// ClipTable has data for this stage` was true at the last
+    /// `configureForStage` call. Same tree slot `bodyNode` always occupied
+    /// (child of `pelvisNode`) — `bodyNode` itself is set to point at this
+    /// SAME instance when active, so shared writes elsewhere in this file
+    /// (noise idle, egg wobble, Apex alpha) keep working unchanged. This
+    /// second handle exists only because THIS file's compose point needs
+    /// an `SKSpriteNode`-typed reference to write `.texture` — the one
+    /// channel `bodyNode`'s generic `SKNode` type can't express.
+    private var spriteBodyNode: SKSpriteNode?
+
+    /// Whether the sprite path was actually taken for the CURRENTLY
+    /// configured stage — computed once in `addBodyParts`, not re-derived
+    /// per frame, so `createControllers`'s retirement gating and
+    /// `updateBreathing`'s clip/frame-advance section can't disagree with
+    /// what actually got built into the tree this configure pass.
+    private var isSpriteBodyActive = false
+
+    /// Per-clip frame-index accumulator (seconds) — advanced ONLY inside
+    /// `updateBreathing()`, the single compose point, mirroring
+    /// `breathingTime`'s "per-frame, never an SKAction" discipline for
+    /// this new clip channel (WO-27 dispatch: "SKActions BANNED on the
+    /// clip channel").
+    private var clipFrameTime: TimeInterval = 0
+
+    /// The frame list of the clip resolved as of the LAST compose-point
+    /// pass — compared by value each frame to detect an actual clip
+    /// change (vs. continuing to play the same clip), which is when
+    /// `clipFrameTime` resets to 0. Comparing the frame array itself
+    /// (rather than a clip "name") needs no extra bookkeeping field and
+    /// is exactly the identity that matters: two different bodyStates that
+    /// happen to map to the same clip must NOT restart it every frame.
+    private var activeClipFrames: [String] = []
+
+    /// Fed per-frame by `PushlingScene.applyBehaviorOutput` from
+    /// `ResolvedCreatureState.walkSpeed` — mirrors `physicsVelocityY`'s
+    /// existing wiring exactly. Drives the WO-27 §3 walk-clip override:
+    /// when this exceeds `walkSpeedClipThreshold`, the compose point plays
+    /// the stage's `"Walk"` clip regardless of what `bodyState` resolves
+    /// to (bodyState's own alias table collapses `"walk"` to `"stand"` —
+    /// see ClipTable.swift's flagged finding — so gait needs this
+    /// independent signal, not a bodyState value).
+    var walkSpeed: CGFloat = 0
+
+    /// Points/second above which the creature is considered "walking" for
+    /// clip-selection purposes. Small and nonzero (not exactly 0) so
+    /// floating-point noise around an idle `walkSpeed` of 0 can't flicker
+    /// the walk clip on and off.
+    private static let walkSpeedClipThreshold: CGFloat = 0.5
 
     // MARK: - Body Part Controllers
 
@@ -460,6 +518,88 @@ final class CreatureNode: SKNode {
 
         [pawFLController, pawFRController, pawBLController, pawBRController]
             .forEach { $0?.node.alpha = pose.pawAlpha }
+
+        // === SPRITE CLIP COMPOSE (WO-27 sub-part 2, §2/§3) ===
+        // Same single compose point, same "never an SKAction" discipline
+        // breathing already established — `spriteBodyNode.texture` has
+        // exactly one writer: here. No-op entirely when the sprite path
+        // isn't active for this stage (spriteBodyNode is nil).
+        updateSpriteClip(deltaTime: deltaTime)
+    }
+
+    /// Resolves the playing clip (walkSpeed override, per §3, takes
+    /// priority over the bodyState->clip mapping), advances the frame
+    /// accumulator by `clip.fps * deltaTime`, and writes the resulting
+    /// frame's preloaded texture onto `spriteBodyNode`. Split out of
+    /// `updateBreathing` only for readability — still called from nowhere
+    /// else, so the single-writer discipline holds. The two pieces of
+    /// actual DECISION logic (which clip; which frame index) are pulled
+    /// out into pure static helpers below — mirrors `composedBodyScale`'s
+    /// pattern — so they're unit-testable without needing a real bundled
+    /// texture (which `swift test` never has — see SpriteFrameLoader.swift).
+    private func updateSpriteClip(deltaTime: TimeInterval) {
+        guard let sprite = spriteBodyNode else { return }
+
+        let bodyState = bodyPoseController?.currentState ?? "stand"
+        let resolvedClip = Self.resolveActiveClip(
+            bodyState: bodyState, stage: currentStage, walkSpeed: walkSpeed
+        )
+        guard let clip = resolvedClip, !clip.frames.isEmpty else { return }
+
+        if clip.frames != activeClipFrames {
+            activeClipFrames = clip.frames
+            clipFrameTime = 0
+        } else {
+            clipFrameTime += deltaTime
+        }
+
+        let index = Self.spriteFrameIndex(
+            clipTime: clipFrameTime, fps: clip.fps,
+            frameCount: clip.frames.count, loop: clip.loop
+        )
+        if let texture = SpriteFrameLoader.texture(named: clip.frames[index]) {
+            sprite.texture = texture
+        }
+    }
+
+    /// The sprite-body activation gate itself (REVISE fix 3, Mack's
+    /// catch), extracted as a pure static function — mirrors
+    /// `resolveActiveClip`/`spriteFrameIndex`'s pattern — so the
+    /// FAIL-CLOSED contract (clip AND anchors both required, not just
+    /// clip) is directly testable with an explicit
+    /// clip-present-but-anchors-absent case, which no REAL stage today
+    /// happens to exercise (Beast has both; every other stage has
+    /// neither).
+    static func computeIsSpriteBodyActive(flagEnabled: Bool, stageEligible: Bool,
+                                           hasClip: Bool, hasAnchors: Bool) -> Bool {
+        flagEnabled && stageEligible && hasClip && hasAnchors
+    }
+
+    /// §3 — walkSpeed rides ALONGSIDE bodyState, not through it (see
+    /// ClipTable.swift's flagged finding on why `clip(for:stage:)` alone
+    /// can never reach the "Walk" clip). Falls back to the bodyState
+    /// mapping when not walking, or when the stage has no "Walk" clip of
+    /// its own yet.
+    static func resolveActiveClip(bodyState: String, stage: GrowthStage,
+                                   walkSpeed: CGFloat) -> ClipDefinition? {
+        let isWalking = walkSpeed > walkSpeedClipThreshold
+        return (isWalking ? ClipTable.walkClip(for: stage) : nil)
+            ?? ClipTable.clip(for: bodyState, stage: stage)
+    }
+
+    /// Pure frame-index math: given elapsed time within the CURRENTLY
+    /// active clip, which frame should be showing. Looping clips wrap;
+    /// non-looping clips hold their last frame rather than restarting
+    /// (matches a "wind-up and hold" clip like Jump_Start).
+    static func spriteFrameIndex(clipTime: TimeInterval, fps: Double,
+                                  frameCount: Int, loop: Bool) -> Int {
+        guard frameCount > 0 else { return 0 }
+        let cyclePosition = clipTime * fps
+        if loop {
+            return Int(cyclePosition) % frameCount
+        } else {
+            return min(Int(cyclePosition), frameCount - 1)
+        }
     }
 
     /// Pure compose math for §5's global velocity squash-stretch pass,
@@ -665,6 +805,31 @@ final class CreatureNode: SKNode {
     /// formula below reads the node's OWN already-authored `.position`,
     /// already trait-scaled, rather than duplicating stage constants here).
     private func addBodyParts(_ nodes: StageRenderer.StageNodes) {
+        // WO-27 sub-part 2 — computed ONCE per configure pass and stored
+        // (not re-derived in createControllers/updateBreathing) so every
+        // consumer this pass agrees on whether the sprite path was
+        // actually taken. Gate: flag on, stage architecturally eligible,
+        // this stage's ClipTable actually has data, AND this stage has an
+        // overlay-anchor approximation — Critter/Sage/Apex stay on the
+        // vector path even with the flag on, since there is nothing to
+        // play for them yet.
+        //
+        // FAIL-CLOSED (REVISE fix 3, Mack's catch): clip-presence and
+        // anchor-presence are checked TOGETHER, not just clip-presence —
+        // both are Beast-only today so they happen to agree, but a future
+        // stage getting frames before its own overlay anchors are
+        // authored would otherwise render a sprite body with head/tail
+        // still sitting at the OLD vector-authored offsets (the exact
+        // "half-chimera" this gate exists to prevent). Falling back to
+        // the fully-vector path when either is missing is the safe
+        // default, not a half-sprite-half-vector render.
+        isSpriteBodyActive = Self.computeIsSpriteBodyActive(
+            flagEnabled: SpriteBodyMode.isEnabled,
+            stageEligible: SpriteBodyMode.isEligible(stage: currentStage),
+            hasClip: ClipTable.clip(for: "stand", stage: currentStage) != nil,
+            hasAnchors: ClipTable.overlayAnchors(for: currentStage) != nil
+        )
+
         // Add in z-order (back to front)
         if let aura = nodes.aura { addChild(aura); auraNode = aura }
 
@@ -682,11 +847,34 @@ final class CreatureNode: SKNode {
 
         // Body — re-based under pelvis (nets to identity here, since
         // pelvis coincides with the old root origin body was always built
-        // at — shown by the subtraction, not assumed).
+        // at — shown by the subtraction, not assumed). WO-27 sub-part 2:
+        // when the sprite path is active, `nodes.body` (the vector
+        // SKShapeNode) is discarded entirely — never added to the tree —
+        // and a fresh SKSpriteNode takes the SAME tree slot instead, at
+        // the SAME re-based position, so nothing downstream needs to know
+        // which representation is live.
         let bodyOldAbsolute = nodes.body.position
-        nodes.body.position = SkeletonGeometry.rebase(bodyOldAbsolute, relativeTo: pelvisAbsolute)
-        pelvis.addChild(nodes.body)
-        bodyNode = nodes.body
+        let rebasedBodyPosition = SkeletonGeometry.rebase(bodyOldAbsolute, relativeTo: pelvisAbsolute)
+        if isSpriteBodyActive {
+            let config = StageConfiguration.all[currentStage]!
+            let firstClip = ClipTable.clip(for: "stand", stage: currentStage)
+            // Texture already has `.filteringMode = .nearest` set by
+            // `SpriteFrameLoader` itself (single source of truth — every
+            // texture it hands out is pre-filtered, not just this one).
+            let texture = firstClip.flatMap { SpriteFrameLoader.textures(for: $0).first }
+            let sprite = SKSpriteNode(texture: texture, color: .clear, size: config.size)
+            sprite.name = "body"
+            sprite.position = rebasedBodyPosition
+            sprite.zPosition = nodes.body.zPosition
+            pelvis.addChild(sprite)
+            bodyNode = sprite
+            spriteBodyNode = sprite
+        } else {
+            nodes.body.position = rebasedBodyPosition
+            pelvis.addChild(nodes.body)
+            bodyNode = nodes.body
+            spriteBodyNode = nil
+        }
 
         // Core glow — same treatment (WO-19 census: was a root sibling;
         // reparenting means it now rides the torso's own pose instead of
@@ -720,10 +908,44 @@ final class CreatureNode: SKNode {
         pelvis.addChild(spineChest)
         spineChestNode = spineChest
 
-        // Head — re-based under spineChest.
-        nodes.head.position = SkeletonGeometry.rebase(headOldAbsolute, relativeTo: spineChestAbsolute)
+        // Head — re-based under spineChest. WO-27 sub-part 2 §4: when the
+        // sprite path is active, the vector-authored position is replaced
+        // with `ClipTable.overlayAnchors`' hardcoded approximation — the
+        // baked sprite's head isn't where the OLD vector body's head used
+        // to be, so keeping the vector offset would anchor the eye/mouth/
+        // whisker overlay (headNode's own children — see below) over
+        // empty air. `anchors.headOffset` is authored pelvis-relative
+        // (matching how every other joint here is placed), so it's rebased
+        // the same way `headOldAbsolute` is.
+        if isSpriteBodyActive, let anchors = ClipTable.overlayAnchors(for: currentStage) {
+            nodes.head.position = SkeletonGeometry.rebase(anchors.headOffset, relativeTo: spineChestAbsolute)
+        } else {
+            nodes.head.position = SkeletonGeometry.rebase(headOldAbsolute, relativeTo: spineChestAbsolute)
+        }
         spineChest.addChild(nodes.head)
         headNode = nodes.head
+
+        // WO-27 sub-part 2 §4 — retire ears AND the head's own solid
+        // silhouette for sprite stages (the baked frame already draws
+        // both — REVISE fix 1, Mack's catch: `head_shape` was the one
+        // node in this retirement I'd missed, and it's the one that
+        // actually mattered most visually, a duplicate solid bone-colored
+        // circle rendering directly under the eye/mouth/whisker overlay).
+        // The underlying SKShapeNodes are already children of `head` by
+        // the time StageRenderer.build returns (StageRenderer.swift's own
+        // `head.addChild(earL/earR/headShape)`), so hiding them here —
+        // rather than not creating them, which would require touching
+        // StageRenderer.swift, out of this pass's scope — is the least
+        // invasive retirement. `earLeftController`/`earRightController`
+        // are correspondingly never created below (createControllers'
+        // own sprite gate); `head_shape` has no controller at all (it's
+        // pure background fill, not a part-controller target), so hiding
+        // it here is the only place this can happen.
+        if isSpriteBodyActive {
+            nodes.earLeft?.isHidden = true
+            nodes.earRight?.isHidden = true
+            nodes.head.childNode(withName: "head_shape")?.isHidden = true
+        }
 
         // Collect beard strand nodes (Apex wise beard) — children of HEAD
         // itself, untouched by head's own reparenting.
@@ -740,59 +962,70 @@ final class CreatureNode: SKNode {
             }
         }
 
-        // === Shoulders — front-leg pivots, children of spineChest ===
-        // Only built where a front paw exists (Egg/Drop have none).
-        // Inert this pass — WO-20 wires angular swing later.
-        let beltY = SkeletonGeometry.beltY(
-            stageHeight: StageConfiguration.all[currentStage]!.size.height
-        )
-        if let fl = nodes.pawFL {
-            let jointAbsolute = CGPoint(x: fl.position.x, y: beltY)
-            let shoulderL = SKNode()
-            shoulderL.name = "shoulder_l"
-            shoulderL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
-            spineChest.addChild(shoulderL)
-            shoulderLNode = shoulderL
+        // === Shoulders/Hips/Paws — retired entirely for sprite stages ===
+        // (WO-27 sub-part 2 §4: "the baked frame draws them"). Skipping
+        // this whole block when the sprite path is active means
+        // `nodes.pawFL/FR/BL/BR` are simply never added to the tree at
+        // all (not hidden — not reparented anywhere, so they're
+        // discarded with `nodes` itself), and the pivot joints
+        // (`shoulderLNode`/etc.) stay nil rather than existing as inert,
+        // childless placeholders — both keep the sprite-stage node count
+        // down, matching the <120 node SpriteKit budget note.
+        if !isSpriteBodyActive {
+            // === Shoulders — front-leg pivots, children of spineChest ===
+            // Only built where a front paw exists (Egg/Drop have none).
+            // Inert this pass — WO-20 wires angular swing later.
+            let beltY = SkeletonGeometry.beltY(
+                stageHeight: StageConfiguration.all[currentStage]!.size.height
+            )
+            if let fl = nodes.pawFL {
+                let jointAbsolute = CGPoint(x: fl.position.x, y: beltY)
+                let shoulderL = SKNode()
+                shoulderL.name = "shoulder_l"
+                shoulderL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
+                spineChest.addChild(shoulderL)
+                shoulderLNode = shoulderL
 
-            fl.position = SkeletonGeometry.rebase(fl.position, relativeTo: jointAbsolute)
-            shoulderL.addChild(fl)
-        }
-        if let fr = nodes.pawFR {
-            let jointAbsolute = CGPoint(x: fr.position.x, y: beltY)
-            let shoulderR = SKNode()
-            shoulderR.name = "shoulder_r"
-            shoulderR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
-            spineChest.addChild(shoulderR)
-            shoulderRNode = shoulderR
+                fl.position = SkeletonGeometry.rebase(fl.position, relativeTo: jointAbsolute)
+                shoulderL.addChild(fl)
+            }
+            if let fr = nodes.pawFR {
+                let jointAbsolute = CGPoint(x: fr.position.x, y: beltY)
+                let shoulderR = SKNode()
+                shoulderR.name = "shoulder_r"
+                shoulderR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: spineChestAbsolute)
+                spineChest.addChild(shoulderR)
+                shoulderRNode = shoulderR
 
-            fr.position = SkeletonGeometry.rebase(fr.position, relativeTo: jointAbsolute)
-            shoulderR.addChild(fr)
-        }
+                fr.position = SkeletonGeometry.rebase(fr.position, relativeTo: jointAbsolute)
+                shoulderR.addChild(fr)
+            }
 
-        // === Hips — rear-leg pivots, children of PELVIS directly (not
-        // spineChest — rear legs stay coupled to the same node the tail
-        // attaches to, matching real quadruped anatomy). ===
-        if let bl = nodes.pawBL {
-            let jointAbsolute = CGPoint(x: bl.position.x, y: beltY)
-            let hipL = SKNode()
-            hipL.name = "hip_l"
-            hipL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
-            pelvis.addChild(hipL)
-            hipLNode = hipL
+            // === Hips — rear-leg pivots, children of PELVIS directly (not
+            // spineChest — rear legs stay coupled to the same node the tail
+            // attaches to, matching real quadruped anatomy). ===
+            if let bl = nodes.pawBL {
+                let jointAbsolute = CGPoint(x: bl.position.x, y: beltY)
+                let hipL = SKNode()
+                hipL.name = "hip_l"
+                hipL.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
+                pelvis.addChild(hipL)
+                hipLNode = hipL
 
-            bl.position = SkeletonGeometry.rebase(bl.position, relativeTo: jointAbsolute)
-            hipL.addChild(bl)
-        }
-        if let br = nodes.pawBR {
-            let jointAbsolute = CGPoint(x: br.position.x, y: beltY)
-            let hipR = SKNode()
-            hipR.name = "hip_r"
-            hipR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
-            pelvis.addChild(hipR)
-            hipRNode = hipR
+                bl.position = SkeletonGeometry.rebase(bl.position, relativeTo: jointAbsolute)
+                hipL.addChild(bl)
+            }
+            if let br = nodes.pawBR {
+                let jointAbsolute = CGPoint(x: br.position.x, y: beltY)
+                let hipR = SKNode()
+                hipR.name = "hip_r"
+                hipR.position = SkeletonGeometry.rebase(jointAbsolute, relativeTo: pelvisAbsolute)
+                pelvis.addChild(hipR)
+                hipRNode = hipR
 
-            br.position = SkeletonGeometry.rebase(br.position, relativeTo: jointAbsolute)
-            hipR.addChild(br)
+                br.position = SkeletonGeometry.rebase(br.position, relativeTo: jointAbsolute)
+                hipR.addChild(br)
+            }
         }
 
         // === Tail Base — child of pelvis (WO-19 §1) ===
@@ -808,7 +1041,15 @@ final class CreatureNode: SKNode {
             let tailOldAbsolute = tail.position
             let tailBase = SKNode()
             tailBase.name = "tail_base"
-            tailBase.position = SkeletonGeometry.rebase(tailOldAbsolute, relativeTo: pelvisAbsolute)
+            // WO-27 sub-part 2 §4 — same hardcoded-approximation override
+            // as headNode above, for the same reason: the vector-authored
+            // attach point doesn't match where the baked sprite's tail
+            // actually is.
+            if isSpriteBodyActive, let anchors = ClipTable.overlayAnchors(for: currentStage) {
+                tailBase.position = SkeletonGeometry.rebase(anchors.tailOffset, relativeTo: pelvisAbsolute)
+            } else {
+                tailBase.position = SkeletonGeometry.rebase(tailOldAbsolute, relativeTo: pelvisAbsolute)
+            }
             pelvis.addChild(tailBase)
             tailBaseNode = tailBase
 
@@ -841,8 +1082,10 @@ final class CreatureNode: SKNode {
             height: nodes.eyeRightShape.frame.height
         )
 
-        // Ears
-        if config.hasEars, let earL = nodes.earLeft,
+        // Ears — retired for sprite stages (WO-27 sub-part 2 §4); the
+        // nodes themselves are already hidden by `addBodyParts`, this just
+        // stops a controller from existing to drive an invisible node.
+        if config.hasEars, !isSpriteBodyActive, let earL = nodes.earLeft,
            let earR = nodes.earRight {
             earLeftController = EarController(earNode: earL, isLeft: true)
             earRightController = EarController(earNode: earR, isLeft: false)
@@ -904,8 +1147,12 @@ final class CreatureNode: SKNode {
         // and would silently reintroduce the exact "paw jumps to 2x its
         // rest offset" bug `PawController.setState("ground", ...)` (called
         // from `applyDefaultStates()` right after this) resets `.position`
-        // to `restingPoint` on every "ground" transition.
-        if config.hasPaws {
+        // to `restingPoint` on every "ground" transition. Retired for
+        // sprite stages (WO-27 sub-part 2 §4) — `addBodyParts` already
+        // left `nodes.pawFL/FR/BL/BR` un-reparented (never added to the
+        // tree) in that case, so creating a controller for them here
+        // would just drive an orphaned, invisible node for no reason.
+        if config.hasPaws, !isSpriteBodyActive {
             if let fl = nodes.pawFL {
                 let c = PawController(pawNode: fl, position: .frontLeft,
                                        restingPoint: fl.position)
@@ -970,6 +1217,10 @@ final class CreatureNode: SKNode {
         hipLNode = nil
         hipRNode = nil
         tailBaseNode = nil
+        spriteBodyNode = nil
+        isSpriteBodyActive = false
+        clipFrameTime = 0
+        activeClipFrames = []
     }
 
     private func applyDefaultStates() {

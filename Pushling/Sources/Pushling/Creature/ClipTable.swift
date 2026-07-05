@@ -46,10 +46,17 @@ struct ClipDefinition {
 enum ClipTable {
 
     /// Beast's scaffolding clips — the ONLY stage with rendered frames
-    /// today. scratch/cat-demo/'s touchbar-scale renders specifically
-    /// targeted Beast's `StageConfiguration` size (18x20pt = 36x40px @2x)
-    /// — confirmed by the demo's own `demo-report.json` px_sizes note.
-    /// Frame names match exactly what sub-part 1 copied into
+    /// today. Stored at Beast's NATIVE 36x40px (18x20pt @2x — confirmed by
+    /// the demo's own `demo-report.json` px_sizes note), not the demo
+    /// scaffolding's own 8x-upscaled 288x320 touchbar_*.png convention:
+    /// SKSpriteNode's `.size` already controls display size regardless of
+    /// texture pixel dimensions, so storing at 288x320 would only cost
+    /// 64x the decoded texture memory (~360KB/frame vs ~5.6KB/frame) for
+    /// an identical on-screen result once `.filteringMode = .nearest`
+    /// reconstructs the crisp edges either way — WO-27 sub-part 2 (this
+    /// pass) regenerated all 8 frames at native res once this was caught,
+    /// to respect the SpriteKit <1MB texture-memory budget as more clips/
+    /// stages accumulate. Frame names match exactly what's committed into
     /// `Pushling/Resources/sprites/` (unique flat filenames — build.sh's
     /// resource-copy step has no subdirectory support).
     ///
@@ -68,9 +75,9 @@ enum ClipTable {
             // 6 frames, sliced from the model's own Walk clip (frames
             // 0,2,4,6,8,10 of its 24-frame stride) — same selection
             // postprocess.sh's walk_strip_touchbar.png already used;
-            // regenerated as individual PNGs here rather than sliced
-            // from that pre-assembled strip, to avoid a second resample
-            // pass on already-upscaled pixels.
+            // regenerated as individual native-resolution PNGs directly
+            // from the fullsize renders here rather than sliced from that
+            // pre-assembled (and 8x-upscaled) strip.
             frames: ["beast_walk_00", "beast_walk_01", "beast_walk_02",
                      "beast_walk_03", "beast_walk_04", "beast_walk_05"],
             fps: 10, loop: true, anchors: nil
@@ -138,5 +145,52 @@ enum ClipTable {
         let coreState = BodyPoseTable.resolve(bodyState, stage: stage)
         let clipName = coreStateToClipName[coreState] ?? "Idle"
         return stageClips[clipName] ?? stageClips["Idle"]
+    }
+
+    /// WO-27 sub-part 2 — direct "Walk" lookup, deliberately bypassing
+    /// `BodyPoseTable.resolve()` entirely. This is the resolution to the
+    /// flagged finding above: gait is selected by a `walkSpeed` signal
+    /// riding ALONGSIDE bodyState (master plan §4's "distance-driven gait
+    /// phase"), not through the bodyState alias table — so this accessor
+    /// never touches `coreStateToClipName`'s unreachable `"walk"` row at
+    /// all; it goes straight at the stage's own `"Walk"` entry. Returns
+    /// `nil` when the stage has no scaffolding OR no `"Walk"` clip yet —
+    /// callers (`CreatureNode.updateBreathing()`) must fall back to
+    /// `clip(for:stage:)` in that case, matching the "nil = nothing to
+    /// play yet" contract `clip(for:stage:)` already uses.
+    static func walkClip(for stage: GrowthStage) -> ClipDefinition? {
+        clipsByStage[stage]?["Walk"]
+    }
+}
+
+// MARK: - Sprite Overlay Anchors (WO-27 sub-part 2, §4)
+
+/// Where the L2 (tail) / L3 (eyes/mouth/whiskers, via `headNode`) overlays
+/// should sit relative to pelvis-space (0,0) when a sprite body is active.
+/// HARDCODED PER-STAGE APPROXIMATIONS, not real per-frame anchor data —
+/// WO-37 is the eventual real exporter (see `ClipAnchors` above); the
+/// values below were eyeballed directly against the actual committed
+/// `beast_idle_00.png` pixels (head silhouette center ~65% across / ~58%
+/// up from the bottom of the 18x20pt frame; tail-base center ~25% across
+/// / ~52% up), not guessed blind. Expected to look approximate on this
+/// placeholder frame (the master plan's own "chimera-face risk on a voxel
+/// cat" tolerance) — revisit once WO-37 exports real per-frame anchors.
+struct SpriteOverlayAnchors {
+    let headOffset: CGPoint
+    let tailOffset: CGPoint
+}
+
+extension ClipTable {
+    private static let overlayAnchorsByStage: [GrowthStage: SpriteOverlayAnchors] = [
+        .beast: SpriteOverlayAnchors(
+            headOffset: CGPoint(x: 3.0, y: 1.5),
+            tailOffset: CGPoint(x: -4.5, y: 0.5)
+        ),
+    ]
+
+    /// Returns `nil` for any stage without an approximation yet (matches
+    /// `clipsByStage`'s Beast-only coverage today).
+    static func overlayAnchors(for stage: GrowthStage) -> SpriteOverlayAnchors? {
+        overlayAnchorsByStage[stage]
     }
 }

@@ -892,6 +892,13 @@ final class PushlingScene: SKScene {
         // squash-stretch pass inside CreatureNode.updateBreathing().
         creature.physicsVelocityY = behaviorStack?.physics.activeJump?.velocityY ?? 0
 
+        // WO-27 sub-part 2 §3 — feeds the sprite-clip walk-override check
+        // inside CreatureNode.updateBreathing()'s compose point. Mirrors
+        // `physicsVelocityY`'s exact wiring pattern (resolved layer stack
+        // -> one property -> read at the compose point, nothing in
+        // between). No-op on the vector path (nothing reads it there).
+        creature.walkSpeed = state.walkSpeed
+
         // Body pose (body-pose-pipeline.md §1) — the 13th controller.
         creature.bodyPoseController?.setState(
             state.bodyState, duration: 0,
