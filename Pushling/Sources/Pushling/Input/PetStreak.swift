@@ -143,15 +143,26 @@ final class PetStreak {
         }
     }
 
-    private func saveToDatabase() {
+    // NOTE: not `private` — WO-35 regression test drives this directly to
+    // exercise the nil-date bind path (recordInteraction()/midnightCheck()
+    // both only ever call this once lastInteractionDate is non-nil).
+    func saveToDatabase() {
         guard let db = db else { return }
 
         db.performWriteAsync({ [streakDays, lastInteractionDate] in
+            // Pass the Optional directly — NOT `as Any`. Boxing a nil
+            // Optional<String> via `as Any` produces a non-nil Any that
+            // wraps nil, which bindArguments' `case nil:` can't match, so
+            // it falls through to the default branch and binds the
+            // literal STRING "nil" instead of a real SQL NULL. Swift
+            // bridges Optional<String>? -> Any? correctly when passed
+            // through unboxed, so bindArguments' `case nil:` matches as
+            // expected. Mirrors the WO-13 fix for commit.branch.
             try db.execute("""
                 UPDATE creature SET streak_days = ?, streak_last_date = ?
                 WHERE id = 1;
                 """,
-                arguments: [streakDays, lastInteractionDate as Any]
+                arguments: [streakDays, lastInteractionDate]
             )
         })
     }
