@@ -15,16 +15,21 @@ final class ClipTableTests: XCTestCase {
         XCTAssertEqual(clip?.loop, true)
     }
 
-    func testCrouchResolvesToJumpStartClip() {
+    /// Model ①'s bake has no jump/crouch action at all (bake-manifest.json
+    /// confirms `jump` unmatched, "missing — not fatal") — see ClipTable.
+    /// swift's flagged finding: both core states now fall back to Idle
+    /// rather than a dedicated wind-up clip.
+    func testCrouchFallsBackToIdleClip() {
         let clip = ClipTable.clip(for: "crouch", stage: .beast)
-        XCTAssertEqual(clip?.frames, ["beast_jumpstart_00"])
-        XCTAssertEqual(clip?.loop, false)
+        XCTAssertEqual(clip?.frames, ["beast_idle_00"])
+        XCTAssertEqual(clip?.loop, true)
     }
 
-    func testJumpResolvesToTheSameJumpStartClipAsCrouch() {
+    func testJumpResolvesToTheSameFallbackAsCrouch() {
         let jumpClip = ClipTable.clip(for: "jump", stage: .beast)
         let crouchClip = ClipTable.clip(for: "crouch", stage: .beast)
         XCTAssertEqual(jumpClip?.frames, crouchClip?.frames)
+        XCTAssertEqual(jumpClip?.frames, ["beast_idle_00"])
     }
 
     func testUnknownBodyStateFallsBackToIdleClip() {
@@ -38,9 +43,11 @@ final class ClipTableTests: XCTestCase {
     /// spot-checks that routing through resolve() first behaves, not just
     /// direct core-string lookups.
     func testAliasedBodyStateRoutesThroughBodyPoseTableFirst() {
-        // "handstand_prep" aliases to "crouch" in BodyPoseTable's §2b map.
+        // "handstand_prep" aliases to "crouch" in BodyPoseTable's §2b map,
+        // which itself now falls back to Idle (model ① has no crouch/jump
+        // clip — see ClipTable.swift's flagged finding).
         let clip = ClipTable.clip(for: "handstand_prep", stage: .beast)
-        XCTAssertEqual(clip?.frames, ["beast_jumpstart_00"])
+        XCTAssertEqual(clip?.frames, ["beast_idle_00"])
     }
 
     // MARK: - Flagged finding: "walk" is currently unreachable as "Walk"

@@ -590,7 +590,8 @@ final class CreatureNode: SKNode {
     /// Pure frame-index math: given elapsed time within the CURRENTLY
     /// active clip, which frame should be showing. Looping clips wrap;
     /// non-looping clips hold their last frame rather than restarting
-    /// (matches a "wind-up and hold" clip like Jump_Start).
+    /// (matches a "wind-up and hold" single-frame clip, e.g. a future
+    /// crouch/jump pose — no Beast clip is non-looping today).
     static func spriteFrameIndex(clipTime: TimeInterval, fps: Double,
                                   frameCount: Int, loop: Bool) -> Int {
         guard frameCount > 0 else { return 0 }
