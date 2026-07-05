@@ -5,7 +5,7 @@ enum PushlingVersion {
     static let major = 0
     static let minor = 1
     static let patch = 0
-    static let build = 31
+    static let build = 32
 
     static let string = "\(major).\(minor).\(patch).\(build)"
 }

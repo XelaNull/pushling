@@ -201,13 +201,13 @@ extension CommandRouter {
         let todayStr = formatter.string(from: startOfDay)
 
         let todayCommits = (try? db.queryScalarInt(
-            "SELECT COUNT(*) FROM commits WHERE timestamp >= ?",
+            "SELECT COUNT(*) FROM commits WHERE eaten_at >= ?",
             arguments: [todayStr]
         )) ?? 0
 
         // Last commit time
         let lastCommitTime = try? db.queryScalarText(
-            "SELECT timestamp FROM commits ORDER BY timestamp DESC LIMIT 1"
+            "SELECT eaten_at FROM commits ORDER BY eaten_at DESC LIMIT 1"
         )
 
         // Time since last commit

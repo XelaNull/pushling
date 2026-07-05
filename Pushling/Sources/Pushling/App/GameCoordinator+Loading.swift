@@ -32,6 +32,13 @@ extension GameCoordinator {
         return (rows.first?["xp"] as? Int) ?? 0
     }
 
+    static func loadCommitsEaten(from db: DatabaseManager) -> Int {
+        let rows = (try? db.query(
+            "SELECT commits_eaten FROM creature WHERE id = 1"
+        )) ?? []
+        return (rows.first?["commits_eaten"] as? Int) ?? 0
+    }
+
     static func loadCircadian(from db: DatabaseManager) -> CircadianCycle {
         let rows = (try? db.query(
             "SELECT circadian_histogram, circadian_days_tracked "
@@ -109,28 +116,169 @@ extension GameCoordinator {
         .apex: 20000
     ]
 
-    /// Persist current XP and stage to SQLite asynchronously.
+    /// Persist current XP, stage, and commits_eaten to SQLite asynchronously.
+    /// commits_eaten only ever changes from the commit path (see
+    /// persistCommitAtomically below, which is what the commit path
+    /// actually calls now) — called from other contexts (treat feeding,
+    /// debug menu, hatching, evolution) this just re-persists its current
+    /// in-memory value alongside xp/stage, a no-op for that column there.
     func persistXPAndStage() {
         let xp = self.totalXP
         let stage = "\(self.creatureStage)"
+        let commitsEaten = self.totalCommitsEaten
         let db = stateCoordinator.database
         db.performWriteAsync({
             try db.execute(
-                "UPDATE creature SET xp = ?, stage = ? WHERE id = 1",
-                arguments: [xp, stage]
+                "UPDATE creature SET xp = ?, stage = ?, commits_eaten = ? "
+                + "WHERE id = 1",
+                arguments: [xp, stage, commitsEaten]
             )
         })
     }
 
-    /// Persist current XP and stage to SQLite synchronously (for shutdown).
+    /// Persist current XP, stage, and commits_eaten to SQLite synchronously
+    /// (for shutdown).
     func persistXPAndStageSync() {
         let xp = self.totalXP
         let stage = "\(self.creatureStage)"
+        let commitsEaten = self.totalCommitsEaten
         let db = stateCoordinator.database
         try? db.execute(
-            "UPDATE creature SET xp = ?, stage = ? WHERE id = 1",
-            arguments: [xp, stage]
+            "UPDATE creature SET xp = ?, stage = ?, commits_eaten = ? "
+            + "WHERE id = 1",
+            arguments: [xp, stage, commitsEaten]
         )
+    }
+
+    /// Atomically persists one commit event: the `commits` detail row,
+    /// `last_fed_at`, and — ONLY if this sha was not already recorded —
+    /// the creature's xp/stage/commits_eaten. All of it lands in a single
+    /// `BEGIN...COMMIT`, so a crash between statements can never persist
+    /// the counter without the matching commits row (or vice versa), and
+    /// a crash-then-restart reprocess of the same feed file (WO-9 saw this
+    /// at ~10k-event scale) is a true no-op past the first time: the
+    /// `INSERT OR IGNORE`'s own `changes()` (0 on a duplicate sha, since
+    /// `sha` is UNIQUE) is the single source of truth for "new vs. replay"
+    /// — no separate SELECT-then-INSERT window, no TOCTOU (WO-13 REVISE,
+    /// fixing the CRITICAL double-count + non-atomic-write defects Mack
+    /// found in the first pass).
+    ///
+    /// `newXP`/`newCommitsEaten`/`newStage` are the tentative post-award
+    /// values the caller wants written IF this turns out to be new — the
+    /// caller must not apply them to in-memory state until this returns
+    /// `true`.
+    ///
+    /// - Returns: `true` if newly recorded (award applies), `false` if the
+    ///   sha already existed (reprocess — award skipped entirely).
+    @discardableResult
+    func persistCommitAtomically(_ commit: CommitData, xpAwarded: Int,
+                                  commitType: CommitType, newXP: Int,
+                                  newCommitsEaten: Int,
+                                  newStage: String) -> Bool {
+        Self.persistCommitAtomically(
+            commit, xpAwarded: xpAwarded, commitType: commitType,
+            newXP: newXP, newCommitsEaten: newCommitsEaten,
+            newStage: newStage, db: stateCoordinator.database
+        )
+    }
+
+    /// The `db`-parameterized core of `persistCommitAtomically(_:xpAwarded:
+    /// commitType:newXP:newCommitsEaten:newStage:)` above — static and
+    /// independent of any `GameCoordinator` instance so it's directly
+    /// testable against a real temp SQLite file without a live SpriteKit
+    /// scene (see `CommitFeedingTests.swift`'s crash-reprocess regression
+    /// test). The instance method is the one production actually calls;
+    /// this is the same code, not a re-derived copy, so the test exercises
+    /// the real logic.
+    @discardableResult
+    static func persistCommitAtomically(_ commit: CommitData, xpAwarded: Int,
+                                         commitType: CommitType, newXP: Int,
+                                         newCommitsEaten: Int,
+                                         newStage: String,
+                                         db: DatabaseManager) -> Bool {
+        let now = ISO8601DateFormatter().string(from: Date())
+        // WO-13 REVISE (Mack, HIGH fix A): this flag is set to `true` in
+        // EXACTLY ONE place below — the line immediately after the award
+        // UPDATE succeeds, i.e. the last statement inside the transaction
+        // closure. It is intentionally NOT set from `changed > 0` (that
+        // would mark success before the award UPDATE has even run — if
+        // that UPDATE then threw, `inTransaction` rolls back BOTH
+        // statements, but the function would still have returned `true`,
+        // so the caller applies an award that was never persisted AND the
+        // rolled-back commits row means the same sha looks "new" again on
+        // the next attempt — a double-count on the error path, reopening
+        // the exact defect this whole method exists to close). The catch
+        // block below additionally forces `false` explicitly, so even if
+        // COMMIT itself fails *after* the closure completed (this flag
+        // already `true`), the function still correctly reports failure.
+        var committedNewAward = false
+
+        do {
+            try db.performWrite {
+                try db.inTransaction {
+                    try db.execute(
+                        """
+                        INSERT OR IGNORE INTO commits (
+                            sha, message, repo_name, files_changed,
+                            lines_added, lines_removed, languages, is_merge,
+                            is_revert, is_force_push, branch, xp_awarded,
+                            commit_type, eaten_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        arguments: [
+                            commit.sha, commit.message, commit.repoName,
+                            commit.filesChanged, commit.linesAdded,
+                            commit.linesRemoved,
+                            commit.languages.joined(separator: ","),
+                            commit.isMerge, commit.isRevert,
+                            commit.isForcePush,
+                            // NOT `commit.branch as Any` — boxing a nil
+                            // String? via `as Any` produces a non-nil Any
+                            // wrapping a nil, which bindArguments' `switch
+                            // arg { case nil: ... }` cannot match; it falls
+                            // to the default branch and binds the literal
+                            // text "nil" instead of a real SQL NULL. Passing
+                            // the Optional directly lets Swift bridge it to
+                            // Any? correctly. commit.branch is always nil
+                            // today so this matters for every row.
+                            commit.branch, xpAwarded, commitType.rawValue,
+                            now
+                        ]
+                    )
+
+                    // changes() reflects the just-completed INSERT on this
+                    // same connection/transaction — 0 means the UNIQUE(sha)
+                    // conflict fired and OR IGNORE dropped the row, i.e.
+                    // this exact commit was already recorded.
+                    let changed = (try db.queryScalarInt(
+                        "SELECT changes()")) ?? 0
+                    guard changed > 0 else {
+                        // Reprocessed duplicate — skip the award and
+                        // last_fed_at entirely. `committedNewAward` stays
+                        // false. The transaction still commits (nothing to
+                        // roll back; the INSERT OR IGNORE's no-op is
+                        // itself harmless to commit).
+                        return
+                    }
+
+                    try db.execute(
+                        "UPDATE creature SET xp = ?, stage = ?, "
+                        + "commits_eaten = ?, last_fed_at = ? WHERE id = 1",
+                        arguments: [newXP, newStage, newCommitsEaten, now]
+                    )
+
+                    // Only reached if the award UPDATE above did not throw.
+                    committedNewAward = true
+                }
+            }
+        } catch {
+            NSLog("[Pushling/Coordinator] Atomic commit persist failed "
+                  + "for sha %@: %@ — rolled back, award NOT applied",
+                  commit.sha, "\(error)")
+            return false
+        }
+
+        return committedNewAward
     }
 
     /// Check if current XP has crossed a stage threshold and trigger evolution.

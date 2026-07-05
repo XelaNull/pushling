@@ -90,6 +90,7 @@ extension GameCoordinator {
         self.visualTraits = visualTraits
         self.creatureStage = .egg
         self.totalXP = 0
+        self.totalCommitsEaten = 0
         self.isHatched = true
 
         // 2. Save creature to SQLite

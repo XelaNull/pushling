@@ -20,6 +20,10 @@ final class GameCoordinator {
     internal var creatureStage: GrowthStage = .critter
     internal var creatureName: String = "Pushling"
     internal var totalXP: Int = 0
+    /// Total commits ever eaten. WO-13: previously write-once at
+    /// hatch-init (= 0) and never incremented — see
+    /// docs/SYSTEMS/commit-feeding-xp.md.
+    internal var totalCommitsEaten: Int = 0
     internal var visualTraits: VisualTraits = .neutral
 
     /// Accumulates commit data during the egg stage for progressive personality.
@@ -123,6 +127,7 @@ final class GameCoordinator {
         self.creatureStage = Self.loadStage(from: db)
         self.creatureName = Self.loadCreatureName(from: db)
         self.totalXP = Self.loadXP(from: db)
+        self.totalCommitsEaten = Self.loadCommitsEaten(from: db)
 
         // Initialize egg accumulator if creature is still an egg
         if creatureStage == .egg {
@@ -448,6 +453,33 @@ final class GameCoordinator {
                     branch: nil,
                     timestamp: Date()
                 )
+                let commitType = CommitTypeDetector.detect(
+                    commit: data, isFirstFromRepo: false, lastCommitTime: nil
+                )
+
+                // XP — routed through XPCalculator (the canon formula,
+                // docs/SYSTEMS/commit-feeding-xp.md), fixing the shipped
+                // "Known Defect" where this path hand-rolled
+                // max(1,min(5,totalLines/20))+1, silently omitting the
+                // message bonus, breadth bonus, streak multiplier, and
+                // fallow multiplier. `multiplier` is CommitRateLimiter's
+                // rate-limit factor (unchanged). streakDays is 0 — no
+                // dedicated commit-day-streak counter exists yet
+                // (creature.streak_days tracks touch-interaction streaks
+                // via PetStreak, a different concept; see WO-13 report).
+                // lastCommitTime is the previous last_fed_at (read before
+                // persistCommitAtomically below overwrites it), wiring the
+                // fallow "reward the return" bonus for the first time.
+                let previousFedAtText = try? self.stateCoordinator.database
+                    .queryScalarText(
+                        "SELECT last_fed_at FROM creature WHERE id = 1")
+                let lastFedAt = (previousFedAtText ?? nil).flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                }
+                let xpResult = XPCalculator.calculate(
+                    commit: data, streakDays: 0,
+                    lastCommitTime: lastFedAt, rateLimitFactor: multiplier
+                )
 
                 if self.creatureStage == .egg {
                     // Egg stage: absorb commit silently, accumulate data
@@ -497,30 +529,67 @@ final class GameCoordinator {
                         self.eatingAnimation.configure(
                             creature: creature, scene: self.scene,
                             fogController: self.scene.worldManager.fogOfWar)
-                        let commitType = CommitTypeDetector.detect(
-                            commit: data, isFirstFromRepo: false,
-                            lastCommitTime: nil
-                        )
                         self.eatingAnimation.start(
                             commit: data, commitType: commitType,
-                            xpResult: nil
+                            xpResult: xpResult
                         )
                     }
                 }
 
-                // XP award
-                let baseXP = max(1, min(5, totalLines / 20)) + 1
-                let finalXP = max(1, Int(Double(baseXP) * multiplier))
-                self.totalXP += finalXP
-                self.scene.onXPChanged(
-                    currentXP: self.totalXP % 100,
-                    xpToNext: 100,
-                    stage: self.creatureStage
+                // XP + commits_eaten award — WO-13 REVISE: made idempotent
+                // per sha. The commits-row insert, last_fed_at stamp, and
+                // creature xp/stage/commits_eaten UPDATE all land in one
+                // atomic transaction (persistCommitAtomically), gated on
+                // whether this sha was newly recorded (Fix A: the flag is
+                // only set true AFTER the award UPDATE itself has
+                // committed — see GameCoordinator+Loading.swift). In-memory
+                // state (totalXP/totalCommitsEaten/onXPChanged/
+                // checkEvolution) is only advanced if the DB confirms a
+                // new row — a crash-then-restart reprocess of the same
+                // feed file must not double-count (this is exactly the
+                // WO-9 failure mode: ~10k events reprocessed after a
+                // restart).
+                //
+                // REVISE-3 (human-ruled Option A, de-complication): this
+                // runs SYNCHRONOUSLY on main, same thread as everything
+                // else in this closure — no background queue, no
+                // DispatchQueue.main.sync hops. A prior revision moved the
+                // actual DB write off-main to avoid the sub-frame hitch
+                // during a crash-reprocess burst, but that introduced two
+                // NEW CRITICALs (a shutdown-vs-inflight-write race and a
+                // treat-feed read-modify-write-across-a-gap lost update) —
+                // both eliminated here simply by removing the async gap.
+                // The accepted tradeoff: a single commit's write is a
+                // brief sub-frame hitch, and a sustained hitch during a
+                // multi-day-outage burst-reprocess is a rare, degraded-
+                // state cost, not a steady-state one. The proper burst-
+                // perf fix (getting the write off main safely) is WO-40,
+                // a separate, more careful piece of work — no off-main
+                // machinery belongs in this WO.
+                let tentativeXP = self.totalXP + xpResult.xp
+                let tentativeCommitsEaten = self.totalCommitsEaten + 1
+                let currentStageString = "\(self.creatureStage)"
+
+                let wasNewCommit = self.persistCommitAtomically(
+                    data, xpAwarded: xpResult.xp, commitType: commitType,
+                    newXP: tentativeXP, newCommitsEaten: tentativeCommitsEaten,
+                    newStage: currentStageString
                 )
 
-                // Persist XP to SQLite and check for evolution
-                self.persistXPAndStage()
-                self.checkEvolution()
+                if wasNewCommit {
+                    self.totalXP = tentativeXP
+                    self.totalCommitsEaten = tentativeCommitsEaten
+                    self.scene.onXPChanged(
+                        currentXP: self.totalXP % 100,
+                        xpToNext: 100,
+                        stage: self.creatureStage
+                    )
+                    self.checkEvolution()
+                } else {
+                    NSLog("[Pushling/Coordinator] Commit %@ already "
+                          + "recorded — reprocessed duplicate, award "
+                          + "skipped (idempotent)", data.sha)
+                }
 
                 // Mutation badge check on commit (Gap 4)
                 let commitMessage = commitData["message"] as? String ?? ""
