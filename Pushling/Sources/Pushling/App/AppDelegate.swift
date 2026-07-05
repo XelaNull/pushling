@@ -18,6 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var debugOverlayEnabled = false
     private var workbenchWindowController: WorkbenchWindowController?
 
+    /// --test-mode only (see setupTestMode) — kept alive for the process
+    /// lifetime; deallocating it would drop its callbacks and the driving
+    /// timer.
+    private var lifecycleSimulator: LifecycleSimulator?
+    private var testModeTimer: DispatchSourceTimer?
+
     /// Debug action handler — created lazily when the debug menu is opened.
     var debugActions: DebugActions?
 
@@ -25,6 +31,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSLog("[Pushling] Starting up...")
+
+        // Test mode is checked BEFORE workbench so `--test-mode --workbench`
+        // composes cleanly: setupTestMode() already always presents through
+        // WorkbenchWindowController internally (see its doc comment), so
+        // passing --workbench alongside --test-mode is a harmless no-op,
+        // never a silently-dropped flag. --workbench alone (no --test-mode)
+        // is unaffected — see setupWorkbench below, untouched.
+        if TestModeConfig.isActive {
+            setupTestMode()
+            return
+        }
 
         // Workbench mode is a separate, minimal launch path — an animation
         // debugger window, not the daemon. It skips the Touch Bar, socket
@@ -103,6 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         NSLog("[Pushling] Shutting down...")
         hotReloadMonitor?.stop()
+        testModeTimer?.cancel()  // no-op unless --test-mode was active
         gameCoordinator?.shutdown()
         touchBarController?.dismiss()
         socketServer?.stop()
@@ -264,6 +282,108 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSLog("[Pushling/Workbench] Window active — magnification %.1fx",
               WorkbenchMode.magnification)
+    }
+
+    // MARK: - Test Mode (see TestMode.swift, LifecycleSimulator.swift)
+
+    /// Runs an accelerated, fully-isolated "spore-to-apex" lifecycle
+    /// simulation instead of the normal daemon.
+    ///
+    /// Isolation: reuses the EXACT SAME
+    /// `StateCoordinator.start(databasePath:persistenceEnabled:)` call
+    /// WorkbenchMode uses (see setupWorkbench above / WO-7), but with a
+    /// scratch database path under `NSTemporaryDirectory()` instead of the
+    /// real `~/.local/share/pushling/state.db`. Every GameCoordinator DB
+    /// write (persistXPAndStage, checkEvolution, journal inserts) goes
+    /// through `stateCoordinator.database`, which is bound to whatever path
+    /// was passed to `.start(databasePath:)` — so pointing that at a
+    /// scratch file is what keeps a simulated life off the developer's real
+    /// creature, independent of `persistenceEnabled`. `persistenceEnabled:
+    /// false` additionally protects the heartbeat file and backup
+    /// directory, which are FIXED absolute paths independent of the
+    /// database path (see HeartbeatManager.heartbeatPath /
+    /// BackupManager.backupDirectory) — without this flag, a scratch-DB
+    /// test-mode run would still overwrite the real daemon's heartbeat file
+    /// and trigger a redundant backup.
+    ///
+    /// Always presents through WorkbenchWindowController rather than the
+    /// physical Touch Bar, so a test-mode run never fights a real running
+    /// daemon over the private Touch Bar API — this is also what makes
+    /// `--test-mode` and `--workbench` compose cleanly (see the call site
+    /// above): passing both is identical to `--test-mode` alone.
+    ///
+    /// LifecycleSimulator's synthetic commit JSON is fed directly into the
+    /// resulting GameCoordinator's `feedProcessor.onCommitReceived` — the
+    /// same entry point real git commits reach via the feed directory (see
+    /// HookEventProcessor.swift) — so XP, stage transitions, hatching, and
+    /// mutation badges all run through the real game logic. The feed
+    /// directory's file-watcher itself is never started here (gated behind
+    /// `persistenceEnabled` inside GameCoordinator.init, unchanged), so the
+    /// real `~/.local/share/pushling/feed/` directory is never read either.
+    private func setupTestMode() {
+        let testConfig = TestModeConfig.fromProcessArguments()
+
+        let scratchDBPath = NSTemporaryDirectory()
+            + "pushling-test-mode-\(ProcessInfo.processInfo.processIdentifier).db"
+
+        let coordinator = StateCoordinator()
+        do {
+            try coordinator.start(databasePath: scratchDBPath, persistenceEnabled: false)
+            NSLog("[Pushling/Test] State coordinator started on scratch db "
+                  + "(real state.db untouched): %@", scratchDBPath)
+        } catch {
+            NSLog("[Pushling/Test] WARNING: State coordinator failed to start: %@",
+                  "\(error)")
+        }
+        self.stateCoordinator = coordinator
+
+        let workbench = WorkbenchWindowController(stateCoordinator: coordinator)
+        workbench.window?.title = "Pushling Test Mode — Lifecycle Simulator "
+            + "(scratch db, not your real creature)"
+        workbench.present()
+        self.workbenchWindowController = workbench
+        self.gameCoordinator = workbench.gameCoordinator
+
+        let timeProvider = TestTimeProvider(config: testConfig)
+        let simulator = LifecycleSimulator(timeProvider: timeProvider)
+        self.lifecycleSimulator = simulator
+
+        simulator.onSimulatedCommit = { [weak self] commitJSON in
+            self?.gameCoordinator?.feedProcessor.onCommitReceived?(
+                commitJSON, testConfig.xpMultiplier
+            )
+        }
+
+        simulator.onStageTransition = { [weak self] from, to in
+            NSLog("[Pushling/Test] Stage transition: %@ -> %@", "\(from)", "\(to)")
+            guard to == .apex else { return }
+            NSLog("[Pushling/Test] Apex reached — stopping simulation.\n%@",
+                  self?.lifecycleSimulator?.generateReport() ?? "")
+            self?.testModeTimer?.cancel()
+            self?.testModeTimer = nil
+        }
+
+        simulator.onStatusUpdate = { day, stage, commits, xp in
+            NSLog("[Pushling/Test] Day %d — stage %@, %d commits, ~%d XP",
+                  day, "\(stage)", commits, xp)
+        }
+
+        // Drives LifecycleSimulator.update(deltaTime:) independently of
+        // SpriteKit's own render loop (which still runs normally against
+        // this same scene via WorkbenchWindowController's SKView) — the
+        // simulator only needs a coarse periodic tick to schedule
+        // synthetic commits, not 60fps.
+        let tickInterval: TimeInterval = 0.5
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + tickInterval, repeating: tickInterval)
+        timer.setEventHandler { [weak simulator] in
+            simulator?.update(deltaTime: tickInterval)
+        }
+        timer.resume()
+        self.testModeTimer = timer
+
+        NSLog("[Pushling/Test] TEST MODE ACTIVE — window open, simulation "
+              + "running (scratch db, real state untouched)")
     }
 
     // MARK: - Actions

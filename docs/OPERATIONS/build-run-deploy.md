@@ -159,6 +159,83 @@ information for the Orchestrator/`DECISIONS.md` rather than assumed to be a
 bug, since both paths converge on the same LaunchAgent contract and either
 one is a valid way to get an auto-starting instance.
 
+# --test-mode — Isolated Accelerated Lifecycle Simulator
+
+```bash
+build/Pushling.app/Contents/MacOS/Pushling --test-mode \
+  [--xp-multiplier=100] [--time-accel=1440] [--auto-feed] \
+  [--commits-per-day=10] [--workbench-scale=6]
+```
+
+An alternate launch path (checked in `AppDelegate.applicationDidFinishLaunching`
+before the workbench check, and before the normal daemon path) that runs a
+"spore-to-apex" lifecycle simulation instead of either of those — built to
+QA growth-stage visuals/transitions/hatching across a full creature life in
+minutes instead of months, without touching the developer's real creature.
+Composes with `main.swift`'s single-instance guard the same way `--workbench`
+does: it's exempted, so it can run alongside a real daemon.
+
+**Flags** (all optional; parsed by `TestModeConfig.fromProcessArguments()`
+in `TestMode.swift`):
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--test-mode` | — | Required to activate; every other flag below is a no-op without it. |
+| `--xp-multiplier=N` | `100` | Multiplies the XP every synthetic commit awards (same formula real commits use — see below). |
+| `--time-accel=N` | `1440` | `TestTimeProvider`'s simulated-time acceleration factor (1440x = 1 real minute per simulated day). Note: `LifecycleSimulator`'s own day-counting uses a fixed 1-real-minute-per-day clock independent of this value — `time-accel` currently only affects `TestTimeProvider.now`, not day-advancement pacing. |
+| `--auto-feed` | off | Parsed into `TestModeConfig.autoFeed` but not yet read by the simulation loop — reserved for a future batch-commit-file mode; has no effect today. |
+| `--commits-per-day=N` | `10` | Parsed into `TestModeConfig.simulatedCommitsPerDay` but not yet read by `LifecycleSimulator` (which computes its own daily target internally — see `LifecycleSimulator.startNewDay`); has no effect today. |
+| `--workbench-scale=N` | `6` | Same flag `--workbench` reads (`WorkbenchMode.magnification`) — test-mode always presents through the magnified workbench window (see below), so this sizes it same as it would under plain `--workbench`. |
+
+**Isolation (inert against real state):** `AppDelegate.setupTestMode()`
+starts its own `StateCoordinator` against a scratch database path under
+`NSTemporaryDirectory()` (`pushling-test-mode-<pid>.db`) — never the real
+`~/.local/share/pushling/state.db` — with `persistenceEnabled: false`, the
+exact pattern `--workbench` uses (see `WorkbenchMode.swift` /
+`AppDelegate.setupWorkbench`). Every `GameCoordinator` DB write
+(`persistXPAndStage`, `checkEvolution`, journal inserts) goes through
+`stateCoordinator.database`, which is bound to that scratch path — that's
+what keeps a simulated life off the real creature. `persistenceEnabled:
+false` additionally skips the heartbeat writer and the backup check, which
+sit at fixed absolute paths (`/tmp/pushling.heartbeat`,
+`~/.local/share/pushling/backups/`) independent of the database path.
+
+`LifecycleSimulator`'s synthetic commit JSON (`onSimulatedCommit`) is fed
+directly into that isolated `GameCoordinator`'s
+`feedProcessor.onCommitReceived` — the same entry point real git commits
+reach via the feed directory — so XP, stage transitions, hatching, and
+mutation badges run through the real game logic rather than a parallel
+reimplementation. The feed directory's own file-watcher is never started
+(gated behind `persistenceEnabled` inside `GameCoordinator.init`,
+unchanged), so the real `~/.local/share/pushling/feed/` directory is never
+read either. `LifecycleSimulator` stops itself and prints a final report
+via `NSLog` once the simulated creature reaches `.apex`.
+
+**A pre-existing gap this closed:** `StateCoordinator.start()` used to
+construct a throwaway `HeartbeatManager()` for the pre-database-open crash
+check, then replace it with a second instance "now that the DB reference is
+available." That replacement's implicit deinit called
+`HeartbeatManager.stop()` -> `writeShutdownMarker()` — which writes to the
+fixed `/tmp/pushling.heartbeat` path **unconditionally, with no
+`persistenceEnabled` guard**. Every `persistenceEnabled: false` launch
+(previously only `--workbench`, now also `--test-mode`) was silently
+overwriting the real daemon's heartbeat file the instant `start()` ran,
+contradicting `WorkbenchMode.swift`'s own documented invariant. Fixed by
+constructing exactly one `HeartbeatManager` for the whole call (passing the
+`DatabaseManager.shared` reference up front — valid even before `.open()`,
+since `HeartbeatManager` already guards every DB-touching path on
+`db.isOpen`) so it's never prematurely replaced/deinit'd. This benefits
+`--workbench` too, not just `--test-mode`.
+
+**Composing with `--workbench`:** `--test-mode` always presents through
+`WorkbenchWindowController` internally (never the physical Touch Bar, so a
+test-mode run never fights a real running daemon over the private Touch Bar
+API). Passing `--workbench` alongside `--test-mode` is therefore a no-op —
+identical to `--test-mode` alone — rather than a conflict or a
+silently-dropped flag. `--workbench` on its own (no `--test-mode`) is
+unaffected: it still shares the real daemon's `state.db` read/animate-only,
+per its own section above.
+
 # bin/pushling — Standalone Operator CLI
 
 A fully-implemented (not a stub) bash CLI exists at `bin/pushling`

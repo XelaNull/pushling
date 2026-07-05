@@ -61,8 +61,26 @@ final class StateCoordinator {
         NSLog("[Pushling/State] Starting state subsystem... (persistence: %@)",
               persistenceEnabled ? "enabled" : "disabled")
 
-        // 1. Create heartbeat manager (DB reference added after open)
-        heartbeat = HeartbeatManager()
+        // 1. Create heartbeat manager. `database` (DatabaseManager.shared)
+        // is passed up front even though it isn't open() yet — it's a
+        // singleton reference, valid regardless of open state, and
+        // HeartbeatManager itself already guards every DB-touching path on
+        // `db.isOpen` (see logCrashRecovery). This is WO-33's one sanctioned
+        // StateCoordinator edit (flagged per its Proof section): the
+        // previous code created a SECOND HeartbeatManager here later "with
+        // the DB reference now that it's open" and discarded this first
+        // instance — but HeartbeatManager.deinit unconditionally calls
+        // stop() -> writeShutdownMarker(), which writes a "shutdown" record
+        // to the FIXED /tmp/pushling.heartbeat path with NO persistenceEnabled
+        // guard. That meant every persistenceEnabled: false launch (today:
+        // --workbench; now: --test-mode) silently overwrote the real
+        // heartbeat file the instant this function ran, contradicting both
+        // WorkbenchMode.swift's documented invariant ("leaves ...
+        // /tmp/pushling.heartbeat ... byte-for-byte untouched") and this
+        // property's own doc comment above. Constructing exactly ONE
+        // HeartbeatManager for the whole call (never replaced, so never
+        // prematurely deinit'd) removes that spurious write for BOTH modes.
+        heartbeat = HeartbeatManager(databaseManager: database)
 
         // 2. Check for crash BEFORE opening database
         let recovery = heartbeat.checkForCrash()
@@ -83,8 +101,6 @@ final class StateCoordinator {
         }
 
         // 5. Start heartbeat writer
-        // Re-create with DB reference now that it's open
-        heartbeat = HeartbeatManager(databaseManager: database)
         if persistenceEnabled {
             heartbeat.start()
         }

@@ -7,13 +7,34 @@
 //   - Simulated commits can be batch-fed from JSON files
 //   - All frame budgets and node limits still apply
 //
-// Test mode is detected by checking ProcessInfo arguments.
+// Test mode is detected by checking ProcessInfo arguments, mirroring
+// WorkbenchMode.swift's argument-parsing pattern.
+//
+// Wiring (see AppDelegate.setupTestMode): a --test-mode launch builds its
+// own StateCoordinator pointed at a scratch database path (NOT the real
+// ~/.local/share/pushling/state.db) with persistenceEnabled: false -- the
+// exact same isolation pattern WorkbenchMode uses (see WorkbenchMode.swift)
+// -- then presents through WorkbenchWindowController so a simulated life
+// never touches the real state.db, feed directory, heartbeat file, or
+// backup timeline. LifecycleSimulator's synthetic commit JSON is fed
+// directly into that isolated GameCoordinator's
+// `feedProcessor.onCommitReceived` -- the same entry point real git
+// commits use -- so XP, stage transitions, and hatching all run through
+// the real game logic rather than a parallel reimplementation.
 
 import Foundation
 
 // MARK: - Test Mode Configuration
 
 struct TestModeConfig {
+    /// Cheap check for whether --test-mode was passed -- mirrors
+    /// WorkbenchMode.isActive. Use this for gating (e.g. main.swift's
+    /// singleton guard); use `fromProcessArguments()` once per launch for
+    /// the full parsed config (it also logs the active configuration).
+    static var isActive: Bool {
+        ProcessInfo.processInfo.arguments.contains("--test-mode")
+    }
+
     /// Whether test mode is active.
     let isActive: Bool
 

@@ -4,10 +4,13 @@
 import AppKit
 
 // Prevent multiple instances — only one Pushling should run at a time.
-// Exception: --workbench is a debug/animation-iteration window meant to
-// run ALONGSIDE the live daemon under the same bundle ID, so it skips
-// this guard entirely (see WorkbenchMode.swift / AppDelegate.setupWorkbench).
-if !WorkbenchMode.isActive {
+// Exceptions: --workbench is a debug/animation-iteration window meant to
+// run ALONGSIDE the live daemon under the same bundle ID (see
+// WorkbenchMode.swift / AppDelegate.setupWorkbench), and --test-mode is an
+// isolated accelerated-lifecycle simulator that also needs to run alongside
+// a real daemon without being blocked by it (see TestMode.swift /
+// AppDelegate.setupTestMode) — both skip this guard entirely.
+if !WorkbenchMode.isActive && !TestModeConfig.isActive {
     let runningApps = NSRunningApplication.runningApplications(
         withBundleIdentifier: "com.pushling.app"
     )
